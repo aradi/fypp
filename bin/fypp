@@ -1,0 +1,478 @@
+#!/usr/bin/env python3
+################################################################################
+#
+# fypp -- Fortran preprocessor with Python expression evaluation
+#
+# Copyright (c) 2016, Bálint Aradi
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 
+# 1. Redistributions of source code must retain the above copyright
+# notice, this list of conditions and the following disclaimer.
+# 
+# 2. Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# 'AS IS' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+################################################################################
+import builtins
+import re
+
+
+DIRECTIVE_REGEXP = re.compile(r'''^\s*#(?P<dir>\w+)\s*(?P<param>.*?)?\s*$''')
+
+MARCO_PARAM_REGEXP = re.compile(
+    r'''^(?P<name>\w+)\((?P<args>\s*(?:\w+\s*,\s*)*(?:\w+)\s*)\)$''')
+
+SETVAR_PARAM_REGEXP = re.compile(r'''^(?P<name>\w+)\s*(?P<expr>.*)?\s*$''')
+
+SUBST_REGEXP = re.compile(r'''\$\{\s*(?P<expr>.*?)\s*\}\$''')
+
+FOR_PARAM_REGEXP = re.compile(
+    r'''^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)\s*$''')
+
+INCLUDE_PARAM_REGEXP = re.compile(r'''^(\'|')(?P<fname>.*)\1\s*$''')
+
+MACRO_CALL_REGEXP = re.compile(
+    r'''^\s*@(?P<name>\w+)\(\s*(?P<args>.*)\s*\)\s*$''')
+
+RESERVED_PREFIX = '_'
+
+MACRO_PREFIX = '_macro_'
+
+
+class DirectiveParser:
+
+    def parse(self, fname):
+        fp = open(fname, 'r')
+        self._parse_lines(fp, fname)
+        fp.close()
+
+
+    def handle_setvar(self, fname, linenr, name, expr):
+        print('SETVAR {}:{}'.format(fname, linenr))
+        print('  EXPR: |{}|'.format(expr))
+
+    
+    def handle_def(self, fname, linenr, name, args):
+        print('MACRO {}:{}'.format(fname, linenr))
+        print('  NAME: |{}|'.format(name))
+        print('  ARGS:', args)
+
+
+    def handle_enddef(self, fname, linenr):
+        print('ENDDEF {}:{}'.format(fname, linenr))
+
+
+    def handle_if(self, fname, linenr, param):
+        print('IF {}:{}'.format(fname, linenr))
+        print('  PARAM: |{}|'.format(param))
+
+
+    def handle_elif(self, fname, linenr, param):
+        print('ELIF {}:{}'.format(fname, linenr))
+        print('  PARAM: |{}|'.format(param))
+
+
+    def handle_else(self, fname, linenr):
+        print('ELSE {}:{}'.format(fname, linenr))
+
+        
+    def handle_endif(self, fname, linenr):
+        print('ENDIF {}:{}'.format(fname, linenr))
+
+
+    def handle_for(self, fname, linenr, varexpr, iterator):
+        print('FOR {}:{}'.format(fname, linenr))
+        print('  VAREXPR: |{}|'.format(varexpr))
+        print('  ITERATOR: |{}|'.format(iterator))
+
+
+    def handle_endfor(self, fname, linenr):
+        print('ENDFOR {}:{}'.format(fname, linenr))
+
+
+    def handle_macro_call(self, fname, linenr, name, args):
+        print('MACRO CALL: {}:{}'.format(fname, linenr))
+        print('  NAME: |{}|'.format(name))
+        print('  ARGS: |{}|'.format(args))
+
+
+    def handle_substitution(self, fname, linenr, expr):
+        print('SUBS: {}:{}'.format(fname, linenr))
+        print('  EXPR: |{}|'.format(expr))
+
+
+    def handle_text(self, fname, linenr, txt):
+        print('TEXT: {}'.format(txt))
+
+
+    def _parse_lines(self, fp, fname):
+        for linenr, line in enumerate(fp):
+            done = self._process_directives(line, linenr, fname)
+            if not done:
+                done = self._process_macro_call(line, linenr, fname)
+            if not done:
+                self._process_substitutions(line, linenr, fname)
+                
+        
+    def _process_directives(self, line, linenr, fname):
+        match = DIRECTIVE_REGEXP.search(line)
+        if match:
+            directive = match.group('dir')
+            param = match.group('param')
+            if directive == 'if':
+                self.handle_if(fname, linenr, param)
+            elif directive == 'else':
+                self.handle_else(fname, linenr)
+            elif directive == 'elif':
+                param = match.group('param')
+                self.handle_elif(fname, linenr, param)
+            elif directive == 'endif':
+                self.handle_endif(fname, linenr)
+            elif directive == 'def':
+                self._process_def(fname, linenr, param)
+            elif directive == 'enddef':
+                self.handle_enddef(fname, linenr)
+            elif directive == 'setvar':
+                self._process_setvar(fname, linenr, param)
+            elif directive == 'for':
+                self._process_for(fname, linenr, param)
+            elif directive == 'endfor':
+                self.handle_endfor(fname, linenr)
+            elif directive == 'include':
+                self._process_include(fname, linenr, param)
+            else:
+                print('<<< UNKNOWN DIRECTIVE:', directive)
+            return True
+        else:
+            return False
+
+            
+    def _process_macro_call(self, line, linenr, fname):
+        match = MACRO_CALL_REGEXP.search(line)
+        if match:
+            self.handle_macro_call(fname, linenr, match.group('name'),
+                                   match.group('args'))
+            return True
+        else:
+            return False
+
+
+    def _process_substitutions(self, line, linenr, fname):
+        pos = 0
+        for match in SUBST_REGEXP.finditer(line):
+            start = match.start()
+            if start > pos:
+                self.handle_text(fname, linenr, line[pos:start])
+            expr = match.group('expr')
+            self.handle_substitution(fname, linenr, expr)
+            pos = match.end()
+        if pos < len(line):
+            self.handle_text(fname, linenr, line[pos:])
+
+
+    def _process_def(self, fname, linenr, param):
+        match = MARCO_PARAM_REGEXP.search(param)
+        if not match:
+            print('<<< INVALID MACRODEF', param)
+        name = match.group('name')
+        argstr = match.group('args')
+        args = [s.strip() for s in argstr.split(',')]
+        self.handle_def(fname, linenr, name, args)
+        
+
+    def _process_setvar(self, fname, linenr, param):
+        match = SETVAR_PARAM_REGEXP.search(param)
+        if not match:
+            print('<<< INVALID SETVAR', param)
+        self.handle_setvar(fname, linenr, match.group('name'),
+                           match.group('expr'))
+
+    def _process_for(self, fname, linenr, param):
+        match = FOR_PARAM_REGEXP.search(param)
+        if not match:
+            print('<<< INVALID FORDEF')
+        loopexpr = match.group('loopexpr')
+        loopvars = [s.strip() for s in loopexpr.split(',')]
+        self.handle_for(fname, linenr, loopvars, match.group('iter'))
+
+        
+    def _process_include(self, fname, linenr, param):
+        match = INCLUDE_PARAM_REGEXP.search(param)
+        if not match:
+            print('<<< INVALID FILE NAME')
+        self.parse(match.group('fname'))
+        
+
+
+class TreeBuilder:
+
+    def __init__(self, parser=None):
+        if parser is None:
+            self._parser = DirectiveParser()
+        else:
+            self._parser = parser
+        self._parser.handle_if = self.handle_if
+        self._parser.handle_else = self.handle_else
+        self._parser.handle_elif = self.handle_elif
+        self._parser.handle_endif = self.handle_endif
+        self._parser.handle_substitution = self.handle_substitution
+        self._parser.handle_text = self.handle_text
+        self._parser.handle_def = self.handle_def
+        self._parser.handle_enddef = self.handle_enddef
+        self._parser.handle_setvar = self.handle_setvar
+        self._parser.handle_for = self.handle_for
+        self._parser.handle_endfor = self.handle_endfor
+        self._parser.handle_macro_call = self.handle_macro_call
+        self._tree = []
+        self._path = []
+        self._open_blocks = []
+        self._curnode = self._tree
+
+
+    def build_from(self, fname):
+        self._parser.parse(fname)
+
+
+    def handle_if(self, fname, linenr, cond):
+        self._path.append(self._curnode)
+        self._curnode = []
+        self._open_blocks.append(('if', [cond], []))
+
+
+    def handle_elif(self, fname, linenr, cond):
+        block = self._open_blocks[-1]
+        block[2].append(self._curnode)
+        block[1].append(cond)
+        self._curnode = []
+
+
+    def handle_else(self, fname, linenr):
+        block = self._open_blocks[-1]
+        block[2].append(self._curnode)
+        block[1].append('True')
+        self._curnode = []
+
+
+    def handle_endif(self, fname, linenr):
+        block = self._open_blocks.pop(-1)
+        block[2].append(self._curnode)
+        self._curnode = self._path.pop(-1)
+        self._curnode.append(block)
+
+
+    def handle_def(self, fname, linenr, name, args):
+        self._path.append(self._curnode)
+        self._curnode = []
+        self._open_blocks.append(('macro', name, args, None))
+
+
+    def handle_enddef(self, fname, linenr):
+        directive, name, args, dummy = self._open_blocks.pop(-1)
+        block = (directive, name, args, self._curnode)
+        self._curnode = self._path.pop(-1)
+        self._curnode.append(block)
+
+
+    def handle_for(self, fname, linenr, loopvar, iterator):
+        self._path.append(self._curnode)
+        self._curnode = []
+        self._open_blocks.append(('for', loopvar, iterator, None))
+        
+
+    def handle_endfor(self, fname, linenr):
+        directive, loopvar, iterator, dummy = self._open_blocks.pop(-1)
+        block = (directive, loopvar, iterator, self._curnode)
+        self._curnode = self._path.pop(-1)
+        self._curnode.append(block)
+
+
+    def handle_macro_call(self, fname, linenr, name, argstr):
+        self._curnode.append(('macrocall', name, argstr))
+        
+
+    def handle_setvar(self, fname, linenr, name, expr):
+        self._curnode.append(('setvar', name, expr))
+
+
+    def handle_substitution(self, fname, linenr, expr):
+        self._curnode.append(('subs', expr))
+        
+
+    def handle_text(self, fname, linenr, txt):
+        self._curnode.append(('txt', txt))
+
+
+    @property
+    def tree(self):
+        return self._tree
+
+
+class Renderer:
+    
+    def __init__(self):
+        self._evaluator = Evaluator()
+
+
+    def render(self, tree, env=None):
+        newscope = env is not None
+        if newscope:
+            self._evaluator.pushenv(env)
+        output = []
+        _eval = self._evaluator.evaluate
+        for node in tree:
+            cmd = node[0]
+            if cmd == 'txt':
+                output.append(node[1])
+            elif cmd == 'if':
+                conditions, contents = node[1:3]
+                output += self._get_conditional_content(conditions, contents)
+            elif cmd == 'subs':
+                expr = node[1]
+                output += str(_eval(expr))
+            elif cmd == 'macro':
+                name, args, content = node[1:4]
+                self._define_macro(name, args, content)
+            elif cmd == 'macrocall':
+                name, argstr = node[1:3]
+                output += self._call_macro(name, argstr)
+            elif cmd == 'setvar':
+                name, content = node[1:3]
+                self._define_variable(name, content)
+            elif cmd == 'for':
+                loopvars, loopiter, content = node[1:4]
+                output += self._get_iterated_content(loopvars, loopiter, 
+                                                     content)
+            else:
+                output.append('<<<< INVALID LINE |')
+                output.append(cmd + '|\n')
+        if newscope:
+            self._evaluator.popenv()
+        return output
+
+
+    def _get_conditional_content(self, conditions, contents):
+        for condition, content in zip(conditions, contents):
+            if self._evaluator.evaluate(condition):
+                return self.render(content)
+        else:
+            return []
+
+
+    def _get_iterated_content(self, loopvars, loopiter, content):
+        result = []
+        iterobj = iter(self._evaluator.evaluate(loopiter))
+        for var in iterobj:
+            if len(loopvars) == 1:
+                loopscope = {loopvars[0]: var}
+            else:
+                loopscope = {varname: value 
+                             for varname, value in zip(loopvars, var)}
+            result += self.render(content, loopscope)
+        return result
+
+
+    def _define_macro(self, name, args, content):
+        if name.startswith(RESERVED_PREFIX):
+            print('<<< INVALID MARCO NAME')
+            return
+        macro = Macro(args, content, self.render)
+        self._evaluator.define(MACRO_PREFIX + name, macro)
+
+
+    def _define_variable(self, name, valstr):
+        if name.startswith(RESERVED_PREFIX):
+            print('<<< INVALID VARIABLE NAME')
+            return
+        value = self._evaluator.evaluate(valstr)
+        self._evaluator.define(name, value)
+
+
+    def _call_macro(self, name, argstr):
+        expr = '{}{}({})'.format(MACRO_PREFIX, name, argstr)
+        return self._evaluator.evaluate(expr)
+
+
+class Evaluator:
+
+    ALLOWED_BUILTINS = {
+        'str': builtins.str,
+        'range': builtins.range,
+        'type': builtins.type,
+    }
+
+    def __init__(self, env=None):
+        self._env = env.copy() if env is not None else {}
+        self._envstack = []
+        builtins = {}
+        builtins.update(self.ALLOWED_BUILTINS)
+        builtins['defined'] = self._func_defined
+        self._builtins = {'__builtins__': builtins}
+
+
+    def evaluate(self, expr):
+        result = eval(expr, self._builtins, self._env)
+        return result
+
+
+    def define(self, name, value):
+        self._env[name] = value
+
+
+    def pushenv(self, vardict):
+        self._envstack.append(self._env)
+        self._env = self._env.copy()
+        self._env.update(vardict)
+
+
+    def popenv(self):
+        self._env = self._envstack.pop(-1)
+
+
+    def _func_defined(self, var):
+        return var in self._env
+
+        
+class Macro:
+
+    def __init__(self, argnames, content, renderfunc):
+        self.argnames = argnames
+        self.content = content
+        self.renderfunc = renderfunc
+
+
+    def __call__(self, *args, **keywords):
+        if len(args) != len(self.argnames):
+            print('<<< INVALID NR OF ARGS')
+        argdict = {}
+        for argname, arg in zip(self.argnames, args):
+            argdict[argname] = arg
+        argdict.update(keywords)
+        output = self.renderfunc(self.content, argdict)
+        return output
+            
+
+if __name__ == '__main__':
+    builder = TreeBuilder()
+    builder.build_from('test.F90')
+    myenv = {'WITH_MPI': None, 'WITH_OPENMP': None}
+    renderer = Renderer()
+    output = renderer.render(builder.tree, myenv)
+    print(''.join(output))
