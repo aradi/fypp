@@ -59,105 +59,117 @@ MACRO_PREFIX = '_macro_'
 
 class DirectiveParser:
 
+    def __init__(self):
+        self._fname_stack = []
+
+
     def parse(self, fname):
+        self._curfile = fname
+        self.handle_open_file(self._curfile, 0)
         fp = open(fname, 'r')
-        self._parse_lines(fp, fname)
+        enumerated_lines = enumerate(fp)
+        #self._parse_lines(enumerated_lines)
+        self._parse_lines(fp)
         fp.close()
 
+    
+    def handle_open_file(self, fname, linenr):
+        print('OPEN FILE:', fname, linenr)
 
-    def handle_setvar(self, fname, linenr, name, expr):
-        print('SETVAR {}:{}'.format(fname, linenr))
+        
+    def handle_setvar(self, linenr, name, expr):
+        print('SETVAR:{}:'.format(linenr))
         print('  EXPR: |{}|'.format(expr))
 
     
-    def handle_def(self, fname, linenr, name, args):
-        print('MACRO {}:{}'.format(fname, linenr))
+    def handle_def(self, linenr, name, args):
+        print('MACRO:{}:'.format(linenr))
         print('  NAME: |{}|'.format(name))
         print('  ARGS:', args)
 
 
-    def handle_enddef(self, fname, linenr):
-        print('ENDDEF {}:{}'.format(fname, linenr))
+    def handle_enddef(self, linenr):
+        print('ENDDEF :{}:'.format(linenr))
 
 
-    def handle_if(self, fname, linenr, param):
-        print('IF {}:{}'.format(fname, linenr))
+    def handle_if(self, linenr, param):
+        print('IF :{}:'.format(linenr))
         print('  PARAM: |{}|'.format(param))
 
 
-    def handle_elif(self, fname, linenr, param):
-        print('ELIF {}:{}'.format(fname, linenr))
+    def handle_elif(self, linenr, param):
+        print('ELIF :{}:'.format(linenr))
         print('  PARAM: |{}|'.format(param))
 
 
-    def handle_else(self, fname, linenr):
-        print('ELSE {}:{}'.format(fname, linenr))
+    def handle_else(self, linenr):
+        print('ELSE :{}:'.format(linenr))
 
         
-    def handle_endif(self, fname, linenr):
-        print('ENDIF {}:{}'.format(fname, linenr))
+    def handle_endif(self, linenr):
+        print('ENDIF :{}:'.format(linenr))
 
 
-    def handle_for(self, fname, linenr, varexpr, iterator):
-        print('FOR {}:{}'.format(fname, linenr))
+    def handle_for(self, linenr, varexpr, iterator):
+        print('FOR :{}:'.format(linenr))
         print('  VAREXPR: |{}|'.format(varexpr))
         print('  ITERATOR: |{}|'.format(iterator))
 
 
-    def handle_endfor(self, fname, linenr):
-        print('ENDFOR {}:{}'.format(fname, linenr))
+    def handle_endfor(self, linenr):
+        print('ENDFOR :{}:'.format(linenr))
 
 
-    def handle_macro_call(self, fname, linenr, name, args):
-        print('MACRO CALL: {}:{}'.format(fname, linenr))
+    def handle_macro_call(self, linenr, name, args):
+        print('MACRO CALL: :{}:'.format(linenr))
         print('  NAME: |{}|'.format(name))
         print('  ARGS: |{}|'.format(args))
 
 
-    def handle_substitution(self, fname, linenr, expr):
-        print('SUBS: {}:{}'.format(fname, linenr))
+    def handle_substitution(self, linenr, expr):
+        print('SUBS: :{}:'.format(linenr))
         print('  EXPR: |{}|'.format(expr))
 
 
-    def handle_text(self, fname, linenr, txt):
+    def handle_text(self, txt):
         print('TEXT: {}'.format(txt))
 
 
-    def _parse_lines(self, fp, fname):
+    def _parse_lines(self, fp):
         for linenr, line in enumerate(fp):
-            done = self._process_directives(line, linenr, fname)
+            done = self._process_directives(line, linenr)
             if not done:
-                done = self._process_macro_call(line, linenr, fname)
+                done = self._process_macro_call(line, linenr)
             if not done:
-                self._process_substitutions(line, linenr, fname)
+                self._process_substitutions(line, linenr)
                 
         
-    def _process_directives(self, line, linenr, fname):
+    def _process_directives(self, line, linenr):
         match = DIRECTIVE_REGEXP.search(line)
         if match:
             directive = match.group('dir')
             param = match.group('param')
             if directive == 'if':
-                self.handle_if(fname, linenr, param)
+                self.handle_if(linenr, param)
             elif directive == 'else':
-                self.handle_else(fname, linenr)
+                self.handle_else(linenr)
             elif directive == 'elif':
                 param = match.group('param')
-                self.handle_elif(fname, linenr, param)
+                self.handle_elif(linenr, param)
             elif directive == 'endif':
-                self.handle_endif(fname, linenr)
+                self.handle_endif(linenr)
             elif directive == 'def':
-                self._process_def(fname, linenr, param)
+                self._process_def(linenr, param)
             elif directive == 'enddef':
-                self.handle_enddef(fname, linenr)
+                self.handle_enddef(linenr)
             elif directive == 'setvar':
-                self._process_setvar(fname, linenr, param)
+                self._process_setvar(linenr, param)
             elif directive == 'for':
-                self._process_for(fname, linenr, param)
+                self._process_for(linenr, param)
             elif directive == 'endfor':
-                self.handle_endfor(fname, linenr)
+                self.handle_endfor(linenr)
             elif directive == 'include':
-                self._process_include(fname, linenr, param)
+                self._process_include(linenr, param)
             else:
                 print('<<< UNKNOWN DIRECTIVE:', directive)
             return True
@@ -165,61 +177,63 @@ class DirectiveParser:
             return False
 
             
-    def _process_macro_call(self, line, linenr, fname):
+    def _process_macro_call(self, line, linenr):
         match = MACRO_CALL_REGEXP.search(line)
         if match:
-            self.handle_macro_call(fname, linenr, match.group('name'),
+            self.handle_macro_call(linenr, match.group('name'),
                                    match.group('args'))
             return True
         else:
             return False
 
 
-    def _process_substitutions(self, line, linenr, fname):
+    def _process_substitutions(self, line, linenr):
         pos = 0
         for match in SUBST_REGEXP.finditer(line):
             start = match.start()
             if start > pos:
-                self.handle_text(fname, linenr, line[pos:start])
+                self.handle_text(line[pos:start])
             expr = match.group('expr')
-            self.handle_substitution(fname, linenr, expr)
+            self.handle_substitution(linenr, expr)
             pos = match.end()
         if pos < len(line):
-            self.handle_text(fname, linenr, line[pos:])
+            self.handle_text(line[pos:])
 
 
-    def _process_def(self, fname, linenr, param):
+    def _process_def(self, linenr, param):
         match = MARCO_PARAM_REGEXP.search(param)
         if not match:
             print('<<< INVALID MACRODEF', param)
         name = match.group('name')
         argstr = match.group('args')
         args = [s.strip() for s in argstr.split(',')]
-        self.handle_def(fname, linenr, name, args)
+        self.handle_def(linenr, name, args)
         
 
-    def _process_setvar(self, fname, linenr, param):
+    def _process_setvar(self, linenr, param):
         match = SETVAR_PARAM_REGEXP.search(param)
         if not match:
             print('<<< INVALID SETVAR', param)
-        self.handle_setvar(fname, linenr, match.group('name'),
+        self.handle_setvar(linenr, match.group('name'),
                            match.group('expr'))
 
-    def _process_for(self, fname, linenr, param):
+    def _process_for(self, linenr, param):
         match = FOR_PARAM_REGEXP.search(param)
         if not match:
             print('<<< INVALID FORDEF')
         loopexpr = match.group('loopexpr')
         loopvars = [s.strip() for s in loopexpr.split(',')]
-        self.handle_for(fname, linenr, loopvars, match.group('iter'))
+        self.handle_for(linenr, loopvars, match.group('iter'))
 
         
-    def _process_include(self, fname, linenr, param):
+    def _process_include(self, linenr, param):
         match = INCLUDE_PARAM_REGEXP.search(param)
         if not match:
             print('<<< INVALID FILE NAME')
+        oldfile = self._curfile
         self.parse(match.group('fname'))
-        
+        self._curfile = oldfile
+        self.handle_open_file(self._curfile, linenr)
 
 
 class TreeBuilder:
@@ -229,6 +243,7 @@ class TreeBuilder:
             self._parser = DirectiveParser()
         else:
             self._parser = parser
+        self._parser.handle_open_file = self.handle_open_file
         self._parser.handle_if = self.handle_if
         self._parser.handle_else = self.handle_else
         self._parser.handle_elif = self.handle_elif
@@ -245,78 +260,93 @@ class TreeBuilder:
         self._path = []
         self._open_blocks = []
         self._curnode = self._tree
+        self._files = {}
+        self._curfile = None
 
-
+        
     def build_from(self, fname):
         self._parser.parse(fname)
 
 
-    def handle_if(self, fname, linenr, cond):
+    def handle_open_file(self, fname, linenr):
+        self._curfile = self._files.get(fname, None)
+        if self._curfile is None:
+            self._curfile = len(self._files)
+            self._files[fname] = self._curfile
+        self._curnode.append(('include', linenr, fname))
+
+
+    def handle_if(self, linenr, cond):
         self._path.append(self._curnode)
         self._curnode = []
-        self._open_blocks.append(('if', [cond], []))
+        self._open_blocks.append(('if', [linenr], [cond], []))
 
 
-    def handle_elif(self, fname, linenr, cond):
+    def handle_elif(self, linenr, cond):
         block = self._open_blocks[-1]
-        block[2].append(self._curnode)
-        block[1].append(cond)
+        block[1].append(linenr)
+        block[2].append(cond)
+        block[3].append(self._curnode)
         self._curnode = []
 
 
-    def handle_else(self, fname, linenr):
+    def handle_else(self, linenr):
         block = self._open_blocks[-1]
-        block[2].append(self._curnode)
-        block[1].append('True')
+        block[1].append(linenr)
+        block[2].append('True')
+        block[3].append(self._curnode)
         self._curnode = []
 
 
-    def handle_endif(self, fname, linenr):
+    def handle_endif(self, linenr):
         block = self._open_blocks.pop(-1)
-        block[2].append(self._curnode)
+        block[1].append(linenr)
+        block[3].append(self._curnode)
         self._curnode = self._path.pop(-1)
         self._curnode.append(block)
 
 
-    def handle_def(self, fname, linenr, name, args):
+    def handle_def(self, linenr, name, args):
         self._path.append(self._curnode)
         self._curnode = []
-        self._open_blocks.append(('macro', name, args, None))
+        self._open_blocks.append(('macrodef', [linenr], name, args, None))
 
 
-    def handle_enddef(self, fname, linenr):
-        directive, name, args, dummy = self._open_blocks.pop(-1)
-        block = (directive, name, args, self._curnode)
+    def handle_enddef(self, linenr):
+        directive, linenrs, name, args, dummy = self._open_blocks.pop(-1)
+        linenrs.append(linenr)
+        block = (directive, linenrs, name, args, self._curnode)
         self._curnode = self._path.pop(-1)
         self._curnode.append(block)
 
 
-    def handle_for(self, fname, linenr, loopvar, iterator):
+    def handle_for(self, linenr, loopvar, iterator):
         self._path.append(self._curnode)
         self._curnode = []
-        self._open_blocks.append(('for', loopvar, iterator, None))
+        self._open_blocks.append(('for', [linenr], loopvar, iterator, None))
         
 
-    def handle_endfor(self, fname, linenr):
-        directive, loopvar, iterator, dummy = self._open_blocks.pop(-1)
-        block = (directive, loopvar, iterator, self._curnode)
+    def handle_endfor(self, linenr):
+        directive, linenrs, loopvar, iterator, dummy = self._open_blocks.pop(-1)
+        linenrs.append(linenr)
+        block = (directive, linenrs, loopvar, iterator, self._curnode)
         self._curnode = self._path.pop(-1)
         self._curnode.append(block)
 
 
-    def handle_macro_call(self, fname, linenr, name, argstr):
-        self._curnode.append(('macrocall', name, argstr))
+    def handle_macro_call(self, linenr, name, argstr):
+        self._curnode.append(('macrocall', linenr, name, argstr))
         
 
-    def handle_setvar(self, fname, linenr, name, expr):
-        self._curnode.append(('setvar', name, expr))
+    def handle_setvar(self, linenr, name, expr):
+        self._curnode.append(('setvar', linenr, name, expr))
 
 
-    def handle_substitution(self, fname, linenr, expr):
-        self._curnode.append(('subs', expr))
+    def handle_substitution(self, linenr, expr):
+        self._curnode.append(('subs', linenr, expr))
         
 
-    def handle_text(self, fname, linenr, txt):
+    def handle_text(self, txt):
         self._curnode.append(('txt', txt))
 
 
@@ -329,55 +359,77 @@ class Renderer:
     
     def __init__(self):
         self._evaluator = Evaluator()
-
+        self._curfile = None
+        self._active_macros = 0
 
     def render(self, tree, env=None):
         newscope = env is not None
         if newscope:
             self._evaluator.pushenv(env)
         output = []
-        _eval = self._evaluator.evaluate
         for node in tree:
             cmd = node[0]
+            #print("NODE:", node)
+            result = None
             if cmd == 'txt':
-                output.append(node[1])
+                result = [ node[1] ]
             elif cmd == 'if':
-                conditions, contents = node[1:3]
-                output += self._get_conditional_content(conditions, contents)
+                linenrs, conditions, contents = node[1:4]
+                result = self._get_conditional_content(conditions, contents,
+                                                       linenrs)
             elif cmd == 'subs':
-                expr = node[1]
-                output += str(_eval(expr))
-            elif cmd == 'macro':
-                name, args, content = node[1:4]
-                self._define_macro(name, args, content)
+                linenr, expr = node[1:3]
+                result = self._get_substituted_content(expr, linenr)
+            elif cmd == 'macrodef':
+                linenrs, name, args, content = node[1:5]
+                result = self._define_macro(name, args, content, linenrs)
             elif cmd == 'macrocall':
-                name, argstr = node[1:3]
-                output += self._call_macro(name, argstr)
+                linenr, name, argstr = node[1:4]
+                result = self._call_macro(name, argstr, linenr)
             elif cmd == 'setvar':
-                name, content = node[1:3]
-                self._define_variable(name, content)
+                linenr, name, content = node[1:4]
+                result = self._define_variable(name, content, linenr)
             elif cmd == 'for':
-                loopvars, loopiter, content = node[1:4]
-                output += self._get_iterated_content(loopvars, loopiter, 
-                                                     content)
+                linenr, loopvars, loopiter, content = node[1:5]
+                result = self._get_iterated_content(loopvars, loopiter, 
+                                                    content, linenr)
+            elif cmd == 'include':
+                linenr, fname = node[1:3]
+                output += self._register_file(fname, linenr)
             else:
-                output.append('<<<< INVALID LINE |')
-                output.append(cmd + '|\n')
+                result = [ '<<<< INVALID LINE |', cmd,  '|\n' ]
+            if result is not None:
+                output += result
         if newscope:
             self._evaluator.popenv()
         return output
 
 
-    def _get_conditional_content(self, conditions, contents):
-        for condition, content in zip(conditions, contents):
-            if self._evaluator.evaluate(condition):
-                return self.render(content)
-        else:
-            return []
+    def _get_substituted_content(self, expr, linenr):
+        self._update_linenr(linenr)
+        subs = str(self._evaluator.evaluate(expr))
+        if subs.count('\n'):
+            print('<<< MULTILINE SUBSTITUTION, SYNCLINES PROBABLY INCORRECT')
+        return [ subs ]
+        
 
-
-    def _get_iterated_content(self, loopvars, loopiter, content):
+    def _get_conditional_content(self, conditions, contents, linenrs):
         result = []
+        for linenr, condition, content in zip(linenrs, conditions, contents):
+            self._update_linenr(linenr)
+            if self._evaluator.evaluate(condition):
+                if not self._active_macros:
+                    result.append(linedirective(linenr + 1, self._curfile))
+                result += self.render(content)
+                break
+        if not self._active_macros:
+            result.append(linedirective(linenrs[-1] + 1, self._curfile))
+        return result
+
+
+    def _get_iterated_content(self, loopvars, loopiter, content, linenrs):
+        result = []
+        self._update_linenr(linenrs[0])
         iterobj = iter(self._evaluator.evaluate(loopiter))
         for var in iterobj:
             if len(loopvars) == 1:
@@ -385,29 +437,71 @@ class Renderer:
             else:
                 loopscope = {varname: value 
                              for varname, value in zip(loopvars, var)}
+            if not self._active_macros:
+                result.append(linedirective(linenrs[0] + 1, self._curfile))
             result += self.render(content, loopscope)
+        if not self._active_macros:
+            result.append(linedirective(linenrs[1] + 1, self._curfile))
         return result
 
 
-    def _define_macro(self, name, args, content):
+    def _define_macro(self, name, args, content, linenrs):
         if name.startswith(RESERVED_PREFIX):
             print('<<< INVALID MARCO NAME')
-            return
         macro = Macro(args, content, self.render)
         self._evaluator.define(MACRO_PREFIX + name, macro)
+        if not self._active_macros:
+            result = [ linedirective(linenrs[1] + 1, self._curfile) ]
+        else:
+            result = []
+        return result
 
 
-    def _define_variable(self, name, valstr):
+    def _define_variable(self, name, valstr, linenr):
         if name.startswith(RESERVED_PREFIX):
             print('<<< INVALID VARIABLE NAME')
             return
+        self._update_linenr(linenr)
         value = self._evaluator.evaluate(valstr)
         self._evaluator.define(name, value)
+        if not self._active_macros:
+            result = [ linedirective(linenr + 1, self._curfile) ]
+        else:
+            result = []
+        return result
 
 
-    def _call_macro(self, name, argstr):
+    def _call_macro(self, name, argstr, linenr):
         expr = '{}{}({})'.format(MACRO_PREFIX, name, argstr)
-        return self._evaluator.evaluate(expr)
+        self._update_linenr(linenr)
+        self._active_macros += 1
+        output = self._evaluator.evaluate(expr)
+        self._active_macros -= 1
+        if not self._active_macros:
+            output_directives = []
+            for token in output[:-1]:
+                output_directives.append(token)
+                if token.endswith('\n'):
+                    output_directives.append(linedirective(linenr, 
+                                                           self._curfile))
+            output_directives.append(output[-1])
+            return output_directives
+        else:
+            return output
+
+
+    def _register_file(self, fname, linenr):
+        self._curfile = fname
+        self._evaluator.updateenv(__FILE__=fname)
+        if not self._active_macros:
+            return [ linedirective(linenr, self._curfile) ]
+        else:
+            return []
+
+
+    def _update_linenr(self, linenr):
+        if not self._active_macros:
+            self._evaluator.updateenv(__LINE__=linenr + 1) 
 
 
 class Evaluator:
@@ -434,6 +528,10 @@ class Evaluator:
 
     def define(self, name, value):
         self._env[name] = value
+
+    
+    def updateenv(self, **vardict):
+        self._env.update(vardict)
 
 
     def pushenv(self, vardict):
@@ -467,7 +565,11 @@ class Macro:
         argdict.update(keywords)
         output = self.renderfunc(self.content, argdict)
         return output
+
             
+def linedirective(linenr, fname):
+    return '# {} "{}"\n'.format(linenr + 1, fname)
+
 
 if __name__ == '__main__':
     builder = TreeBuilder()
@@ -475,4 +577,5 @@ if __name__ == '__main__':
     myenv = {'WITH_MPI': None, 'WITH_OPENMP': None}
     renderer = Renderer()
     output = renderer.render(builder.tree, myenv)
+    #print(builder.tree)
     print(''.join(output))
