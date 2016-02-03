@@ -33,44 +33,68 @@
 ################################################################################
 import builtins
 import re
+import os
 
+__all__ = [ 'STDIN', 'DirectiveParser', 'TreeBuilder', 'Renderer', 'Evaluator',
+            'Processor' ]
 
-DIRECTIVE_REGEXP = re.compile(r'''^\s*#(?P<dir>\w+)\s*(?P<param>.*?)?\s*$''')
+STDIN = '<stdin>'
 
-MARCO_PARAM_REGEXP = re.compile(
+_FILEOBJ = '<fileobj>'
+
+_DIRECTIVE_REGEXP = re.compile(r'''^\s*#(?P<dir>\w+)\s*(?P<param>.*?)?\s*$''')
+
+_MARCO_PARAM_REGEXP = re.compile(
     r'''^(?P<name>\w+)\((?P<args>\s*(?:\w+\s*,\s*)*(?:\w+)\s*)\)$''')
 
-SETVAR_PARAM_REGEXP = re.compile(r'''^(?P<name>\w+)\s*(?P<expr>.*)?\s*$''')
+_SETVAR_PARAM_REGEXP = re.compile(r'''^(?P<name>\w+)\s*(?P<expr>.*)?\s*$''')
 
-SUBST_REGEXP = re.compile(r'''\$\{\s*(?P<expr>.*?)\s*\}\$''')
+_SUBST_REGEXP = re.compile(r'''\$\{\s*(?P<expr>.*?)\s*\}\$''')
 
-FOR_PARAM_REGEXP = re.compile(
+_FOR_PARAM_REGEXP = re.compile(
     r'''^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)\s*$''')
 
-INCLUDE_PARAM_REGEXP = re.compile(r'''^(\'|')(?P<fname>.*)\1\s*$''')
+_INCLUDE_PARAM_REGEXP = re.compile(r'''^(\'|')(?P<fname>.*)\1\s*$''')
 
-MACRO_CALL_REGEXP = re.compile(
+_MACRO_CALL_REGEXP = re.compile(
     r'''^\s*@(?P<name>\w+)\(\s*(?P<args>.*)\s*\)\s*$''')
 
-RESERVED_PREFIX = '_'
+_RESERVED_PREFIX = '_'
 
-MACRO_PREFIX = '_macro_'
+_MACRO_PREFIX = '_macro_'
 
 
 class DirectiveParser:
 
-    def __init__(self):
-        self._fname_stack = []
+    def __init__(self, includedirs=None):
+        if includedirs is None:
+            self._includedirs = []
+        else:
+            self._includedirs = includedirs
+        self._curfile = None
+        self._curdir = None
 
 
-    def parse(self, fname):
-        self._curfile = fname
+    def parse(self, fobj):
+        closefile = False
+        if isinstance(fobj, str):
+            if fobj == STDIN:
+                fp = sys.stdin
+                self._curfile = fobj
+                self._curdir = os.getcwd()
+            else:
+                fp = open(fobj, 'r')
+                closefile = True
+                self._curfile = fobj
+                self._curdir = os.path.dirname(fobj)
+        else:
+            fp = fobj
+            self._curfile = _FILEOBJ
+            self._curdir = None
         self.handle_open_file(self._curfile, 0)
-        fp = open(fname, 'r')
-        enumerated_lines = enumerate(fp)
-        #self._parse_lines(enumerated_lines)
         self._parse_lines(fp)
-        fp.close()
+        if closefile:
+            fp.close()
 
     
     def handle_open_file(self, fname, linenr):
@@ -145,7 +169,7 @@ class DirectiveParser:
                 
         
     def _process_directives(self, line, linenr):
-        match = DIRECTIVE_REGEXP.search(line)
+        match = _DIRECTIVE_REGEXP.search(line)
         if match:
             directive = match.group('dir')
             param = match.group('param')
@@ -178,7 +202,7 @@ class DirectiveParser:
 
             
     def _process_macro_call(self, line, linenr):
-        match = MACRO_CALL_REGEXP.search(line)
+        match = _MACRO_CALL_REGEXP.search(line)
         if match:
             self.handle_macro_call(linenr, match.group('name'),
                                    match.group('args'))
@@ -189,7 +213,7 @@ class DirectiveParser:
 
     def _process_substitutions(self, line, linenr):
         pos = 0
-        for match in SUBST_REGEXP.finditer(line):
+        for match in _SUBST_REGEXP.finditer(line):
             start = match.start()
             if start > pos:
                 self.handle_text(line[pos:start])
@@ -201,7 +225,7 @@ class DirectiveParser:
 
 
     def _process_def(self, linenr, param):
-        match = MARCO_PARAM_REGEXP.search(param)
+        match = _MARCO_PARAM_REGEXP.search(param)
         if not match:
             print('<<< INVALID MACRODEF', param)
         name = match.group('name')
@@ -211,14 +235,14 @@ class DirectiveParser:
         
 
     def _process_setvar(self, linenr, param):
-        match = SETVAR_PARAM_REGEXP.search(param)
+        match = _SETVAR_PARAM_REGEXP.search(param)
         if not match:
             print('<<< INVALID SETVAR', param)
         self.handle_setvar(linenr, match.group('name'),
                            match.group('expr'))
 
     def _process_for(self, linenr, param):
-        match = FOR_PARAM_REGEXP.search(param)
+        match = _FOR_PARAM_REGEXP.search(param)
         if not match:
             print('<<< INVALID FORDEF')
         loopexpr = match.group('loopexpr')
@@ -227,35 +251,30 @@ class DirectiveParser:
 
         
     def _process_include(self, linenr, param):
-        match = INCLUDE_PARAM_REGEXP.search(param)
+        if self._curdir is None:
+            print('<<< Include not allowed when reading from file like object')
+            return
+        match = _INCLUDE_PARAM_REGEXP.search(param)
         if not match:
             print('<<< INVALID FILE NAME')
+            return
+        fname = match.group('fname')
+        for incdir in [ self._curdir ] + self._includedirs:
+            fpath = os.path.join(incdir, fname)
+            if os.path.exists(fpath):
+                break
+        else:
+            print("<<< INCLUDE FILE '{}' NOT FOUND".format(fname))
+            return
         oldfile = self._curfile
-        self.parse(match.group('fname'))
+        self.parse(fpath)
         self._curfile = oldfile
         self.handle_open_file(self._curfile, linenr)
 
 
 class TreeBuilder:
 
-    def __init__(self, parser=None):
-        if parser is None:
-            self._parser = DirectiveParser()
-        else:
-            self._parser = parser
-        self._parser.handle_open_file = self.handle_open_file
-        self._parser.handle_if = self.handle_if
-        self._parser.handle_else = self.handle_else
-        self._parser.handle_elif = self.handle_elif
-        self._parser.handle_endif = self.handle_endif
-        self._parser.handle_substitution = self.handle_substitution
-        self._parser.handle_text = self.handle_text
-        self._parser.handle_def = self.handle_def
-        self._parser.handle_enddef = self.handle_enddef
-        self._parser.handle_setvar = self.handle_setvar
-        self._parser.handle_for = self.handle_for
-        self._parser.handle_endfor = self.handle_endfor
-        self._parser.handle_macro_call = self.handle_macro_call
+    def __init__(self):
         self._tree = []
         self._path = []
         self._open_blocks = []
@@ -264,10 +283,6 @@ class TreeBuilder:
         self._curfile = None
 
         
-    def build_from(self, fname):
-        self._parser.parse(fname)
-
-
     def handle_open_file(self, fname, linenr):
         self._curfile = self._files.get(fname, None)
         if self._curfile is None:
@@ -357,10 +372,11 @@ class TreeBuilder:
 
 class Renderer:
     
-    def __init__(self):
-        self._evaluator = Evaluator()
+    def __init__(self, evaluator=None):
+        self._evaluator = Evaluator() if evaluator is None else evaluator
         self._curfile = None
         self._active_macros = 0
+
 
     def render(self, tree, env=None):
         newscope = env is not None
@@ -369,7 +385,6 @@ class Renderer:
         output = []
         for node in tree:
             cmd = node[0]
-            #print("NODE:", node)
             result = None
             if cmd == 'txt':
                 result = [ node[1] ]
@@ -419,11 +434,11 @@ class Renderer:
             self._update_linenr(linenr)
             if self._evaluator.evaluate(condition):
                 if not self._active_macros:
-                    result.append(linedirective(linenr + 1, self._curfile))
+                    result.append(_linedirective(linenr + 1, self._curfile))
                 result += self.render(content)
                 break
         if not self._active_macros:
-            result.append(linedirective(linenrs[-1] + 1, self._curfile))
+            result.append(_linedirective(linenrs[-1] + 1, self._curfile))
         return result
 
 
@@ -438,41 +453,41 @@ class Renderer:
                 loopscope = {varname: value 
                              for varname, value in zip(loopvars, var)}
             if not self._active_macros:
-                result.append(linedirective(linenrs[0] + 1, self._curfile))
+                result.append(_linedirective(linenrs[0] + 1, self._curfile))
             result += self.render(content, loopscope)
         if not self._active_macros:
-            result.append(linedirective(linenrs[1] + 1, self._curfile))
+            result.append(_linedirective(linenrs[1] + 1, self._curfile))
         return result
 
 
     def _define_macro(self, name, args, content, linenrs):
-        if name.startswith(RESERVED_PREFIX):
+        if name.startswith(_RESERVED_PREFIX):
             print('<<< INVALID MARCO NAME')
-        macro = Macro(args, content, self.render)
-        self._evaluator.define(MACRO_PREFIX + name, macro)
+        macro = _Macro(args, content, self.render)
+        self._evaluator.define(_MACRO_PREFIX + name, macro)
         if not self._active_macros:
-            result = [ linedirective(linenrs[1] + 1, self._curfile) ]
+            result = [_linedirective(linenrs[1] + 1, self._curfile)]
         else:
             result = []
         return result
 
 
     def _define_variable(self, name, valstr, linenr):
-        if name.startswith(RESERVED_PREFIX):
+        if name.startswith(_RESERVED_PREFIX):
             print('<<< INVALID VARIABLE NAME')
             return
         self._update_linenr(linenr)
         value = self._evaluator.evaluate(valstr)
         self._evaluator.define(name, value)
         if not self._active_macros:
-            result = [ linedirective(linenr + 1, self._curfile) ]
+            result = [_linedirective(linenr + 1, self._curfile)]
         else:
             result = []
         return result
 
 
     def _call_macro(self, name, argstr, linenr):
-        expr = '{}{}({})'.format(MACRO_PREFIX, name, argstr)
+        expr = '{}{}({})'.format(_MACRO_PREFIX, name, argstr)
         self._update_linenr(linenr)
         self._active_macros += 1
         output = self._evaluator.evaluate(expr)
@@ -482,8 +497,8 @@ class Renderer:
             for token in output[:-1]:
                 output_directives.append(token)
                 if token.endswith('\n'):
-                    output_directives.append(linedirective(linenr, 
-                                                           self._curfile))
+                    output_directives.append(_linedirective(linenr,
+                                                            self._curfile))
             output_directives.append(output[-1])
             return output_directives
         else:
@@ -494,7 +509,7 @@ class Renderer:
         self._curfile = fname
         self._evaluator.updateenv(__FILE__=fname)
         if not self._active_macros:
-            return [ linedirective(linenr, self._curfile) ]
+            return [_linedirective(linenr, self._curfile)]
         else:
             return []
 
@@ -548,7 +563,7 @@ class Evaluator:
         return var in self._env
 
         
-class Macro:
+class _Macro:
 
     def __init__(self, argnames, content, renderfunc):
         self.argnames = argnames
@@ -566,16 +581,116 @@ class Macro:
         output = self.renderfunc(self.content, argdict)
         return output
 
+
+class Processor:
+
+    def __init__(self, parser=None, builder=None, renderer=None, 
+                 evaluator=None):
+        self._parser = DirectiveParser() if parser is None else parser
+        self._builder = TreeBuilder() if builder is None else builder
+        if renderer is None:
+            evaluator = Evaluator() if evaluator is None else evaluator
+            self._renderer = Renderer(evaluator)
+        else:
+            self._renderer = renderer
+
+        self._parser.handle_open_file = self._builder.handle_open_file
+        self._parser.handle_if = self._builder.handle_if
+        self._parser.handle_else = self._builder.handle_else
+        self._parser.handle_elif = self._builder.handle_elif
+        self._parser.handle_endif = self._builder.handle_endif
+        self._parser.handle_substitution = self._builder.handle_substitution
+        self._parser.handle_text = self._builder.handle_text
+        self._parser.handle_def = self._builder.handle_def
+        self._parser.handle_enddef = self._builder.handle_enddef
+        self._parser.handle_setvar = self._builder.handle_setvar
+        self._parser.handle_for = self._builder.handle_for
+        self._parser.handle_endfor = self._builder.handle_endfor
+        self._parser.handle_macro_call = self._builder.handle_macro_call
+
+
+    def process(self, fname, env=None):
+        self._parser.parse(fname)
+        env = {} if env is None else env
+        output = self._renderer.render(self._builder.tree, env)
+        return ''.join(output)
+        
+
             
-def linedirective(linenr, fname):
+def _linedirective(linenr, fname):
     return '# {} "{}"\n'.format(linenr + 1, fname)
 
 
-if __name__ == '__main__':
+################################################################################
+# Command line tool fypp
+################################################################################
+
+_FYPP_DESC = '''Preprocess Fortran files with FyPP directives.'''
+
+
+def _fypp_main():
+    parser = ArgumentParser(description=_FYPP_DESC)
+    args = _fypp_parse_arguments(parser)
+    evaluator = Evaluator()
+    if args.defines:
+        _fypp_apply_definitions(args.defines, evaluator, parser.error)
+    parser = DirectiveParser(args.includes)
     builder = TreeBuilder()
-    builder.build_from('test.F90')
-    myenv = {'WITH_MPI': None, 'WITH_OPENMP': None}
-    renderer = Renderer()
-    output = renderer.render(builder.tree, myenv)
-    #print(builder.tree)
-    print(''.join(output))
+    renderer = Renderer(evaluator)
+    preprocessor = Processor(parser, builder, renderer)
+    _fypp_process_file(preprocessor, args.infile, args.outfile)
+
+
+def _fypp_parse_arguments(parser):
+    msg = 'define a variable with given value. The value is interpreted as ' \
+          'Python expression. (e.g `-D DEBUG=1\' sets variable DEBUG to 1). ' \
+          'If the value is ommited (e.g. `-D DEBUG\') the variable is set to ' \
+          'None.'
+    parser.add_argument('-D', '--define', action='append', dest='defines',
+                        metavar='VAR=VALUE', help=msg)
+    msg = 'add a directory to the search paths, which are looked up when ' \
+          'processing include directives. '
+    parser.add_argument('-I', '--include', action='append', dest='includes',
+                        metavar='INCDIR', help=msg)
+    msg = "input file to be processed (default: `-', read from stdin)"
+    parser.add_argument('infile', nargs='?', default='-', help=msg)
+    msg = "output file where processed content will be written (default: " \
+          "`-', written to stdout)"
+    parser.add_argument('outfile', nargs='?', default='-', help=msg)
+    return parser.parse_args()
+
+
+def _fypp_apply_definitions(defines, evaluator, errorfunc):
+
+    for define in defines:
+        words = define.split('=', 2)
+        name = words[0]
+        value = None
+        if len(words) > 1:
+            try:
+                value = evaluator.evaluate(words[1])
+            except Exception as ex:
+                msg = "Exception at evaluating `{}' in definition for `{}':\n" \
+                      "{}".format(words[1], words[0], ex)
+                errorfunc(msg)
+        evaluator.define(name, value)
+
+
+def _fypp_process_file(preprocessor, infile, outfile):
+    if infile == '-':
+        infile = STDIN
+    output = preprocessor.process(infile)
+    if outfile == '-':
+        fp = sys.stdout
+    else:
+        fp = open(outfile, 'w')
+    fp.write(output)
+    if outfile != '-':
+        fp.close()
+
+
+if __name__ == '__main__':
+    import sys
+    from argparse import ArgumentParser
+    _fypp_main()
+
