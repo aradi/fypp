@@ -372,10 +372,11 @@ class TreeBuilder:
 
 class Renderer:
     
-    def __init__(self, evaluator=None):
+    def __init__(self, evaluator=None, synclines=False):
         self._evaluator = Evaluator() if evaluator is None else evaluator
         self._curfile = None
         self._active_macros = 0
+        self._synclines = synclines
 
 
     def render(self, tree, env=None):
@@ -433,12 +434,12 @@ class Renderer:
         for linenr, condition, content in zip(linenrs, conditions, contents):
             self._update_linenr(linenr)
             if self._evaluator.evaluate(condition):
-                if not self._active_macros:
-                    result.append(_linedirective(linenr + 1, self._curfile))
+                if self._synclines and not self._active_macros:
+                    result.append(_syncline(linenr + 1, self._curfile))
                 result += self.render(content)
                 break
-        if not self._active_macros:
-            result.append(_linedirective(linenrs[-1] + 1, self._curfile))
+        if self._synclines and not self._active_macros:
+            result.append(_syncline(linenrs[-1] + 1, self._curfile))
         return result
 
 
@@ -452,11 +453,11 @@ class Renderer:
             else:
                 loopscope = {varname: value 
                              for varname, value in zip(loopvars, var)}
-            if not self._active_macros:
-                result.append(_linedirective(linenrs[0] + 1, self._curfile))
+            if self._synclines and not self._active_macros:
+                result.append(_syncline(linenrs[0] + 1, self._curfile))
             result += self.render(content, loopscope)
-        if not self._active_macros:
-            result.append(_linedirective(linenrs[1] + 1, self._curfile))
+        if self._synclines and not self._active_macros:
+            result.append(_syncline(linenrs[1] + 1, self._curfile))
         return result
 
 
@@ -465,8 +466,8 @@ class Renderer:
             print('<<< INVALID MARCO NAME')
         macro = _Macro(args, content, self.render)
         self._evaluator.define(_MACRO_PREFIX + name, macro)
-        if not self._active_macros:
-            result = [_linedirective(linenrs[1] + 1, self._curfile)]
+        if self._synclines and not self._active_macros:
+            result = [_syncline(linenrs[1] + 1, self._curfile)]
         else:
             result = []
         return result
@@ -479,8 +480,8 @@ class Renderer:
         self._update_linenr(linenr)
         value = self._evaluator.evaluate(valstr)
         self._evaluator.define(name, value)
-        if not self._active_macros:
-            result = [_linedirective(linenr + 1, self._curfile)]
+        if self._synclines and not self._active_macros:
+            result = [_syncline(linenr + 1, self._curfile)]
         else:
             result = []
         return result
@@ -492,13 +493,12 @@ class Renderer:
         self._active_macros += 1
         output = self._evaluator.evaluate(expr)
         self._active_macros -= 1
-        if not self._active_macros:
+        if self._synclines and not self._active_macros:
             output_directives = []
             for token in output[:-1]:
                 output_directives.append(token)
                 if token.endswith('\n'):
-                    output_directives.append(_linedirective(linenr,
-                                                            self._curfile))
+                    output_directives.append(_syncline(linenr, self._curfile))
             output_directives.append(output[-1])
             return output_directives
         else:
@@ -508,8 +508,8 @@ class Renderer:
     def _register_file(self, fname, linenr):
         self._curfile = fname
         self._evaluator.updateenv(__FILE__=fname)
-        if not self._active_macros:
-            return [_linedirective(linenr, self._curfile)]
+        if self._synclines and not self._active_macros:
+            return [_syncline(linenr, self._curfile)]
         else:
             return []
 
@@ -617,7 +617,7 @@ class Processor:
         
 
             
-def _linedirective(linenr, fname):
+def _syncline(linenr, fname):
     return '# {} "{}"\n'.format(linenr + 1, fname)
 
 
@@ -636,7 +636,7 @@ def _fypp_main():
         _fypp_apply_definitions(args.defines, evaluator, parser.error)
     parser = DirectiveParser(args.includes)
     builder = TreeBuilder()
-    renderer = Renderer(evaluator)
+    renderer = Renderer(evaluator, synclines=args.synclines)
     preprocessor = Processor(parser, builder, renderer)
     _fypp_process_file(preprocessor, args.infile, args.outfile)
 
@@ -647,11 +647,14 @@ def _fypp_parse_arguments(parser):
           'If the value is ommited (e.g. `-D DEBUG\') the variable is set to ' \
           'None.'
     parser.add_argument('-D', '--define', action='append', dest='defines',
-                        metavar='VAR=VALUE', help=msg)
+                        metavar='VAR[=VALUE]', help=msg)
     msg = 'add a directory to the search paths, which are looked up when ' \
           'processing include directives. '
     parser.add_argument('-I', '--include', action='append', dest='includes',
                         metavar='INCDIR', help=msg)
+    msg = 'include CPP style sync-lines in the output.'
+    parser.add_argument('-s', '--synclines', action='store_true', 
+                        default=False, help=msg)
     msg = "input file to be processed (default: `-', read from stdin)"
     parser.add_argument('infile', nargs='?', default='-', help=msg)
     msg = "output file where processed content will be written (default: " \
