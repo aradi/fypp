@@ -40,18 +40,18 @@ STDIN = '<stdin>'
 
 _FILEOBJ = '<fileobj>'
 
+_STRING = '<string>'
+
 _DIRECTIVE_REGEXP = re.compile(r'''
 # directive name
 ^[ \t]*\#(?P<directive>\w+)[ \t]*
 # directive parameter (with optional continuation lines)
 (?P<param>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
 |
-# macro name
-^[ \t]*\$(?P<macroname>\w+)
-# arguments (with optional continuation lines)
-\([ \t]*(?P<args>.*?(?:&[ \t]*\n[ \t]*&.*?)*)[ \t]*\)[ \t]*\n
+# block substitution
+^[ \t]*\$\ (?P<blockexpr>.*?(?:&[ \t]*\n[ \t]*&.*?)*)[ \t]*\n
 |
-# subsitution
+# inline substitution
 \$\{[ \t]*(?P<expr>.*?)[ \t]*\}\$
 ''', re.VERBOSE | re.MULTILINE)
 
@@ -100,12 +100,14 @@ class DirectiveParser:
             self._curfile = _FILEOBJ
             self._curdir = None
         self.handle_open_file(self._curfile, 0)
-        self.parse(fp.read())
+        self._parse(fp.read())
         if closefile:
             fp.close()
 
 
     def parse(self, txt):
+        self._curfile = _STRING
+        self._curdir = None
         self._parse(txt)
 
     
@@ -156,13 +158,12 @@ class DirectiveParser:
         print('ENDFOR :{}-{}:'.format(*span))
 
 
-    def handle_macro_call(self, name, args, span):
-        print('MACRO CALL: :{}-{}:'.format(*span))
-        print('  NAME: |{}|'.format(name))
-        print('  ARGS: |{}|'.format(args))
+    def handle_block_sub(self, expr, span):
+        print('BLOCK SUBS: :{}-{}:'.format(*span))
+        print('  EXPR: |{}|'.format(expr))
 
 
-    def handle_substitution(self, expr, span):
+    def handle_inline_sub(self, expr, span):
         print('SUBS: :{}-{}:'.format(*span))
         print('  EXPR: |{}|'.format(expr))
 
@@ -181,14 +182,14 @@ class DirectiveParser:
                 self.handle_text(txt[pos:start])
                 linenr += txt.count('\n', pos, start)
             endlinenr = linenr + txt.count('\n', start, end)
+            span = (linenr, endlinenr)
             if groups['directive'] is not None:
                 self._process_directive(groups['directive'], groups['param'],
-                                        (linenr, endlinenr))
-            elif groups['macroname'] is not None:
-                self._process_macro_call(groups['macroname'], groups['args'],
-                                         (linenr, endlinenr))
+                                        span)
+            elif groups['blockexpr'] is not None:
+                self._process_block_sub(groups['blockexpr'], span)
             else:
-                self._process_substitution(groups['expr'], (linenr, endlinenr))
+                self._process_inline_sub(groups['expr'], span)
             pos = end
             linenr = endlinenr
         if pos < len(txt):
@@ -221,14 +222,13 @@ class DirectiveParser:
             print('<<< UNKNOWN DIRECTIVE:', directive)
 
             
-    def _process_macro_call(self, name, args, span):
-        args = _CONTLINE_REGEXP.sub('', args)
-        self.handle_macro_call(name, args, span)
-
-
-    def _process_substitution(self, expr, span):
+    def _process_block_sub(self, expr, span):
         expr = _CONTLINE_REGEXP.sub('', expr)
-        self.handle_substitution(expr, span)
+        self.handle_block_sub(expr, span)
+
+
+    def _process_inline_sub(self, expr, span):
+        self.handle_inline_sub(expr, span)
 
 
     def _process_def(self, param, span):
@@ -356,16 +356,16 @@ class TreeBuilder:
         self._curnode.append(block)
 
 
-    def handle_macro_call(self, name, argstr, span):
-        self._curnode.append(('macrocall', name, argstr, span))
-        
-
     def handle_setvar(self, name, expr, span):
         self._curnode.append(('setvar', name, expr, span))
 
 
-    def handle_substitution(self, expr, span):
-        self._curnode.append(('subs', expr, span))
+    def handle_block_sub(self, expr, span):
+        self._curnode.append(('bsub', expr, span))
+        
+
+    def handle_inline_sub(self, expr, span):
+        self._curnode.append(('isub', expr, span))
         
 
     def handle_text(self, txt):
@@ -382,7 +382,7 @@ class Renderer:
     def __init__(self, evaluator=None, synclines=False):
         self._evaluator = Evaluator() if evaluator is None else evaluator
         self._curfile = None
-        self._active_macros = 0
+        self._active_macros = []
         self._synclines = synclines
 
 
@@ -398,12 +398,12 @@ class Renderer:
                 result = node[1]
             elif cmd == 'if':
                 result = self._get_conditional_content(*node[1:4])
-            elif cmd == 'subs':
-                result = self._get_substituted_content(*node[1:3])
+            elif cmd == 'isub':
+                result = self._get_inline_sub(*node[1:3])
+            elif cmd == 'bsub':
+                result = self._get_block_sub(*node[1:4])
             elif cmd == 'macrodef':
                 result = self._define_macro(*node[1:5])
-            elif cmd == 'macrocall':
-                result = self._call_macro(*node[1:4])
             elif cmd == 'setvar':
                 result = self._define_variable(*node[1:4])
             elif cmd == 'for':
@@ -419,30 +419,42 @@ class Renderer:
         return ''.join(output)
 
 
-    def _get_substituted_content(self, expr, span):
+    def _get_inline_sub(self, expr, span):
         self._update_linenr(span[1])
-        subs = str(self._evaluator.evaluate(expr))
-        if subs.count('\n'):
-            print('<<< Multiline substitution not supported')
-        return subs
+        out = str(self._evaluator.evaluate(expr)).rstrip()
+        if out.count('\n'):
+            print('<<< INVALID MULTILINE SUBSTITUTION')            
+        return out
+
+
+    def _get_block_sub(self, expr, span):
+        self._update_linenr(span[1])
+        out = str(self._evaluator.evaluate(expr))
+        out = out.rstrip()
+        if self._synclines and not self._active_macros:
+            out = out.replace('\n', '\n' + _syncline(span[0], self._curfile))
+            out = out + '\n' + _syncline(span[1], self._curfile)
+        else:
+            out = out + '\n'
+        return out
         
 
     def _get_conditional_content(self, conditions, contents, spans):
-        result = []
+        out = []
         for condition, content, span in zip(conditions, contents, spans):
             self._update_linenr(span[1])
             if self._evaluator.evaluate(condition):
                 if self._synclines and not self._active_macros:
-                    result.append(_syncline(span[1], self._curfile))
-                result.append(self.render(content))
+                    out.append(_syncline(span[1], self._curfile))
+                out.append(self.render(content))
                 break
         if self._synclines and not self._active_macros:
-            result.append(_syncline(spans[-1][1], self._curfile))
-        return ''.join(result)
+            out.append(_syncline(spans[-1][1], self._curfile))
+        return ''.join(out)
 
 
     def _get_iterated_content(self, loopvars, loopiter, content, spans):
-        result = []
+        out = []
         self._update_linenr(spans[0][1])
         iterobj = iter(self._evaluator.evaluate(loopiter))
         for var in iterobj:
@@ -452,18 +464,20 @@ class Renderer:
                 loopscope = {varname: value 
                              for varname, value in zip(loopvars, var)}
             if self._synclines and not self._active_macros:
-                result.append(_syncline(spans[0][1], self._curfile))
-            result.append(self.render(content, loopscope))
+                out.append(_syncline(spans[0][1], self._curfile))
+            out.append(self.render(content, loopscope))
         if self._synclines and not self._active_macros:
-            result.append(_syncline(spans[1][1], self._curfile))
-        return ''.join(result)
+            out.append(_syncline(spans[1][1], self._curfile))
+        return ''.join(out)
 
 
     def _define_macro(self, name, args, content, spans):
         if name.startswith(_RESERVED_PREFIX):
-            print('<<< INVALID MARCO NAME')
-        macro = _Macro(args, content, self.render)
-        self._evaluator.define(_MACRO_PREFIX + name, macro)
+            print('<<< INVALID MARCO NAME {}'.format(name))
+            return None
+        macro = _Macro(name, args, content, self.render, self._open_macro,
+                       self._close_macro)
+        self._evaluator.define(name, macro)
         if self._synclines and not self._active_macros:
             return _syncline(spans[1][1], self._curfile)
         else:
@@ -482,18 +496,15 @@ class Renderer:
         else:
             return None
 
-
-    def _call_macro(self, name, argstr, span):
-        expr = '{}{}({})'.format(_MACRO_PREFIX, name, argstr)
-        self._update_linenr(span[0])
-        self._active_macros += 1
-        out = self._evaluator.evaluate(expr)
-        self._active_macros -= 1
-        if self._synclines and not self._active_macros:
-            out = out.rstrip()
-            out = out.replace('\n', '\n' + _syncline(span[0], self._curfile))
-            out = out + '\n' + _syncline(span[1], self._curfile)
-        return out
+    
+    def _open_macro(self, name):
+        self._active_macros.append(name)
+        
+    
+    def _close_macro(self, name):
+        active_name = self._active_macros.pop(-1)
+        if active_name != name:
+            print('<<< INTERNAL ERROR: MISMATCHING MACRO CLOSING')
 
 
     def _register_file(self, fname, line):
@@ -556,20 +567,26 @@ class Evaluator:
         
 class _Macro:
 
-    def __init__(self, argnames, content, renderfunc):
-        self.argnames = argnames
-        self.content = content
-        self.renderfunc = renderfunc
+    def __init__(self, name, argnames, content, renderfunc, openfunc, 
+                 closefunc):
+        self._name = name
+        self._argnames = argnames
+        self._content = content
+        self._renderfunc = renderfunc
+        self._openfunc = openfunc
+        self._closefunc = closefunc
 
 
     def __call__(self, *args, **keywords):
-        if len(args) != len(self.argnames):
+        self._openfunc(self._name)
+        if len(args) != len(self._argnames):
             print('<<< INVALID NR OF ARGS')
         argdict = {}
-        for argname, arg in zip(self.argnames, args):
+        for argname, arg in zip(self._argnames, args):
             argdict[argname] = arg
         argdict.update(keywords)
-        output = self.renderfunc(self.content, argdict)
+        output = self._renderfunc(self._content, argdict)
+        self._closefunc(self._name)
         return output
 
 
@@ -590,14 +607,14 @@ class Processor:
         self._parser.handle_else = self._builder.handle_else
         self._parser.handle_elif = self._builder.handle_elif
         self._parser.handle_endif = self._builder.handle_endif
-        self._parser.handle_substitution = self._builder.handle_substitution
+        self._parser.handle_block_sub = self._builder.handle_block_sub
+        self._parser.handle_inline_sub = self._builder.handle_inline_sub
         self._parser.handle_text = self._builder.handle_text
         self._parser.handle_def = self._builder.handle_def
         self._parser.handle_enddef = self._builder.handle_enddef
         self._parser.handle_setvar = self._builder.handle_setvar
         self._parser.handle_for = self._builder.handle_for
         self._parser.handle_endfor = self._builder.handle_endfor
-        self._parser.handle_macro_call = self._builder.handle_macro_call
 
 
     def process(self, fname, env=None):
