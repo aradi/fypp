@@ -33,8 +33,10 @@ import builtins
 import re
 import os
 
-__all__ = [ 'STDIN', 'DirectiveParser', 'TreeBuilder', 'Renderer', 'Evaluator',
-            'Processor' ]
+__all__ = [ 'STDIN', 'VERSION', 'DirectiveParser', 'TreeBuilder', 'Renderer', 
+            'Evaluator', 'Processor' ]
+
+VERSION = '0.1'
 
 STDIN = '<stdin>'
 
@@ -48,14 +50,14 @@ _DIRECTIVE_REGEXP = re.compile(r'''
 # directive parameter (with optional continuation lines)
 (?P<param>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
 |
-# block substitution
-^[ \t]*\$\ (?P<blockexpr>.*?(?:&[ \t]*\n[ \t]*&.*?)*)[ \t]*\n
+# line substitution
+^[ \t]*\$\ (?P<lineexpr>.*?(?:&[ \t]*\n[ \t]*&.*?)*)[ \t]*$
 |
-# inline substitution
+# expression substitution
 \$\{[ \t]*(?P<expr>.*?)[ \t]*\}\$
 ''', re.VERBOSE | re.MULTILINE)
 
-_MARCO_PARAM_REGEXP = re.compile(
+_MACRO_PARAM_REGEXP = re.compile(
     r'''^(?P<name>\w+)\((?P<args>\s*(?:\w+\s*,\s*)*(?:\w+)\s*)\)$''')
 
 _SETVAR_PARAM_REGEXP = re.compile(r'''^(?P<name>\w+)\s*(?P<expr>.*)?\s*$''')
@@ -68,8 +70,6 @@ _INCLUDE_PARAM_REGEXP = re.compile(r'''^(\'|')(?P<fname>.*)\1\s*$''')
 _CONTLINE_REGEXP = re.compile(r'''&[ \t]*\n[ \t]*&''')
 
 _RESERVED_PREFIX = '_'
-
-_MACRO_PREFIX = '_macro_'
 
 
 class DirectiveParser:
@@ -158,13 +158,13 @@ class DirectiveParser:
         print('ENDFOR :{}-{}:'.format(*span))
 
 
-    def handle_block_sub(self, expr, span):
-        print('BLOCK SUBS: :{}-{}:'.format(*span))
+    def handle_line_sub(self, expr, span):
+        print('LINE SUB: :{}-{}:'.format(*span))
         print('  EXPR: |{}|'.format(expr))
 
 
-    def handle_inline_sub(self, expr, span):
-        print('SUBS: :{}-{}:'.format(*span))
+    def handle_expr_sub(self, expr, span):
+        print('EXPR SUB: :{}-{}:'.format(*span))
         print('  EXPR: |{}|'.format(expr))
 
 
@@ -186,10 +186,10 @@ class DirectiveParser:
             if groups['directive'] is not None:
                 self._process_directive(groups['directive'], groups['param'],
                                         span)
-            elif groups['blockexpr'] is not None:
-                self._process_block_sub(groups['blockexpr'], span)
+            elif groups['lineexpr'] is not None:
+                self._process_line_sub(groups['lineexpr'], span)
             else:
-                self._process_inline_sub(groups['expr'], span)
+                self._process_expr_sub(groups['expr'], span)
             pos = end
             linenr = endlinenr
         if pos < len(txt):
@@ -222,17 +222,17 @@ class DirectiveParser:
             print('<<< UNKNOWN DIRECTIVE:', directive)
 
             
-    def _process_block_sub(self, expr, span):
+    def _process_line_sub(self, expr, span):
         expr = _CONTLINE_REGEXP.sub('', expr)
-        self.handle_block_sub(expr, span)
+        self.handle_line_sub(expr, span)
 
 
-    def _process_inline_sub(self, expr, span):
-        self.handle_inline_sub(expr, span)
+    def _process_expr_sub(self, expr, span):
+        self.handle_expr_sub(expr, span)
 
 
     def _process_def(self, param, span):
-        match = _MARCO_PARAM_REGEXP.search(param)
+        match = _MACRO_PARAM_REGEXP.search(param)
         if not match:
             print('<<< INVALID MACRODEF', param)
         name = match.group('name')
@@ -360,12 +360,12 @@ class TreeBuilder:
         self._curnode.append(('setvar', name, expr, span))
 
 
-    def handle_block_sub(self, expr, span):
-        self._curnode.append(('bsub', expr, span))
+    def handle_line_sub(self, expr, span):
+        self._curnode.append(('linesub', expr, span))
         
 
-    def handle_inline_sub(self, expr, span):
-        self._curnode.append(('isub', expr, span))
+    def handle_expr_sub(self, expr, span):
+        self._curnode.append(('exprsub', expr, span))
         
 
     def handle_text(self, txt):
@@ -379,11 +379,12 @@ class TreeBuilder:
 
 class Renderer:
     
-    def __init__(self, evaluator=None, synclines=False):
+    def __init__(self, evaluator=None, synclines=False, linelength=0):
         self._evaluator = Evaluator() if evaluator is None else evaluator
         self._curfile = None
         self._active_macros = []
         self._synclines = synclines
+        self._linelength = linelength
 
 
     def render(self, tree, env=None):
@@ -391,17 +392,20 @@ class Renderer:
         if newscope:
             self._evaluator.pushenv(env)
         output = []
-        for node in tree:
+        subs = []
+        for ind, node in enumerate(tree):
             cmd = node[0]
-            result = None
             if cmd == 'txt':
                 result = node[1]
             elif cmd == 'if':
                 result = self._get_conditional_content(*node[1:4])
-            elif cmd == 'isub':
-                result = self._get_inline_sub(*node[1:3])
-            elif cmd == 'bsub':
-                result = self._get_block_sub(*node[1:4])
+            elif cmd == 'exprsub' or cmd == 'linesub':
+                result = self._get_substitution(*node[1:3])
+                # Remember the substitution as continuation lines and synclines
+                # will be postponed until all nodes has been processed
+                if not self._active_macros and self._linelength > 0:
+                    span = node[2]
+                    subs.append((ind, span, self._curfile))
             elif cmd == 'macrodef':
                 result = self._define_macro(*node[1:5])
             elif cmd == 'setvar':
@@ -412,32 +416,19 @@ class Renderer:
                 result = self._register_file(*node[1:3])
             else:
                 result = '<<<< INVALID LINE |' + cmd +  '|\n'
-            if result is not None:
-                output.append(result)
+            output.append(result)
         if newscope:
             self._evaluator.popenv()
+        if subs:
+            self._postprocess_substituted_lines(output, subs)
         return ''.join(output)
 
 
-    def _get_inline_sub(self, expr, span):
-        self._update_linenr(span[1])
-        out = str(self._evaluator.evaluate(expr)).rstrip()
-        if out.count('\n'):
-            print('<<< INVALID MULTILINE SUBSTITUTION')            
-        return out
-
-
-    def _get_block_sub(self, expr, span):
+    def _get_substitution(self, expr, span):
         self._update_linenr(span[1])
         out = str(self._evaluator.evaluate(expr))
-        out = out.rstrip()
-        if self._synclines and not self._active_macros:
-            out = out.replace('\n', '\n' + _syncline(span[0], self._curfile))
-            out = out + '\n' + _syncline(span[1], self._curfile)
-        else:
-            out = out + '\n'
         return out
-        
+
 
     def _get_conditional_content(self, conditions, contents, spans):
         out = []
@@ -472,29 +463,29 @@ class Renderer:
 
 
     def _define_macro(self, name, args, content, spans):
+        result = ''
         if name.startswith(_RESERVED_PREFIX):
-            print('<<< INVALID MARCO NAME {}'.format(name))
-            return None
+            print('<<< INVALID MACRO NAME {}'.format(name))
+            return result
         macro = _Macro(name, args, content, self.render, self._open_macro,
                        self._close_macro)
         self._evaluator.define(name, macro)
         if self._synclines and not self._active_macros:
-            return _syncline(spans[1][1], self._curfile)
-        else:
-            return None
+            result = _syncline(spans[1][1], self._curfile)
+        return result
 
 
     def _define_variable(self, name, valstr, span):
+        result = ''
         if name.startswith(_RESERVED_PREFIX):
             print('<<< INVALID VARIABLE NAME')
-            return
+            return result
         self._update_linenr(span[0])
         value = self._evaluator.evaluate(valstr)
         self._evaluator.define(name, value)
         if self._synclines and not self._active_macros:
-            return _syncline(span[1], self._curfile)
-        else:
-            return None
+            result = _syncline(span[1], self._curfile)
+        return result
 
     
     def _open_macro(self, name):
@@ -508,17 +499,78 @@ class Renderer:
 
 
     def _register_file(self, fname, line):
+        result = ''
         self._curfile = fname
         self._evaluator.updateenv(__FILE__=fname)
         if self._synclines and not self._active_macros:
-            return _syncline(line, self._curfile)
-        else:
-            return None
+            result = _syncline(line, self._curfile)
+        return result
 
 
     def _update_linenr(self, linenr):
         if not self._active_macros:
             self._evaluator.updateenv(__LINE__=linenr + 1) 
+
+
+    def _postprocess_substituted_lines(self, output, isubs):
+        lastproc = -1
+        for ind, span, fname in isubs:
+            if ind <= lastproc:
+                continue
+
+            # find last eol before substitution
+            iprev = ind - 1
+            while iprev >= 0:
+                eolprev = output[iprev].rfind('\n')
+                if eolprev != -1:
+                    break
+                iprev -= 1
+            else:
+                iprev = 0
+                eolprev = 0
+                
+            # find first eol after substitution
+            inext = ind + 1
+            while inext < len(output):
+                eolnext = output[inext].find('\n')
+                if eolnext != -1:
+                    break
+                inext += 1
+            else:
+                inext = len(output) - 1
+                eolnext = len(output[-1]) - 1
+
+            # Create full line containing the substitution
+            curline_parts = [ output[iprev][eolprev + 1:] ]
+            curline_parts.extend(output[iprev + 1 : inext ])
+            curline_parts.append(output[inext][:eolnext + 1])
+            curline = ''.join(curline_parts)
+            
+            output[iprev] = output[iprev][:eolprev + 1]
+            output[inext] = output[inext][eolnext + 1:]
+            for ii in range(iprev + 1, inext):
+                output[ii] = ''
+            
+            # Split line substitution
+            lines = self._splitlines(curline)
+            if self._synclines and len(lines) > 1:
+                oldlines = lines
+                syncl = _syncline(span[0], fname)
+                lines = [ oldlines[0] + '\n' ]
+                for line in oldlines[1:-1]:
+                    lines.append(syncl)
+                    lines.append(line + '\n')
+                lines.append(oldlines[-1])
+            output[ind] = ''.join(lines)
+            lastproc = inext
+
+
+    def _splitlines(self, line):
+        lines = line.split('\n')
+        result = []
+        for line in lines:
+            result += _split_line(line, self._linelength)
+        return result
 
 
 class Evaluator:
@@ -587,7 +639,7 @@ class _Macro:
         argdict.update(keywords)
         output = self._renderfunc(self._content, argdict)
         self._closefunc(self._name)
-        return output
+        return output.rstrip()
 
 
 class Processor:
@@ -607,8 +659,8 @@ class Processor:
         self._parser.handle_else = self._builder.handle_else
         self._parser.handle_elif = self._builder.handle_elif
         self._parser.handle_endif = self._builder.handle_endif
-        self._parser.handle_block_sub = self._builder.handle_block_sub
-        self._parser.handle_inline_sub = self._builder.handle_inline_sub
+        self._parser.handle_line_sub = self._builder.handle_line_sub
+        self._parser.handle_expr_sub = self._builder.handle_expr_sub
         self._parser.handle_text = self._builder.handle_text
         self._parser.handle_def = self._builder.handle_def
         self._parser.handle_enddef = self._builder.handle_enddef
@@ -622,19 +674,24 @@ class Processor:
         env = {} if env is None else env
         output = self._renderer.render(self._builder.tree, env)
         return ''.join(output)
-        
 
             
 def _syncline(linenr, fname):
     return '# {} "{}"\n'.format(linenr + 1, fname)
 
 
-def _join_continuations(txt):
-    nlines = txt.count('\n')
-    newtxt = _CONTLINE_REGEXP.sub('', txt)
-    return newtxt, nlines
-
-
+def _split_line(line, maxlen):
+    if len(line) <= maxlen:
+        result = [ line ]
+    else:
+        result = [line[:maxlen - 1] + '&']
+        maxlen4 = maxlen - 4
+        pos = maxlen - 1 - maxlen4
+        for pos in range(maxlen - 1, len(line) - maxlen4 - 1, maxlen4):
+            result.append('  &' + line[pos : pos + maxlen4] + '&')
+        result.append('  &' + line[pos + maxlen4:])
+    return result
+    
 
 ################################################################################
 # Command line tool
@@ -651,25 +708,31 @@ def _fypp_main():
         _fypp_apply_definitions(args.defines, evaluator, parser.error)
     parser = DirectiveParser(args.includes)
     builder = TreeBuilder()
-    renderer = Renderer(evaluator, synclines=args.synclines)
+    renderer = Renderer(evaluator, synclines=args.synclines, 
+                        linelength=args.line_length)
     preprocessor = Processor(parser, builder, renderer)
     _fypp_process_file(preprocessor, args.infile, args.outfile)
 
 
 def _fypp_parse_arguments(parser):
-    msg = 'define a variable with given value. The value is interpreted as ' \
-          'Python expression. (e.g `-D DEBUG=1\' sets variable DEBUG to 1). ' \
-          'If the value is ommited (e.g. `-D DEBUG\') the variable is set to ' \
-          'None.'
+    msg = 'define variable. Value is interpreted as ' \
+          'Python expression (e.g `-D DEBUG=1\' sets DEBUG to the integer 1)' \
+          ' or set to None if ommitted.'
     parser.add_argument('-D', '--define', action='append', dest='defines',
                         metavar='VAR[=VALUE]', help=msg)
-    msg = 'add a directory to the search paths, which are looked up when ' \
-          'processing include directives. '
+    msg = 'add a directory to the search paths for include files'
     parser.add_argument('-I', '--include', action='append', dest='includes',
                         metavar='INCDIR', help=msg)
-    msg = 'include CPP style sync-lines in the output.'
+    msg = 'include CPP style sync-lines in the output'
     parser.add_argument('-s', '--synclines', action='store_true', 
                         default=False, help=msg)
+    msg = 'maximal line length (default: 132). Lines modified by the ' \
+          'preprocessor will be folded to this length. Setting to 0 disables ' \
+          'line folding.'
+    parser.add_argument('-l', '--line-length', type=int, default=132,
+                        metavar='LEN', help=msg)
+    versionstr = '%(prog)s ' + VERSION
+    parser.add_argument('-v', '--version', action='version', version=versionstr)
     msg = "input file to be processed (default: `-', read from stdin)"
     parser.add_argument('infile', nargs='?', default='-', help=msg)
     msg = "output file where processed content will be written (default: " \
