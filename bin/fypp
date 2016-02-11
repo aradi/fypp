@@ -539,7 +539,7 @@ class Renderer:
                 iprev -= 1
             else:
                 iprev = 0
-                eolprev = 0
+                eolprev = -1
                 
             # find first eol after substitution
             inext = ind + 1
@@ -550,18 +550,21 @@ class Renderer:
                 inext += 1
             else:
                 inext = len(output) - 1
-                eolnext = len(output[-1]) - 1
+                eolnext = len(output[-1])
 
             # Create full line containing the substitution
-            curline_parts = [ output[iprev][eolprev + 1:] ]
-            curline_parts.extend(output[iprev + 1:inext ])
-            curline_parts.append(output[inext][:eolnext + 1])
+            curline_parts = []
+            if iprev != ind:
+                curline_parts = [ output[iprev][eolprev + 1:] ]
+                output[iprev] = output[iprev][:eolprev + 1]
+            curline_parts.extend(output[iprev + 1:ind])
+            curline_parts.extend(output[ind])
+            curline_parts.extend(output[ind + 1:inext])
+            if inext != ind:
+                curline_parts.append(output[inext][:eolnext + 1])
+                output[inext] = output[inext][eolnext + 1:]
             curline = ''.join(curline_parts)
-            
-            output[iprev] = output[iprev][:eolprev + 1]
-            output[inext] = output[inext][eolnext + 1:]
-            for ii in range(iprev + 1, inext):
-                output[ii] = ''
+            output[iprev + 1:inext] = [ '' ] * (inext - iprev - 1)
             
             # Split lines and add synclines if needed
             lines = self._splitlines(curline)
@@ -668,7 +671,6 @@ class Processor:
         else:
             self._renderer = renderer
 
-        self._builder = TreeBuilder()
         self._parser.handle_open_file = self._builder.handle_open_file
         self._parser.handle_if = self._builder.handle_if
         self._parser.handle_else = self._builder.handle_else
@@ -722,7 +724,7 @@ def _split_line(line, maxlen):
 # Command line tool
 ################################################################################
 
-_FYPP_DESC = '''Preprocess Fortran files with FyPP directives.'''
+_FYPP_DESC = '''Preprocess Fortran files with FYPP directives.'''
 
 
 class FyppCmdLineTool:
