@@ -1,4 +1,6 @@
 #!/bin/bash
-root="$(dirname $0)/.."
+testdir="$(dirname $0)"
+root="../"
 export PYTHONPATH="$root/src:$PYTHONPATH"
-python3 -m unittest discover $root/test
+cd $testdir
+python3 -m unittest discover 
