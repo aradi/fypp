@@ -32,17 +32,20 @@
 import builtins
 import re
 import os
+import sys
+from argparse import ArgumentParser
 
-__all__ = [ 'STDIN', 'VERSION', 'DirectiveParser', 'TreeBuilder', 'Renderer', 
-            'Evaluator', 'Processor' ]
+
+__all__ = [ 'VERSION', 'DirectiveParser', 'TreeBuilder', 'Renderer', 
+            'Evaluator', 'Processor', 'syncline', 'STDIN', 'FILEOBJ', 'STRING' ]
 
 VERSION = '0.1'
 
 STDIN = '<stdin>'
 
-_FILEOBJ = '<fileobj>'
+FILEOBJ = '<fileobj>'
 
-_STRING = '<string>'
+STRING = '<string>'
 
 _DIRECTIVE_REGEXP = re.compile(r'''
 # directive name
@@ -65,7 +68,7 @@ _SETVAR_PARAM_REGEXP = re.compile(r'''^(?P<name>\w+)\s*(?P<expr>.*)?\s*$''')
 _FOR_PARAM_REGEXP = re.compile(
     r'''^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)\s*$''')
 
-_INCLUDE_PARAM_REGEXP = re.compile(r'''^(\'|')(?P<fname>.*)\1\s*$''')
+_INCLUDE_PARAM_REGEXP = re.compile(r'''^(\'|")(?P<fname>.*?)\1\s*$''')
 
 _CONTLINE_REGEXP = re.compile(r'''&[ \t]*\n[ \t]*&''')
 
@@ -97,8 +100,8 @@ class DirectiveParser:
                 self._curdir = os.path.dirname(fobj)
         else:
             fp = fobj
-            self._curfile = _FILEOBJ
-            self._curdir = None
+            self._curfile = FILEOBJ
+            self._curdir = os.getcwd()
         self.handle_open_file(self._curfile, 0)
         self._parse(fp.read())
         if closefile:
@@ -106,70 +109,70 @@ class DirectiveParser:
 
 
     def parse(self, txt):
-        self._curfile = _STRING
-        self._curdir = None
+        self._curfile = STRING
+        self._curdir = os.getcwd()
+        self.handle_open_file(self._curfile, 0)
         self._parse(txt)
 
     
     def handle_open_file(self, fname, linenr):
-        print('OPEN FILE:', fname, linenr)
+        self._log_event('open file', (linenr, linenr), filename=fname)
 
         
     def handle_setvar(self, name, expr, span):
-        print('SETVAR:{}-{}:'.format(*span))
-        print('  EXPR: |{}|'.format(expr))
+        self._log_event('setvar', span, name=name, expression=expr)
 
     
     def handle_def(self, name, args, span):
-        print('MACRO:{}-{}:'.format(*span))
-        print('  NAME: |{}|'.format(name))
-        print('  ARGS:', args)
+        self._log_event('def', span, name=name, arguments=args)
 
 
     def handle_enddef(self, span):
-        print('ENDDEF :{}-{}:'.format(*span))
+        self._log_event('enddef', span)
 
 
     def handle_if(self, param, span):
-        print('IF :{}-{}:'.format(*span))
-        print('  PARAM: |{}|'.format(param))
+        self._log_event('if', span, condition=param)
 
 
     def handle_elif(self, param, span):
-        print('ELIF :{}-{}:'.format(*span))
-        print('  PARAM: |{}|'.format(param))
+        self._log_event('elif', span, condition=param)
 
 
     def handle_else(self, span):
-        print('ELSE :{}-{}:'.format(*span))
+        self._log_event('else', span)
 
         
     def handle_endif(self, span):
-        print('ENDIF :{}-{}:'.format(*span))
+        self._log_event('endif', span)
 
 
     def handle_for(self, varexpr, iterator, span):
-        print('FOR :{}-{}:'.format(*span))
-        print('  VAREXPR: |{}|'.format(varexpr))
-        print('  ITERATOR: |{}|'.format(iterator))
+        self._log_event('for', span, variable=varexpr, iterable=iterator)
 
 
     def handle_endfor(self, span):
-        print('ENDFOR :{}-{}:'.format(*span))
+        self._log_event('endfor', span)
 
 
-    def handle_line_sub(self, expr, span):
-        print('LINE SUB: :{}-{}:'.format(*span))
-        print('  EXPR: |{}|'.format(expr))
+    def handle_linesub(self, expr, span):
+        self._log_event('linesub', span, expression=expr)
 
 
-    def handle_expr_sub(self, expr, span):
-        print('EXPR SUB: :{}-{}:'.format(*span))
-        print('  EXPR: |{}|'.format(expr))
+    def handle_exprsub(self, expr, span):
+        self._log_event('exprsub', span, expression=expr)
 
 
-    def handle_text(self, txt):
-        print('TEXT: {}'.format(txt))
+    def handle_text(self, txt, span):
+        self._log_event('text', span, content=txt)
+
+
+    @staticmethod
+    def _log_event(event, span, **params):
+        print('{}: {}-{}'.format(event, span[0], span[1]))
+        for parname, parvalue in params.items():
+            print('  {}: ->|{}|<-'.format(parname, parvalue))
+        print()
 
 
     def _parse(self, txt):
@@ -179,21 +182,22 @@ class DirectiveParser:
             groups = match.groupdict()
             start, end = match.span()
             if start > pos:
-                self.handle_text(txt[pos:start])
-                linenr += txt.count('\n', pos, start)
+                endlinenr = linenr + txt.count('\n', pos, start)
+                self.handle_text(txt[pos:start], (linenr, endlinenr))
+                linenr = endlinenr
             endlinenr = linenr + txt.count('\n', start, end)
-            span = (linenr, endlinenr)
             if groups['directive'] is not None:
                 self._process_directive(groups['directive'], groups['param'],
-                                        span)
+                                        (linenr, endlinenr))
             elif groups['lineexpr'] is not None:
-                self._process_line_sub(groups['lineexpr'], span)
+                self._process_linesub(groups['lineexpr'], (linenr, endlinenr))
             else:
-                self._process_expr_sub(groups['expr'], span)
+                self._process_exprsub(groups['expr'], (linenr, endlinenr))
             pos = end
             linenr = endlinenr
         if pos < len(txt):
-            self.handle_text(txt[pos:])
+            endlinenr = linenr + txt.count('\n', pos)
+            self.handle_text(txt[pos:], (linenr, endlinenr))
 
 
     def _process_directive(self, directive, param, span):
@@ -222,13 +226,13 @@ class DirectiveParser:
             print('<<< UNKNOWN DIRECTIVE:', directive)
 
             
-    def _process_line_sub(self, expr, span):
+    def _process_linesub(self, expr, span):
         expr = _CONTLINE_REGEXP.sub('', expr)
-        self.handle_line_sub(expr, span)
+        self.handle_linesub(expr, span)
 
 
-    def _process_expr_sub(self, expr, span):
-        self.handle_expr_sub(expr, span)
+    def _process_exprsub(self, expr, span):
+        self.handle_exprsub(expr, span)
 
 
     def _process_def(self, param, span):
@@ -258,9 +262,6 @@ class DirectiveParser:
 
         
     def _process_include(self, param, linenr):
-        if self._curdir is None:
-            print('<<< Include not allowed when reading from file like object')
-            return
         match = _INCLUDE_PARAM_REGEXP.search(param)
         if not match:
             print('<<< INVALID FILE NAME')
@@ -289,7 +290,16 @@ class TreeBuilder:
         self._files = {}
         self._curfile = None
 
-        
+
+    def reset(self):
+        self._tree = []
+        self._path = []
+        self._open_blocks = []
+        self._curnode = self._tree
+        self._files = {}
+        self._curfile = None
+
+
     def handle_open_file(self, fname, linenr):
         self._curfile = self._files.get(fname, None)
         if self._curfile is None:
@@ -360,16 +370,16 @@ class TreeBuilder:
         self._curnode.append(('setvar', name, expr, span))
 
 
-    def handle_line_sub(self, expr, span):
+    def handle_linesub(self, expr, span):
         self._curnode.append(('linesub', expr, span))
         
 
-    def handle_expr_sub(self, expr, span):
+    def handle_exprsub(self, expr, span):
         self._curnode.append(('exprsub', expr, span))
         
 
-    def handle_text(self, txt):
-        self._curnode.append(('txt', txt))
+    def handle_text(self, txt, span):
+        self._curnode.append(('txt', txt, span))
 
 
     @property
@@ -383,7 +393,7 @@ class Renderer:
         self._evaluator = Evaluator() if evaluator is None else evaluator
         self._curfile = None
         self._active_macros = []
-        self._synclines = synclines
+        self.synclines = synclines
         self._linelength = linelength
 
 
@@ -415,7 +425,7 @@ class Renderer:
             elif cmd == 'include':
                 result = self._register_file(*node[1:3])
             else:
-                result = '<<<< INVALID LINE |' + cmd +  '|\n'
+                result = '<<<< INVALID LINE |' + cmd + '|\n'
             output.append(result)
         if newscope:
             self._evaluator.popenv()
@@ -435,12 +445,12 @@ class Renderer:
         for condition, content, span in zip(conditions, contents, spans):
             self._update_linenr(span[1])
             if self._evaluator.evaluate(condition):
-                if self._synclines and not self._active_macros:
-                    out.append(_syncline(span[1], self._curfile))
+                if self.synclines and not self._active_macros:
+                    out.append(syncline(span[1], self._curfile))
                 out.append(self.render(content))
                 break
-        if self._synclines and not self._active_macros:
-            out.append(_syncline(spans[-1][1], self._curfile))
+        if self.synclines and not self._active_macros:
+            out.append(syncline(spans[-1][1], self._curfile))
         return ''.join(out)
 
 
@@ -454,11 +464,11 @@ class Renderer:
             else:
                 loopscope = {varname: value 
                              for varname, value in zip(loopvars, var)}
-            if self._synclines and not self._active_macros:
-                out.append(_syncline(spans[0][1], self._curfile))
+            if self.synclines and not self._active_macros:
+                out.append(syncline(spans[0][1], self._curfile))
             out.append(self.render(content, loopscope))
-        if self._synclines and not self._active_macros:
-            out.append(_syncline(spans[1][1], self._curfile))
+        if self.synclines and not self._active_macros:
+            out.append(syncline(spans[1][1], self._curfile))
         return ''.join(out)
 
 
@@ -470,8 +480,8 @@ class Renderer:
         macro = _Macro(name, args, content, self.render, self._open_macro,
                        self._close_macro)
         self._evaluator.define(name, macro)
-        if self._synclines and not self._active_macros:
-            result = _syncline(spans[1][1], self._curfile)
+        if self.synclines and not self._active_macros:
+            result = syncline(spans[1][1], self._curfile)
         return result
 
 
@@ -483,8 +493,8 @@ class Renderer:
         self._update_linenr(span[0])
         value = self._evaluator.evaluate(valstr)
         self._evaluator.define(name, value)
-        if self._synclines and not self._active_macros:
-            result = _syncline(span[1], self._curfile)
+        if self.synclines and not self._active_macros:
+            result = syncline(span[1], self._curfile)
         return result
 
     
@@ -502,8 +512,8 @@ class Renderer:
         result = ''
         self._curfile = fname
         self._evaluator.updateenv(__FILE__=fname)
-        if self._synclines and not self._active_macros:
-            result = _syncline(line, self._curfile)
+        if self.synclines and not self._active_macros:
+            result = syncline(line, self._curfile)
         return result
 
 
@@ -527,7 +537,7 @@ class Renderer:
                 iprev -= 1
             else:
                 iprev = 0
-                eolprev = 0
+                eolprev = -1
                 
             # find first eol after substitution
             inext = ind + 1
@@ -541,27 +551,44 @@ class Renderer:
                 eolnext = len(output[-1]) - 1
 
             # Create full line containing the substitution
-            curline_parts = [ output[iprev][eolprev + 1:] ]
-            curline_parts.extend(output[iprev + 1 : inext ])
-            curline_parts.append(output[inext][:eolnext + 1])
+            curline_parts = []
+            if iprev != ind:
+                curline_parts = [ output[iprev][eolprev + 1:] ]
+                output[iprev] = output[iprev][:eolprev + 1]
+            curline_parts.extend(output[iprev + 1:ind])
+            curline_parts.extend(output[ind])
+            curline_parts.extend(output[ind + 1:inext])
+            if inext != ind:
+                curline_parts.append(output[inext][:eolnext + 1])
+                output[inext] = output[inext][eolnext + 1:]
             curline = ''.join(curline_parts)
+            output[iprev + 1:inext] = [ '' ] * (inext - iprev - 1)
             
-            output[iprev] = output[iprev][:eolprev + 1]
-            output[inext] = output[inext][eolnext + 1:]
-            for ii in range(iprev + 1, inext):
-                output[ii] = ''
-            
-            # Split line substitution
+            # Split lines and add synclines if needed
             lines = self._splitlines(curline)
-            if self._synclines and len(lines) > 1:
+            # if curline ended with '\n', last element of lines is ''
+            nrlines = len(lines) if lines[-1] else len(lines) - 1
+            if self.synclines and (nrlines > 1 or span[0] != span[1]):
                 oldlines = lines
-                syncl = _syncline(span[0], fname)
+                syncl = syncline(span[0], fname)
                 lines = [ oldlines[0] + '\n' ]
                 for line in oldlines[1:-1]:
                     lines.append(syncl)
                     lines.append(line + '\n')
-                lines.append(oldlines[-1])
-            output[ind] = ''.join(lines)
+                if oldlines[-1]:
+                    # Line did not end on '\n' -> it was last line of input
+                    # -> no syncline is needed.
+                    lines.append(oldlines[-1])
+                elif span[0] != span[1]:
+                    # Syncline needed, if directive (line substitutation) goes
+                    # over multiple lines. Otherwise the syncline inserted
+                    # before the last line of the substituation (pointing to
+                    # the line of the directive) ensures correct line numbering
+                    # for the following content.
+                    lines.append(syncline(span[1] + 1, fname))
+                output[ind] = ''.join(lines)
+            else:
+                output[ind] = '\n'.join(lines)
             lastproc = inext
 
 
@@ -584,10 +611,10 @@ class Evaluator:
     def __init__(self, env=None):
         self._env = env.copy() if env is not None else {}
         self._envstack = []
-        builtins = {}
-        builtins.update(self.ALLOWED_BUILTINS)
-        builtins['defined'] = self._func_defined
-        self._builtins = {'__builtins__': builtins}
+        builtindict = {}
+        builtindict.update(self.ALLOWED_BUILTINS)
+        builtindict['defined'] = self._func_defined
+        self._builtins = {'__builtins__': builtindict}
 
 
     def evaluate(self, expr):
@@ -644,7 +671,7 @@ class _Macro:
 
 class Processor:
 
-    def __init__(self, parser=None, builder=None, renderer=None, 
+    def __init__(self, parser=None, builder=None, renderer=None,
                  evaluator=None):
         self._parser = DirectiveParser() if parser is None else parser
         self._builder = TreeBuilder() if builder is None else builder
@@ -659,8 +686,8 @@ class Processor:
         self._parser.handle_else = self._builder.handle_else
         self._parser.handle_elif = self._builder.handle_elif
         self._parser.handle_endif = self._builder.handle_endif
-        self._parser.handle_line_sub = self._builder.handle_line_sub
-        self._parser.handle_expr_sub = self._builder.handle_expr_sub
+        self._parser.handle_linesub = self._builder.handle_linesub
+        self._parser.handle_exprsub = self._builder.handle_exprsub
         self._parser.handle_text = self._builder.handle_text
         self._parser.handle_def = self._builder.handle_def
         self._parser.handle_enddef = self._builder.handle_enddef
@@ -669,14 +696,24 @@ class Processor:
         self._parser.handle_endfor = self._builder.handle_endfor
 
 
-    def process(self, fname, env=None):
+    def process_file(self, fname, env=None):
         self._parser.parsefile(fname)
+        return self._render(env)
+
+
+    def process_text(self, txt, env=None):
+        self._parser.parse(txt)
+        return self._render(env)
+
+
+    def _render(self, env):
         env = {} if env is None else env
         output = self._renderer.render(self._builder.tree, env)
+        self._builder.reset()
         return ''.join(output)
 
-            
-def _syncline(linenr, fname):
+
+def syncline(linenr, fname):
     return '# {} "{}"\n'.format(linenr + 1, fname)
 
 
@@ -688,7 +725,7 @@ def _split_line(line, maxlen):
         maxlen4 = maxlen - 4
         pos = maxlen - 1 - maxlen4
         for pos in range(maxlen - 1, len(line) - maxlen4 - 1, maxlen4):
-            result.append('  &' + line[pos : pos + maxlen4] + '&')
+            result.append('  &' + line[pos:pos + maxlen4] + '&')
         result.append('  &' + line[pos + maxlen4:])
     return result
     
@@ -697,81 +734,87 @@ def _split_line(line, maxlen):
 # Command line tool
 ################################################################################
 
-_FYPP_DESC = '''Preprocess Fortran files with FyPP directives.'''
+_FYPP_DESC = '''Preprocess Fortran files with FYPP directives.'''
 
 
-def _fypp_main():
-    parser = ArgumentParser(description=_FYPP_DESC)
-    args = _fypp_parse_arguments(parser)
-    evaluator = Evaluator()
-    if args.defines:
-        _fypp_apply_definitions(args.defines, evaluator, parser.error)
-    parser = DirectiveParser(args.includes)
-    builder = TreeBuilder()
-    renderer = Renderer(evaluator, synclines=args.synclines, 
-                        linelength=args.line_length)
-    preprocessor = Processor(parser, builder, renderer)
-    _fypp_process_file(preprocessor, args.infile, args.outfile)
+class Fypp:
+
+    def __init__(self, cmdline_args=None):
+        self._argparser = self.get_cmdline_parser()
+        self._args = self._argparser.parse_args(cmdline_args)
+        evaluator = Evaluator()
+        if self._args.defines:
+            self.apply_definitions(self._args.defines, evaluator,
+                                   self._argparser.error)
+        parser = DirectiveParser(self._args.includes)
+        builder = TreeBuilder()
+        renderer = Renderer(evaluator, synclines=self._args.synclines,
+                            linelength=self._args.line_length)
+        self._preprocessor = Processor(parser, builder, renderer)
 
 
-def _fypp_parse_arguments(parser):
-    msg = 'define variable. Value is interpreted as ' \
-          'Python expression (e.g `-D DEBUG=1\' sets DEBUG to the integer 1)' \
-          ' or set to None if ommitted.'
-    parser.add_argument('-D', '--define', action='append', dest='defines',
-                        metavar='VAR[=VALUE]', help=msg)
-    msg = 'add a directory to the search paths for include files'
-    parser.add_argument('-I', '--include', action='append', dest='includes',
-                        metavar='INCDIR', help=msg)
-    msg = 'include CPP style sync-lines in the output'
-    parser.add_argument('-s', '--synclines', action='store_true', 
-                        default=False, help=msg)
-    msg = 'maximal line length (default: 132). Lines modified by the ' \
-          'preprocessor will be folded to this length. Setting to 0 disables ' \
-          'line folding.'
-    parser.add_argument('-l', '--line-length', type=int, default=132,
-                        metavar='LEN', help=msg)
-    versionstr = '%(prog)s ' + VERSION
-    parser.add_argument('-v', '--version', action='version', version=versionstr)
-    msg = "input file to be processed (default: `-', read from stdin)"
-    parser.add_argument('infile', nargs='?', default='-', help=msg)
-    msg = "output file where processed content will be written (default: " \
-          "`-', written to stdout)"
-    parser.add_argument('outfile', nargs='?', default='-', help=msg)
-    return parser.parse_args()
+    def process_cmdline_files(self, env=None):
+        infile = STDIN if self._args.infile == '-' else self._args.infile
+        output = self._preprocessor.process_file(infile, env)
+        if self._args.outfile == '-':
+            fp = sys.stdout
+        else:
+            fp = open(self._args.outfile, 'w')
+        fp.write(output)
+        if fp != sys.stdout:
+            fp.close()
 
 
-def _fypp_apply_definitions(defines, evaluator, errorfunc):
-
-    for define in defines:
-        words = define.split('=', 2)
-        name = words[0]
-        value = None
-        if len(words) > 1:
-            try:
-                value = evaluator.evaluate(words[1])
-            except Exception as ex:
-                msg = "Exception at evaluating `{}' in definition for `{}':\n" \
-                      "{}".format(words[1], words[0], ex)
-                errorfunc(msg)
-        evaluator.define(name, value)
+    def process_text(self, txt, env=None):
+        return self._preprocessor.process_text(txt, env)
 
 
-def _fypp_process_file(preprocessor, infile, outfile):
-    if infile == '-':
-        infile = STDIN
-    output = preprocessor.process(infile)
-    if outfile == '-':
-        fp = sys.stdout
-    else:
-        fp = open(outfile, 'w')
-    fp.write(output)
-    if outfile != '-':
-        fp.close()
+    @staticmethod
+    def get_cmdline_parser():
+        parser = ArgumentParser(description=_FYPP_DESC)
+        msg = 'define variable. Value is interpreted as ' \
+              'Python expression (e.g \'-D DEBUG=1\' sets DEBUG to the ' \
+              'integer 1) or set to None if ommitted.'
+        parser.add_argument('-D', '--define', action='append', dest='defines',
+                            metavar='VAR[=VALUE]', help=msg)
+        msg = 'add a directory to the search paths for include files'
+        parser.add_argument('-I', '--include', action='append', dest='includes',
+                            metavar='INCDIR', help=msg)
+        msg = 'include CPP style sync-lines in the output'
+        parser.add_argument('-s', '--synclines', action='store_true',
+                            default=False, help=msg)
+        msg = 'maximal line length (default: 132). Lines modified by the ' \
+              'preprocessor will be folded to this length. Setting to 0 ' \
+              'disables line folding.'
+        parser.add_argument('-l', '--line-length', type=int, default=132,
+                            metavar='LEN', help=msg)
+        versionstr = '%(prog)s ' + VERSION
+        parser.add_argument('-v', '--version', action='version',
+                            version=versionstr)
+        msg = "input file to be processed (default: '-', stdin)"
+        parser.add_argument('infile', nargs='?', default='-', help=msg)
+        msg = "output file where processed content will be written (default: " \
+              "'-', stdout)"
+        parser.add_argument('outfile', nargs='?', default='-', help=msg)
+        return parser
+
+
+    @staticmethod
+    def apply_definitions(defines, evaluator, errorfunc):
+        for define in defines:
+            words = define.split('=', 2)
+            name = words[0]
+            value = None
+            if len(words) > 1:
+                try:
+                    value = evaluator.evaluate(words[1])
+                except Exception as ex:
+                    msg = "Exception at evaluating '{}' in definition for " \
+                          "'{}':\n{}".format(words[1], words[0], ex)
+                    errorfunc(msg)
+            evaluator.define(name, value)
 
 
 if __name__ == '__main__':
-    import sys
-    from argparse import ArgumentParser
-    _fypp_main()
-
+    tool = Fypp()
+    tool.process_cmdline_files()
