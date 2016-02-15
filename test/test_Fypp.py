@@ -149,6 +149,31 @@ simple_tests = [
      '#for i in (1, 2, 3)\n$ mymacro(i)\n#endfor\n',
      'VAL:1\nVAL:2\nVAL:3\n'
      ),
+    #
+    ('comment_in_text', [],
+     'A\nB $! Comment\nC\n',
+     'A\nB \nC\n'
+     ),
+    #
+    ('comment_out_line', [],
+     'A\n$! Comment\nC\n',
+     'A\n\nC\n'
+     ),
+    #
+    ('comment_in_linesubs', [],
+     '$ 1 + 2 $! Comment\n',
+     '3\n'
+     ),
+    #
+    ('comment_out_subs', [],
+     'A $! ${1}$\n',
+     'A \n',
+     ),
+    #
+    ('comment_in_directive', [],
+     '#if 1 < 2 $! Comment\nTrue\n#endif$!Comment2\n',
+     'True\n',
+     ),
 ]
 
 syncline_tests = [

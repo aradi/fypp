@@ -47,6 +47,9 @@ FILEOBJ = '<fileobj>'
 
 STRING = '<string>'
 
+
+_COMMENT_REGEXP = re.compile(r'\$!.*$', re.MULTILINE)
+
 _DIRECTIVE_REGEXP = re.compile(r'''
 # directive name
 ^[ \t]*\#(?P<directive>\w+)[ \t]*
@@ -174,8 +177,13 @@ class DirectiveParser:
             print('  {}: ->|{}|<-'.format(parname, parvalue))
         print()
 
-
+        
     def _parse(self, txt):
+        txt = _COMMENT_REGEXP.sub('', txt)
+        self._parse_directives(txt)
+
+
+    def _parse_directives(self, txt):
         pos = 0
         linenr = 0
         for match in _DIRECTIVE_REGEXP.finditer(txt):
