@@ -30,6 +30,7 @@
 #
 ################################################################################
 import builtins
+import types
 import re
 import os
 import sys
@@ -499,8 +500,7 @@ class Renderer:
             print('<<< INVALID VARIABLE NAME')
             return result
         self._update_linenr(span[0])
-        value = self._evaluator.evaluate(valstr)
-        self._evaluator.define(name, value)
+        self._evaluator.setvar(name, valstr)
         if self.synclines and not self._active_macros:
             result = syncline(span[1], self._curfile)
         return result
@@ -679,10 +679,13 @@ class Evaluator:
         if restricted:
             builtindict = {}
             builtindict.update(self.RESTRICTED_BUILTINS)
+            builtindict['__import__'] = self._func_import
         else:
             builtindict = vars(builtins)
-        self._builtins = {'__builtins__': builtindict}
         builtindict['defined'] = self._func_defined
+        builtindict['setvar'] = self._func_setvar
+        builtindict['default'] = self._func_default
+        self._builtins = {'__builtins__': builtindict}
 
 
     def evaluate(self, expr):
@@ -692,6 +695,11 @@ class Evaluator:
 
     def execute(self, code):
         exec(code, self._builtins, self._env)
+
+
+    def setvar(self, name, valstr):
+        value = self.evaluate(valstr)
+        self.define(name, value)
 
 
     def define(self, name, value):
@@ -720,7 +728,30 @@ class Evaluator:
     def _func_defined(self, var):
         return var in self._env
 
-        
+    
+    def _func_import(self, name, *_, **__):
+        module = self._env.get(name, None)
+        if module is not None and isinstance(module, types.ModuleType):
+            return module
+        else:
+            msg = "Import of module '{}' via '__import__' not allowed" \
+                  .format(name)
+            raise ImportError(msg)
+        return ''
+
+
+    def _func_setvar(self, name, value):
+        self.setvar(name, value)
+        return ''
+
+
+    def _func_default(self, name, defvalue):
+        if name in self._env:
+            return self._env[name]
+        else:
+            return defvalue
+
+
 class _Macro:
 
     def __init__(self, name, argnames, content, renderfunc, openfunc, 
