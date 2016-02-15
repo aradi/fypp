@@ -610,24 +610,88 @@ class Renderer:
 
 class Evaluator:
 
-    ALLOWED_BUILTINS = {
-        'str': builtins.str,
+    RESTRICTED_BUILTINS = {
+        'abs': builtins.abs,
+        'all': builtins.all,
+        'any': builtins.any,
+        'ascii': builtins.ascii,
+        'bin': builtins.bin,
+        'bool': builtins.bool,
+        'bytearray': builtins.bytearray,
+        'bytes': builtins.bytes,
+        'callable': builtins.callable,
+        'chr': builtins.chr,
+        'classmethod': builtins.classmethod,
+        'complex': builtins.complex,
+        'delattr': builtins.delattr,
+        'dict': builtins.dict,
+        'dir': builtins.dir,
+        'divmod': builtins.divmod,
+        'enumerate': builtins.enumerate,
+        'filter': builtins.filter,
+        'float': builtins.float,
+        'format': builtins.format,
+        'frozenset': builtins.frozenset,
+        'getattr': builtins.getattr,
+        'globals': builtins.globals,
+        'hasattr': builtins.hasattr,
+        'hash': builtins.hash,
+        'hex': builtins.hex,
+        'id': builtins.id,
+        'int': builtins.int,
+        'isinstance': builtins.isinstance,
+        'issubclass': builtins.issubclass,
+        'iter': builtins.iter,
+        'len': builtins.len,
+        'list': builtins.list,
+        'locals': builtins.locals,
+        'map': builtins.map,
+        'max': builtins.max,
+        'memoryview': builtins.memoryview,
+        'min': builtins.min,
+        'next': builtins.next,
+        'object': builtins.object,
+        'oct': builtins.oct,
+        'ord': builtins.ord,
+        'pow': builtins.pow,
+        'property': builtins.property,
         'range': builtins.range,
+        'repr': builtins.repr,
+        'reversed': builtins.reversed,
+        'round': builtins.round,
+        'set': builtins.set,
+        'setattr': builtins.setattr,
+        'slice': builtins.slice,
+        'sorted': builtins.sorted,
+        'staticmethod': builtins.staticmethod,
+        'str': builtins.str,
+        'sum': builtins.sum,
+        'super': builtins.super,
+        'tuple': builtins.tuple,
         'type': builtins.type,
+        'vars': builtins.vars,
+        'zip': builtins.zip,
     }
 
-    def __init__(self, env=None):
+    def __init__(self, env=None, restricted=True):
         self._env = env.copy() if env is not None else {}
         self._envstack = []
-        builtindict = {}
-        builtindict.update(self.ALLOWED_BUILTINS)
-        builtindict['defined'] = self._func_defined
+        if restricted:
+            builtindict = {}
+            builtindict.update(self.RESTRICTED_BUILTINS)
+        else:
+            builtindict = vars(builtins)
         self._builtins = {'__builtins__': builtindict}
+        builtindict['defined'] = self._func_defined
 
 
     def evaluate(self, expr):
         result = eval(expr, self._builtins, self._env)
         return result
+
+
+    def execute(self, code):
+        exec(code, self._builtins, self._env)
 
 
     def define(self, name, value):
@@ -646,6 +710,11 @@ class Evaluator:
 
     def popenv(self):
         self._env = self._envstack.pop(-1)
+
+    
+    @property
+    def env(self):
+        return self._env
 
 
     def _func_defined(self, var):
@@ -742,18 +811,23 @@ def _split_line(line, maxlen):
 # Command line tool
 ################################################################################
 
-_FYPP_DESC= '''Preprocess Fortran files with FYPP directives.'''
+_FYPP_DESC= '''Preprocess Fortran source files with FYPP directives.'''
 
 
 class Fypp:
 
     def __init__(self, cmdline_args=None):
-        self._argparser = self.get_cmdline_parser()
+        self._argparser = self._get_cmdline_parser()
         self._args = self._argparser.parse_args(cmdline_args)
-        evaluator = Evaluator()
+        errorfunc = self._argparser.error
+        inieval = Evaluator(restricted=False)
+        if self._args.modules:
+            self._import_modules(self._args.modules, inieval, errorfunc)
+        if self._args.inifiles:
+            self._exec_inifiles(self._args.inifiles, inieval, errorfunc)
+        evaluator = Evaluator(env=inieval.env, restricted=True)
         if self._args.defines:
-            self.apply_definitions(self._args.defines, evaluator,
-                                   self._argparser.error)
+            self._apply_definitions(self._args.defines, evaluator, errorfunc)
         parser = DirectiveParser(self._args.includes)
         builder = TreeBuilder()
         renderer = Renderer(evaluator, synclines=self._args.synclines,
@@ -778,14 +852,14 @@ class Fypp:
 
 
     @staticmethod
-    def get_cmdline_parser():
+    def _get_cmdline_parser():
         parser = ArgumentParser(description=_FYPP_DESC)
         msg = 'define variable. Value is interpreted as ' \
-              'Python expression (e.g \'-D DEBUG=1\' sets DEBUG to the ' \
+              'Python expression (e.g \'-DDEBUG=1\' sets DEBUG to the ' \
               'integer 1) or set to None if ommitted.'
         parser.add_argument('-D', '--define', action='append', dest='defines',
                             metavar='VAR[=VALUE]', help=msg)
-        msg = 'add a directory to the search paths for include files'
+        msg = 'add directory to the search paths for include files'
         parser.add_argument('-I', '--include', action='append', dest='includes',
                             metavar='INCDIR', help=msg)
         msg = 'include CPP style sync-lines in the output'
@@ -796,6 +870,12 @@ class Fypp:
               'disables line folding.'
         parser.add_argument('-l', '--line-length', type=int, default=132,
                             metavar='LEN', help=msg)
+        msg = 'import python module before starting the processing'
+        parser.add_argument('-m', '--module', action='append', dest='modules',
+                            metavar='MOD', help=msg)
+        msg = 'execute python initialization script before starting processing'
+        parser.add_argument('-i', '--ini-file', action='append', 
+                            dest='inifiles', metavar='INI', help=msg)
         versionstr = '%(prog)s ' + VERSION
         parser.add_argument('-v', '--version', action='version',
                             version=versionstr)
@@ -808,7 +888,7 @@ class Fypp:
 
 
     @staticmethod
-    def apply_definitions(defines, evaluator, errorfunc):
+    def _apply_definitions(defines, evaluator, errorfunc):
         for define in defines:
             words = define.split('=', 2)
             name = words[0]
@@ -818,9 +898,39 @@ class Fypp:
                     value = evaluator.evaluate(words[1])
                 except Exception as ex:
                     msg = "Exception at evaluating '{}' in definition for " \
-                          "'{}':\n{}".format(words[1], words[0], ex)
+                          "'{}':\n{}".format(words[1], name, ex)
                     errorfunc(msg)
             evaluator.define(name, value)
+
+
+    @staticmethod
+    def _import_modules(modules, evaluator, errorfunc):
+        for module in modules:
+            try:
+                evaluator.execute('import ' + module)
+            except Exception as ex:
+                msg = "Exception occured during import of module '{}':\n{}"\
+                      .format(module, ex)
+                errorfunc(msg)
+
+    
+    @staticmethod
+    def _exec_inifiles(inifiles, evaluator, errorfunc):
+        for inifile in inifiles:
+            try:
+                fp = open(inifile, 'r')
+                code = fp.read()
+                fp.close()
+            except IOError as ex:
+                msg = "IO error occured at reading file '{}':\n{}"\
+                    .format(inifile, ex)
+                errorfunc(msg)
+            try:
+                evaluator.execute(code)
+            except Exception as ex:
+                msg = "Exception occured when executing ini-file '{}':\n{}"\
+                      .format(inifile, ex)
+                errorfunc(msg)
 
 
 if __name__ == '__main__':
