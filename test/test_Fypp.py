@@ -98,6 +98,16 @@ simple_tests = [
      '2'
      ),
     #
+    ('linesub_contlines_contchar1', [],
+     '$ \'hello&\n  world\'\n',
+     'hello  world\n'
+     ),
+    #
+    ('linesub_contlines2_contchar1', [],
+     '$ \'hello&\n  world&\n  !\'\n',
+     'hello  world  !\n'
+     ),
+    #
     ('exprsub', [ _defvar('TESTVAR', 1) ],
      'A${TESTVAR}$B${TESTVAR + 1}$C',
      'A1B2C'

@@ -53,24 +53,24 @@ _DIRECTIVE_REGEXP = re.compile(r'''
 # directive parameter (with optional continuation lines)
 (?P<param>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
 |
-# line substitution
-^[ \t]*\$\ (?P<lineexpr>.*?(?:&[ \t]*\n[ \t]*&.*?)*)[ \t]*$
+# line substitution (with optional continuation lines)
+^[ \t]*\$\ (?P<lineexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*$
 |
 # expression substitution
 \$\{[ \t]*(?P<expr>.*?)[ \t]*\}\$
 ''', re.VERBOSE | re.MULTILINE)
 
 _MACRO_PARAM_REGEXP = re.compile(
-    r'''^(?P<name>\w+)\((?P<args>\s*(?:\w+\s*,\s*)*(?:\w+)\s*)\)$''')
+    r'^(?P<name>\w+)\((?P<args>\s*(?:\w+\s*,\s*)*(?:\w+)\s*)\)$')
 
-_SETVAR_PARAM_REGEXP = re.compile(r'''^(?P<name>\w+)\s*(?P<expr>.*)?\s*$''')
+_SETVAR_PARAM_REGEXP = re.compile(r'^(?P<name>\w+)\s*(?P<expr>.*)?\s*$')
 
 _FOR_PARAM_REGEXP = re.compile(
-    r'''^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)\s*$''')
+    r'^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)\s*$')
 
-_INCLUDE_PARAM_REGEXP = re.compile(r'''^(\'|")(?P<fname>.*?)\1\s*$''')
+_INCLUDE_PARAM_REGEXP = re.compile(r'^(\'|")(?P<fname>.*?)\1\s*$')
 
-_CONTLINE_REGEXP = re.compile(r'''&[ \t]*\n[ \t]*&''')
+_CONTLINE_REGEXP = re.compile(r'&[ \t]*\n(?:[ \t]*&)?')
 
 _RESERVED_PREFIX = '_'
 
@@ -734,7 +734,7 @@ def _split_line(line, maxlen):
 # Command line tool
 ################################################################################
 
-_FYPP_DESC = '''Preprocess Fortran files with FYPP directives.'''
+_FYPP_DESC= '''Preprocess Fortran files with FYPP directives.'''
 
 
 class Fypp:
