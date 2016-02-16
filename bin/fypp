@@ -49,19 +49,19 @@ FILEOBJ = '<fileobj>'
 STRING = '<string>'
 
 
-_COMMENT_REGEXP = re.compile(r'\$!.*$', re.MULTILINE)
+_COMMENT_REGEXP = re.compile(r'@!.*$', re.MULTILINE)
 
 _DIRECTIVE_REGEXP = re.compile(r'''
 # directive name
-^[ \t]*\#(?P<directive>\w+)[ \t]*
+^[ \t]*\@:[ \t]*(?P<directive>\w+)[ \t]*
 # directive parameter (with optional continuation lines)
 (?P<param>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
 |
 # line substitution (with optional continuation lines)
-^[ \t]*\$\ (?P<lineexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*$
+^[ \t]*\$:[ \t]*(?P<lineexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*$
 |
 # expression substitution
-\$\{[ \t]*(?P<expr>.*?)[ \t]*\}\$
+\$\|[ \t]*(?P<expr>.*?)[ \t]*\|\$
 ''', re.VERBOSE | re.MULTILINE)
 
 _MACRO_PARAM_REGEXP = re.compile(
