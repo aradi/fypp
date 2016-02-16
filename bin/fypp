@@ -52,16 +52,18 @@ STRING = '<string>'
 _COMMENT_REGEXP = re.compile(r'@!.*$', re.MULTILINE)
 
 _DIRECTIVE_REGEXP = re.compile(r'''
-# directive name
-^[ \t]*\@:[ \t]*(?P<directive>\w+)[ \t]*
-# directive parameter (with optional continuation lines)
-(?P<param>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
+# line directive (with optional continuation lines)
+^[ \t]*@:[ \t]*(?P<ldirective>\w+)[ \t]*
+(?P<lineparam>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
 |
 # line substitution (with optional continuation lines)
-^[ \t]*\$:[ \t]*(?P<lineexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*$
+^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*$
 |
-# expression substitution
-\$\|[ \t]*(?P<expr>.*?)[ \t]*\|\$
+# inline directive
+@\{[ \t]*(?P<idirective>\w+)[ \t]*(?P<param>.*?)?[ \t]*\}@
+|
+# inline substitution
+\$\{[ \t]*(?P<iexpr>.*?)[ \t]*\}\$
 ''', re.VERBOSE | re.MULTILINE)
 
 _MACRO_PARAM_REGEXP = re.compile(
@@ -195,13 +197,17 @@ class DirectiveParser:
                 self.handle_text(txt[pos:start], (linenr, endlinenr))
                 linenr = endlinenr
             endlinenr = linenr + txt.count('\n', start, end)
-            if groups['directive'] is not None:
-                self._process_directive(groups['directive'], groups['param'],
+            if groups['ldirective'] is not None:
+                self._process_directive(
+                    groups['ldirective'], groups['lineparam'], 
+                    (linenr, endlinenr))
+            elif groups['lexpr'] is not None:
+                self._process_linesub(groups['lexpr'], (linenr, endlinenr))
+            elif groups['idirective'] is not None:
+                self._process_directive(groups['idirective'], groups['param'],
                                         (linenr, endlinenr))
-            elif groups['lineexpr'] is not None:
-                self._process_linesub(groups['lineexpr'], (linenr, endlinenr))
             else:
-                self._process_exprsub(groups['expr'], (linenr, endlinenr))
+                self._process_exprsub(groups['iexpr'], (linenr, endlinenr))
             pos = end
             linenr = endlinenr
         if pos < len(txt):
@@ -407,78 +413,112 @@ class Renderer:
 
 
     def render(self, tree, env=None):
+        output, subs_inds, subs_pos = self._render(tree, env)
+        if subs_inds:
+            self._postprocess_substituted_lines(output, subs_inds, subs_pos)
+        return ''.join(output)
+
+
+    def _render(self, tree, env=None):
         newscope = env is not None
         if newscope:
             self._evaluator.pushenv(env)
         output = []
-        subs = []
-        for ind, node in enumerate(tree):
+        # Remember which elements in output are result of a substitution
+        # as continuation lines and synclines for substitutions are postponed
+        # till the end of the rendering process
+        subs_inds = []
+        subs_pos = []
+        for node in tree:
             cmd = node[0]
             if cmd == 'txt':
-                result = node[1]
+                output.append(node[1])
             elif cmd == 'if':
-                result = self._get_conditional_content(*node[1:4])
+                out, isubs, psubs = self._get_conditional_content(*node[1:4])
+                subs_inds += _shiftinds(isubs, len(output))
+                subs_pos += psubs
+                output += out
             elif cmd == 'exprsub' or cmd == 'linesub':
-                result = self._get_substitution(*node[1:3])
-                # Remember the substitution as continuation lines and synclines
-                # will be postponed until all nodes has been processed
-                if not self._active_macros and self._linelength > 0:
-                    span = node[2]
-                    subs.append((ind, span, self._curfile))
+                out, isubs, psubs = self._get_substitution(*node[1:3])
+                subs_inds += _shiftinds(isubs, len(output))
+                subs_pos += psubs
+                output += out
             elif cmd == 'macrodef':
                 result = self._define_macro(*node[1:5])
+                output.append(result)
             elif cmd == 'setvar':
                 result = self._define_variable(*node[1:4])
+                output.append(result)
             elif cmd == 'for':
-                result = self._get_iterated_content(*node[1:5])
+                out, isubs, psubs = self._get_iterated_content(*node[1:5])
+                subs_inds += _shiftinds(isubs, len(output))
+                subs_pos += psubs
+                output += out
             elif cmd == 'include':
                 result = self._register_file(*node[1:3])
+                output.append(result)
             else:
                 result = '<<<< INVALID LINE |' + cmd + '|\n'
-            output.append(result)
+                output.append(result)
         if newscope:
             self._evaluator.popenv()
-        if subs:
-            self._postprocess_substituted_lines(output, subs)
-        return ''.join(output)
+        return output, subs_inds, subs_pos
 
 
     def _get_substitution(self, expr, span):
         self._update_linenr(span[1])
-        out = str(self._evaluator.evaluate(expr))
-        return out
+        out = [ str(self._evaluator.evaluate(expr)) ]
+        if not self._active_macros:
+            isubs = [ 0 ]
+            psubs = [ (span, self._curfile) ]
+        else:
+            isubs = []
+            psubs = []
+        return out, isubs, psubs
 
 
     def _get_conditional_content(self, conditions, contents, spans):
         out = []
+        isub = []
+        psub = []
+        multiline = (spans[0][0] != spans[-1][1])
         for condition, content, span in zip(conditions, contents, spans):
             self._update_linenr(span[1])
             if self._evaluator.evaluate(condition):
-                if self.synclines and not self._active_macros:
+                if self.synclines and not self._active_macros and multiline:
                     out.append(syncline(span[1], self._curfile))
-                out.append(self.render(content))
+                outcont, isubcont, psubcont = self._render(content)
+                isub += _shiftinds(isubcont, len(out))
+                psub += psubcont
+                out += outcont
                 break
-        if self.synclines and not self._active_macros:
+        if self.synclines and not self._active_macros and multiline:
             out.append(syncline(spans[-1][1], self._curfile))
-        return ''.join(out)
+        return out, isub, psub
 
 
     def _get_iterated_content(self, loopvars, loopiter, content, spans):
         out = []
+        isub = []
+        psub = []
         self._update_linenr(spans[0][1])
         iterobj = iter(self._evaluator.evaluate(loopiter))
+        multiline = (spans[0][0] != spans[-1][1])
         for var in iterobj:
             if len(loopvars) == 1:
                 loopscope = {loopvars[0]: var}
             else:
                 loopscope = {varname: value 
                              for varname, value in zip(loopvars, var)}
-            if self.synclines and not self._active_macros:
+            if self.synclines and not self._active_macros and multiline:
                 out.append(syncline(spans[0][1], self._curfile))
-            out.append(self.render(content, loopscope))
-        if self.synclines and not self._active_macros:
+            outcont, isubcont, psubcont = self._render(content, loopscope)
+            isub += _shiftinds(isubcont, len(out))
+            psub += psubcont
+            out += outcont
+        if self.synclines and not self._active_macros and multiline:
             out.append(syncline(spans[1][1], self._curfile))
-        return ''.join(out)
+        return out, isub, psub
 
 
     def _define_macro(self, name, args, content, spans):
@@ -489,6 +529,7 @@ class Renderer:
         macro = _Macro(name, args, content, self.render, self._open_macro,
                        self._close_macro)
         self._evaluator.define(name, macro)
+        multiline = (spans[0][0] != spans[-1][1])
         if self.synclines and not self._active_macros:
             result = syncline(spans[1][1], self._curfile)
         return result
@@ -501,7 +542,8 @@ class Renderer:
             return result
         self._update_linenr(span[0])
         self._evaluator.setvar(name, valstr)
-        if self.synclines and not self._active_macros:
+        multiline = (span[0] != span[1])
+        if self.synclines and not self._active_macros and multiline:
             result = syncline(span[1], self._curfile)
         return result
 
@@ -530,9 +572,10 @@ class Renderer:
             self._evaluator.updateenv(__LINE__=linenr + 1) 
 
 
-    def _postprocess_substituted_lines(self, output, isubs):
+    def _postprocess_substituted_lines(self, output, subs_inds, subs_pos):
         lastproc = -1
-        for ind, span, fname in isubs:
+        for ii, ind in enumerate(subs_inds):
+            span, fname = subs_pos[ii]
             if ind <= lastproc:
                 continue
 
@@ -836,6 +879,10 @@ def _split_line(line, maxlen):
             result.append('  &' + line[pos:pos + maxlen4] + '&')
         result.append('  &' + line[pos + maxlen4:])
     return result
+
+
+def _shiftinds(inds, shift):
+    return [ ind + shift for ind in inds ]
     
 
 ################################################################################

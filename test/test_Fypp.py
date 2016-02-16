@@ -73,8 +73,61 @@ simple_tests = [
      'False\n'
      ),
     #
+    ('inline_if_true', [ _defvar('TESTVAR', 1) ],
+     '@{if TESTVAR > 0}@True@{endif}@Done',
+     'TrueDone'
+     ),
+    #
+    ('inline_if_false', [ _defvar('TESTVAR', 0) ],
+     '@{if TESTVAR > 0}@True@{endif}@Done',
+     'Done'
+     ),
+    #
+    ('inline_if_else_true', [ _defvar('TESTVAR', 1) ],
+     '@{if TESTVAR > 0}@True@{else}@False@{endif}@Done',
+     'TrueDone'
+     ),
+    #
+    ('inline_if_else_false', [ _defvar('TESTVAR', 0) ],
+     '@{if TESTVAR > 0}@True@{else}@False@{endif}@Done',
+     'FalseDone'
+     ),
+    #
+    ('inline_if_elif_true1', [ _defvar('TESTVAR', 1) ],
+     '@{if TESTVAR == 1}@True1@{elif TESTVAR == 2}@True2@{endif}@Done',
+     'True1Done'
+     ),
+    #
+    ('inline_if_elif_true2', [ _defvar('TESTVAR', 2) ],
+     '@{if TESTVAR == 1}@True1@{elif TESTVAR == 2}@True2@{endif}@Done',
+     'True2Done'
+     ),
+    #
+    ('inline_if_elif_false', [ _defvar('TESTVAR', 0) ],
+     '@{if TESTVAR == 1}@True1@{elif TESTVAR == 2}@True2@{endif}@Done',
+     'Done'
+     ),
+    #
+    ('inline_if_elif_else_true1', [ _defvar('TESTVAR', 1) ],
+     '@{if TESTVAR == 1}@True1@{elif TESTVAR == 2}@True2@{else}@False@{endif}@'
+     'Done',
+     'True1Done'
+     ),
+    #
+    ('inline_if_elif_else_true2', [ _defvar('TESTVAR', 2) ],
+     '@{if TESTVAR == 1}@True1@{elif TESTVAR == 2}@True2@{else}@False@{endif}@'
+     'Done',
+     'True2Done'
+     ),
+    #
+    ('inline_if_elif_else_false', [ _defvar('TESTVAR', 0) ],
+     '@{if TESTVAR == 1}@True1@{elif TESTVAR == 2}@True2@{else}@False@{endif}@'
+     'Done',
+     'FalseDone'
+     ),
+    #
     ('exprsub', [ _defvar('TESTVAR', 0) ],
-     '<$|TESTVAR|$ x $| 2 - 3 |$>',
+     '<${TESTVAR}$ x ${ 2 - 3 }$>',
      '<0 x -1>'
      ),
     #
@@ -109,45 +162,61 @@ simple_tests = [
      ),
     #
     ('exprsub', [ _defvar('TESTVAR', 1) ],
-     'A$|TESTVAR|$B$|TESTVAR + 1|$C',
+     'A${TESTVAR}$B${TESTVAR + 1}$C',
      'A1B2C'
      ),
     #
     ('exprsub_ignored_contlines', [ _defvar('TESTVAR', 1) ],
-     'A$|TEST&\n  &VAR|$B$|TESTVAR + 1|$C',
-     'A$|TEST&\n  &VAR|$B2C'
+     'A${TEST&\n  &VAR}$B${TESTVAR + 1}$C',
+     'A${TEST&\n  &VAR}$B2C'
      ),
     #
     ('macrosubs', [],
-     '@:def macro(var)\nMACRO|$|var|$|\n@:enddef\n$|macro(1)|$',
+     '@:def macro(var)\nMACRO|${var}$|\n@:enddef\n${macro(1)}$',
      'MACRO|1|'
      ),
     #
     ('recursive_macrosubs', [],
-     '@:def macro(var)\nMACRO|$|var|$|\n@:enddef\n$|macro(macro(1))|$',
+     '@:def macro(var)\nMACRO|${var}$|\n@:enddef\n${macro(macro(1))}$',
      'MACRO|MACRO|1||'
      ),
     #
     ('macrosubs_extvarsubs', [ _defvar('TESTVAR', 1) ],
-     '@:def macro(var)\nMACRO|$|var|$-$|TESTVAR|$|\n@:enddef\n$|macro(2)|$',
+     '@:def macro(var)\nMACRO|${var}$-${TESTVAR}$|\n@:enddef\n${macro(2)}$',
      'MACRO|2-1|'
      ),
     #
     ('macrosubs_extvar_override', [ _defvar('TESTVAR', 1) ],
-     '@:def macro(var)\nMACRO|$|var|$-$|TESTVAR|$|\n@:enddef\n'
-     '$|macro(2, TESTVAR=4)|$',
+     '@:def macro(var)\nMACRO|${var}$-${TESTVAR}$|\n@:enddef\n'
+     '${macro(2, TESTVAR=4)}$',
      'MACRO|2-4|'
      ),
     #
+    ('inline_macrodef', [],
+     '@{def f(x)}@${x}$^2@{enddef}@\n$: f(20)\nDone\n',
+     '\n20^2\nDone\n'
+     ),
+    #
     ('for', [],
-     '@:for i in (1, 2, 3)\n$|i|$\n@:endfor\n',
+     '@:for i in (1, 2, 3)\n${i}$\n@:endfor\n',
      '1\n2\n3\n'
      ),
     #
     ('for_macro', [],
-     '@:def mymacro(val)\nVAL:$|val|$\n@:enddef\n'
+     '@:def mymacro(val)\nVAL:${val}$\n@:enddef\n'
      '@:for i in (1, 2, 3)\n$: mymacro(i)\n@:endfor\n',
      'VAL:1\nVAL:2\nVAL:3\n'
+     ),
+    #
+    ('inline_for', [],
+     '@{for i in (1, 2, 3)}@${i}$@{endfor}@Done\n',
+     '123Done\n'
+     ),
+    #
+    ('inline_for_macro', [],
+     '@:def mymacro(val)\nVAL:${val}$\n@:enddef\n'
+     '@{for i in (1, 2, 3)}@${mymacro(i)}$@{endfor}@Done\n',
+     'VAL:1VAL:2VAL:3Done\n'
      ),
     #
     ('comment_in_text', [],
@@ -166,13 +235,23 @@ simple_tests = [
      ),
     #
     ('comment_out_subs', [],
-     'A @! $|1|$\n',
+     'A @! ${1}$\n',
      'A \n',
      ),
     #
     ('comment_in_directive', [],
      '@:if 1 < 2 @! Comment\nTrue\n@:endif@!Comment2\n',
      'True\n',
+     ),
+    #
+    ('setvar', [],
+     '@:setvar x 2\n$: x\n',
+     '2\n',
+     ),
+    #
+    ('inline_setvar', [],
+     '@{setvar x 2}@${x}$Done\n',
+     '2Done\n',
      ),
 ]
 
@@ -205,11 +284,11 @@ syncline_tests = [
     #
     ('if_else_false', [ _SYNCL_FLAG ],
      '@:if 1 > 2\nTrue\n@:else\nFalse\n@:endif\nDone\n',
-     '# 1 "<string>"\n# 4 "<string>"\nFalse\n# 6 "<string>"\nDone\n'
+     _strsyncl(0) + _strsyncl(3) + 'False\n' + _strsyncl(5) + 'Done\n'
      ),
     ('if_elif_true1', [ _SYNCL_FLAG ],
      '@:if 1 == 1\nTrue1\n@:elif 1 == 2\nTrue2\n@:endif\nDone\n',
-     '# 1 "<string>"\n# 2 "<string>"\nTrue1\n# 6 "<string>"\nDone\n'
+     _strsyncl(0) + _strsyncl(1) + 'True1\n' + _strsyncl(5) + 'Done\n'
      ),
     #
     ('if_elif_true2', [ _SYNCL_FLAG ],
@@ -240,6 +319,55 @@ syncline_tests = [
      _strsyncl(0) + _strsyncl(5) + 'False\n' + _strsyncl(7) + 'Done\n'
      ),
     #
+    ('inline_if_true', [ _SYNCL_FLAG ],
+     '@{if 1 < 2}@True@{endif}@Done\n',
+     _strsyncl(0) + 'TrueDone\n'
+     ),
+    #
+    ('inline_if_false', [ _SYNCL_FLAG ],
+     '@{if 1 > 2}@True@{endif}@Done\n',
+     _strsyncl(0) + 'Done\n'
+     ),
+    #
+    ('inline_if_else_true', [ _SYNCL_FLAG ],
+     '@{if 1 < 2}@True@{else}@False@{endif}@Done\n',
+     _strsyncl(0) + 'TrueDone\n'
+     ),
+    #
+    ('inline_if_else_false', [ _SYNCL_FLAG ],
+     '@{if 1 > 2}@True@{else}@False@{endif}@Done\n',
+     _strsyncl(0) + 'FalseDone\n'
+     ),
+    ('inline_if_elif_true1', [ _SYNCL_FLAG ],
+     '@{if 1 == 1}@True1@{elif 1 == 2}@True2@{endif}@Done\n',
+     _strsyncl(0) + 'True1Done\n'
+     ),
+    #
+    ('inline_if_elif_true2', [ _SYNCL_FLAG ],
+     '@{if 2 == 1}@True1@{elif 2 == 2}@True2@{endif}@Done\n',
+     _strsyncl(0) + 'True2Done\n'
+     ),
+    #
+    ('inline_if_elif_false', [ _SYNCL_FLAG ],
+     '@{if 0 == 1}@True1@{elif 0 == 2}@True2@{endif}@Done\n',
+     _strsyncl(0) + 'Done\n'
+     ),
+    #
+    ('inline_if_elif_else_true1', [ _SYNCL_FLAG ],
+     '@{if 1 == 1}@True1@{elif 1 == 2}@True2@{else}@False@{endif}@Done\n',
+     _strsyncl(0) + 'True1Done\n'
+     ),
+    #
+    ('inline_if_elif_else_true2', [ _SYNCL_FLAG ],
+     '@{if 2 == 1}@True1@{elif 2 == 2}@True2@{else}@False@{endif}@Done\n',
+     _strsyncl(0) + 'True2Done\n'
+     ),
+    #
+    ('inline_if_elif_else_false', [ _SYNCL_FLAG ],
+     '@{if 0 == 1}@True1@{elif 0 == 2}@True2@{else}@False@{endif}@Done\n',
+     _strsyncl(0) + 'FalseDone\n'
+     ),
+    #
     ('linesub_oneline', [ _SYNCL_FLAG ],
      'A\n$: 1 + 1\nB\n',
      _strsyncl(0) + 'A\n2\nB\n'
@@ -256,46 +384,62 @@ syncline_tests = [
      ),
     #
     ('exprsub_single_line', [ _SYNCL_FLAG, _defvar('TESTVAR', 1) ],
-     'A$|TESTVAR|$B$|TESTVAR + 1|$C',
+     'A${TESTVAR}$B${TESTVAR + 1}$C',
      _strsyncl(0) + 'A1B2C'
      ),
     #
     ('exprsub_multi_line', [ _SYNCL_FLAG ],
-     '$|"line1\\nline2"|$\nDone\n',
+     '${"line1\\nline2"}$\nDone\n',
      _strsyncl(0) + 'line1\n' + _strsyncl(0) + 'line2\nDone\n'
      ),
     #
     ('macrosubs', [ _SYNCL_FLAG ],
-     '@:def macro(var)\nMACRO|$|var|$|\n@:enddef\n$|macro(1)|$',
+     '@:def macro(var)\nMACRO|${var}$|\n@:enddef\n${macro(1)}$',
      _strsyncl(0) + _strsyncl(3) + 'MACRO|1|'
      ),
     #
     ('recursive_macrosubs', [ _SYNCL_FLAG ],
-     '@:def macro(var)\nMACRO|$|var|$|\n@:enddef\n$|macro(macro(1))|$',
+     '@:def macro(var)\nMACRO|${var}$|\n@:enddef\n${macro(macro(1))}$',
      _strsyncl(0) + _strsyncl(3) + 'MACRO|MACRO|1||'
      ),
     #
     ('macrosubs_multiline', [ _SYNCL_FLAG ],
-     '@:def macro(c)\nMACRO1|$|c|$|\nMACRO2|$|c|$|\n@:enddef\n$|macro(\'A\')|$\n',
+     '@:def macro(c)\nMACRO1|${c}$|\nMACRO2|${c}$|\n@:enddef\n${macro(\'A\')}$'
+     '\n',
      _strsyncl(0) + _strsyncl(4) + 'MACRO1|A|\n' + _strsyncl(4) + 'MACRO2|A|\n'
      ),
     #
     ('recursive_macrosubs_multiline', [ _SYNCL_FLAG ],
-     '@:def f(c)\nLINE1|$|c|$|\nLINE2|$|c|$|\n@:enddef\n$: f(f("A"))\n',
+     '@:def f(c)\nLINE1|${c}$|\nLINE2|${c}$|\n@:enddef\n$: f(f("A"))\n',
      (_strsyncl(0) + _strsyncl(4) + 'LINE1|LINE1|A|\n' + _strsyncl(4)
       + 'LINE2|A||\n' + _strsyncl(4) + 'LINE2|LINE1|A|\n' + _strsyncl(4)
       + 'LINE2|A||\n')
      ),
     # 
     ('multiline_macrocall', [ _SYNCL_FLAG ],
-     '@:def macro(c)\nMACRO|$|c|$|\n@:enddef\n$: mac& \n  &ro(\'A\')\nDone\n',
+     '@:def macro(c)\nMACRO|${c}$|\n@:enddef\n$: mac& \n  &ro(\'A\')\nDone\n',
      _strsyncl(0) + _strsyncl(3) + 'MACRO|A|\n' + _strsyncl(5) + 'Done\n'
      ),
     #
     ('for', [ _SYNCL_FLAG ],
-     '@:for i in (1, 2)\n$|i|$\n@:endfor\nDone\n',
+     '@:for i in (1, 2)\n${i}$\n@:endfor\nDone\n',
      (_strsyncl(0) + _strsyncl(1) + '1\n' + _strsyncl(1) + '2\n' 
       + _strsyncl(3) + 'Done\n')
+     ),
+    #
+    ('inline_for', [ _SYNCL_FLAG ],
+     '@{for i in (1, 2)}@${i}$@{endfor}@Done\n',
+     _strsyncl(0) + '12Done\n'
+     ),
+    #
+    ('setvar', [ _SYNCL_FLAG ],
+     '@:setvar x 2\n$: x\n',
+     _strsyncl(0) + _strsyncl(1) + '2\n',
+     ),
+    #
+    ('inline_setvar', [ _SYNCL_FLAG ],
+     '@{setvar x 2}@${x}$Done\n',
+     _strsyncl(0) + '2Done\n',
      ),
 ]
 
