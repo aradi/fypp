@@ -57,13 +57,13 @@ _DIRECTIVE_REGEXP = re.compile(r'''
 ^[ \t]*@:[ \t]*(?P<ldirective>\w+)[ \t]*
 (?P<lparam>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
 |
-# line substitution (with optional continuation lines)
+# line expression evaluation (with optional continuation lines)
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*$
 |
 # inline directive
 @\{[ \t]*(?P<idirective>\w+)[ \t]*(?P<param>.*?)?[ \t]*\}@
 |
-# inline substitution
+# inline expression evaluation
 \$\{[ \t]*(?P<iexpr>.*?)[ \t]*\}\$
 ''', re.VERBOSE | re.MULTILINE)
 
@@ -162,12 +162,8 @@ class DirectiveParser:
         self._log_event('endfor', span)
 
 
-    def handle_linesub(self, expr, span):
-        self._log_event('linesub', span, expression=expr)
-
-
-    def handle_exprsub(self, expr, span):
-        self._log_event('exprsub', span, expression=expr)
+    def handle_expreval(self, expr, span):
+        self._log_event('expreval', span, expression=expr)
 
 
     def handle_text(self, txt, span):
@@ -210,12 +206,12 @@ class DirectiveParser:
                     groups['ldirective'], groups['lparam'], 
                     (linenr, endlinenr))
             elif groups['lexpr'] is not None:
-                self._process_linesub(groups['lexpr'], (linenr, endlinenr))
+                self._process_lexpreval(groups['lexpr'], (linenr, endlinenr))
             elif groups['idirective'] is not None:
                 self._process_directive(groups['idirective'], groups['param'],
                                         (linenr, endlinenr))
             elif groups['iexpr'] is not None:
-                self._process_exprsub(groups['iexpr'], (linenr, endlinenr))
+                self._process_iexpreval(groups['iexpr'], (linenr, endlinenr))
             elif groups['comment'] is not None:
                 self.handle_comment((linenr, endlinenr))
             else:
@@ -257,13 +253,13 @@ class DirectiveParser:
             print('<<< UNKNOWN DIRECTIVE:', directive)
 
             
-    def _process_linesub(self, expr, span):
+    def _process_lexpreval(self, expr, span):
         expr = _CONTLINE_REGEXP.sub('', expr)
-        self.handle_linesub(expr, span)
+        self.handle_expreval(expr, span)
 
 
-    def _process_exprsub(self, expr, span):
-        self.handle_exprsub(expr, span)
+    def _process_iexpreval(self, expr, span):
+        self.handle_expreval(expr, span)
 
 
     def _process_def(self, param, span):
@@ -401,13 +397,9 @@ class TreeBuilder:
         self._curnode.append(('setvar', name, expr, span))
 
 
-    def handle_linesub(self, expr, span):
-        self._curnode.append(('linesub', expr, span))
+    def handle_expreval(self, expr, span):
+        self._curnode.append(('expreval', expr, span))
         
-
-    def handle_exprsub(self, expr, span):
-        self._curnode.append(('exprsub', expr, span))
-
 
     def handle_comment(self, span):
         self._curnode.append(('comment', span))
@@ -447,9 +439,9 @@ class Renderer:
 
 
     def render(self, tree, env=None):
-        output, subs_inds, subs_pos = self._render(tree, env)
-        if subs_inds:
-            self._postprocess_substituted_lines(output, subs_inds, subs_pos)
+        output, eval_inds, eval_pos = self._render(tree, env)
+        if eval_inds:
+            self._postprocess_expreval_lines(output, eval_inds, eval_pos)
         return ''.join(output)
 
 
@@ -458,24 +450,21 @@ class Renderer:
         if newscope:
             self._evaluator.pushenv(env)
         output = []
-        # Remember which elements in output are result of a substitution
-        # as continuation lines and synclines for substitutions are postponed
-        # till the end of the rendering process
-        subs_inds = []
-        subs_pos = []
+        eval_inds = []
+        eval_pos = []
         for node in tree:
             cmd = node[0]
             if cmd == 'txt':
                 output.append(node[1])
             elif cmd == 'if':
-                out, isubs, psubs = self._get_conditional_content(*node[1:4])
-                subs_inds += _shiftinds(isubs, len(output))
-                subs_pos += psubs
+                out, ieval, peval = self._get_conditional_content(*node[1:4])
+                eval_inds += _shiftinds(ieval, len(output))
+                eval_pos += peval
                 output += out
-            elif cmd == 'exprsub' or cmd == 'linesub':
-                out, isubs, psubs = self._get_substitution(*node[1:3])
-                subs_inds += _shiftinds(isubs, len(output))
-                subs_pos += psubs
+            elif cmd == 'expreval':
+                out, ieval, peval = self._get_expreval(*node[1:3])
+                eval_inds += _shiftinds(ieval, len(output))
+                eval_pos += peval
                 output += out
             elif cmd == 'macrodef':
                 result = self._define_macro(*node[1:5])
@@ -484,9 +473,9 @@ class Renderer:
                 result = self._define_variable(*node[1:4])
                 output.append(result)
             elif cmd == 'for':
-                out, isubs, psubs = self._get_iterated_content(*node[1:5])
-                subs_inds += _shiftinds(isubs, len(output))
-                subs_pos += psubs
+                out, ieval, peval = self._get_iterated_content(*node[1:5])
+                eval_inds += _shiftinds(ieval, len(output))
+                eval_pos += peval
                 output += out
             elif cmd == 'include':
                 result = self._register_file(*node[1:3])
@@ -500,45 +489,45 @@ class Renderer:
                 output.append(result)
         if newscope:
             self._evaluator.popenv()
-        return output, subs_inds, subs_pos
+        return output, eval_inds, eval_pos
 
 
-    def _get_substitution(self, expr, span):
+    def _get_expreval(self, expr, span):
         self._update_linenr(span[1])
         out = [ str(self._evaluator.evaluate(expr)) ]
         if not self._active_macros:
-            isubs = [ 0 ]
-            psubs = [ (span, self._curfile) ]
+            ieval = [ 0 ]
+            peval = [ (span, self._curfile) ]
         else:
-            isubs = []
-            psubs = []
-        return out, isubs, psubs
+            ieval = []
+            peval = []
+        return out, ieval, peval
 
 
     def _get_conditional_content(self, conditions, contents, spans):
         out = []
-        isub = []
-        psub = []
+        ieval = []
+        peval = []
         multiline = (spans[0][0] != spans[-1][1])
         for condition, content, span in zip(conditions, contents, spans):
             self._update_linenr(span[1])
             if self._evaluator.evaluate(condition):
                 if self.synclines and not self._active_macros and multiline:
                     out.append(syncline(span[1], self._curfile))
-                outcont, isubcont, psubcont = self._render(content)
-                isub += _shiftinds(isubcont, len(out))
-                psub += psubcont
+                outcont, ievalcont, pevalcont = self._render(content)
+                ieval += _shiftinds(ievalcont, len(out))
+                peval += pevalcont
                 out += outcont
                 break
         if self.synclines and not self._active_macros and multiline:
             out.append(syncline(spans[-1][1], self._curfile))
-        return out, isub, psub
+        return out, ieval, peval
 
 
     def _get_iterated_content(self, loopvars, loopiter, content, spans):
         out = []
-        isub = []
-        psub = []
+        ieval = []
+        peval = []
         self._update_linenr(spans[0][1])
         iterobj = iter(self._evaluator.evaluate(loopiter))
         multiline = (spans[0][0] != spans[-1][1])
@@ -550,13 +539,13 @@ class Renderer:
                              for varname, value in zip(loopvars, var)}
             if self.synclines and not self._active_macros and multiline:
                 out.append(syncline(spans[0][1], self._curfile))
-            outcont, isubcont, psubcont = self._render(content, loopscope)
-            isub += _shiftinds(isubcont, len(out))
-            psub += psubcont
+            outcont, ievalcont, pevalcont = self._render(content, loopscope)
+            ieval += _shiftinds(ievalcont, len(out))
+            peval += pevalcont
             out += outcont
         if self.synclines and not self._active_macros and multiline:
             out.append(syncline(spans[1][1], self._curfile))
-        return out, isub, psub
+        return out, ieval, peval
 
 
     def _define_macro(self, name, args, content, spans):
@@ -625,14 +614,14 @@ class Renderer:
             self._evaluator.updateenv(__LINE__=linenr + 1) 
 
 
-    def _postprocess_substituted_lines(self, output, subs_inds, subs_pos):
+    def _postprocess_expreval_lines(self, output, eval_inds, eval_pos):
         lastproc = -1
-        for ii, ind in enumerate(subs_inds):
-            span, fname = subs_pos[ii]
+        for ii, ind in enumerate(eval_inds):
+            span, fname = eval_pos[ii]
             if ind <= lastproc:
                 continue
 
-            # find last eol before substitution
+            # find last eol before expr. evaluation
             iprev = ind - 1
             while iprev >= 0:
                 eolprev = output[iprev].rfind('\n')
@@ -643,7 +632,7 @@ class Renderer:
                 iprev = 0
                 eolprev = -1
                 
-            # find first eol after substitution
+            # find first eol after expr. evaluation
             inext = ind + 1
             while inext < len(output):
                 eolnext = output[inext].find('\n')
@@ -654,7 +643,7 @@ class Renderer:
                 inext = len(output) - 1
                 eolnext = len(output[-1]) - 1
 
-            # Create full line containing the substitution
+            # Create full line containing the evaluated expression
             curline_parts = []
             if iprev != ind:
                 curline_parts = [ output[iprev][eolprev + 1:] ]
@@ -684,9 +673,9 @@ class Renderer:
                     # -> no syncline is needed.
                     lines.append(oldlines[-1])
                 elif span[0] != span[1]:
-                    # Syncline needed, if directive (line substitutation) goes
+                    # Syncline needed, if expression evaluation goes
                     # over multiple lines. Otherwise the syncline inserted
-                    # before the last line of the substituation (pointing to
+                    # before the last line of the evaluation (pointing to
                     # the line of the directive) ensures correct line numbering
                     # for the following content.
                     lines.append(syncline(span[1] + 1, fname))
@@ -890,8 +879,7 @@ class Processor:
         self._parser.handle_else = self._builder.handle_else
         self._parser.handle_elif = self._builder.handle_elif
         self._parser.handle_endif = self._builder.handle_endif
-        self._parser.handle_linesub = self._builder.handle_linesub
-        self._parser.handle_exprsub = self._builder.handle_exprsub
+        self._parser.handle_expreval = self._builder.handle_expreval
         self._parser.handle_text = self._builder.handle_text
         self._parser.handle_def = self._builder.handle_def
         self._parser.handle_enddef = self._builder.handle_enddef
