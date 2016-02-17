@@ -1,5 +1,5 @@
 INCL1
-#def incmacro(x)
+@:def incmacro(x)
 INCMACRO(${x}$)
-#enddef
+@:enddef
 INCL5
