@@ -238,6 +238,11 @@ simple_tests = [
      '@{setvar x 2}@${x}$Done\n',
      '2Done\n',
      ),
+    #
+    ('mute', [],
+     'A\n@:mute\nB\n@:setvar VAR 2\n@:endmute\nVAR=${VAR}$\n',
+     'A\nVAR=2\n'
+     ),
 ]
 
 syncline_tests = [
@@ -435,6 +440,11 @@ syncline_tests = [
     ('comment_multiple', [ _SYNCL_FLAG ],
      ' @! Comment1\n@! Comment2\nDone\n',
      _strsyncl(0) + _strsyncl(2) + 'Done\n',
+     ),
+    #
+    ('mute', [ _SYNCL_FLAG ],
+     'A\n@:mute\nB\n@:setvar VAR 2\n@:endmute\nVAR=${VAR}$\n',
+     _strsyncl(0) + 'A\n' + _strsyncl(5) + 'VAR=2\n'
      ),
 ]
 

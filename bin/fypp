@@ -178,6 +178,14 @@ class DirectiveParser:
         self._log_event('comment', span)
 
 
+    def handle_mute(self, span):
+        self._log_event('mute', span)
+
+    
+    def handle_endmute(self, span):
+        self._log_event('endmute', span)
+
+
     @staticmethod
     def _log_event(event, span, **params):
         print('{}: {}-{}'.format(event, span[0], span[1]))
@@ -241,6 +249,10 @@ class DirectiveParser:
             self.handle_endfor(span)
         elif directive == 'include':
             self._process_include(param, span[1])
+        elif directive == 'mute':
+            self.handle_mute(span)
+        elif directive == 'endmute':
+            self.handle_endmute(span)
         else:
             print('<<< UNKNOWN DIRECTIVE:', directive)
 
@@ -404,6 +416,20 @@ class TreeBuilder:
     def handle_text(self, txt, span):
         self._curnode.append(('txt', txt, span))
 
+    
+    def handle_mute(self, span):
+        self._path.append(self._curnode)
+        self._curnode = []
+        self._open_blocks.append(('mute', None, [span]))
+
+
+    def handle_endmute(self, span):
+        directive, dummy, spans = self._open_blocks.pop(-1)
+        spans.append(span)
+        block = (directive, self._curnode, spans)
+        self._curnode = self._path.pop(-1)
+        self._curnode.append(block)
+
 
     @property
     def tree(self):
@@ -467,6 +493,8 @@ class Renderer:
                 output.append(result)
             elif cmd == 'comment':
                 output.append(self._get_comment(*node[1:2]))
+            elif cmd == 'mute':
+                output.append(self._get_muted_content(*node[1:3]))
             else:
                 result = '<<<< INVALID LINE |' + cmd + '|\n'
                 output.append(result)
@@ -561,6 +589,14 @@ class Renderer:
     def _get_comment(self, span):
         if self.synclines and not self._active_macros:
             return syncline(span[1], self._curfile)
+        else:
+            return ''
+
+
+    def _get_muted_content(self, content, spans):
+        self._render(content)
+        if self.synclines and not self._active_macros:
+            return syncline(spans[-1][1], self._curfile)
         else:
             return ''
 
@@ -863,6 +899,8 @@ class Processor:
         self._parser.handle_for = self._builder.handle_for
         self._parser.handle_endfor = self._builder.handle_endfor
         self._parser.handle_comment = self._builder.handle_comment
+        self._parser.handle_mute = self._builder.handle_mute
+        self._parser.handle_endmute = self._builder.handle_endmute
 
 
     def process_file(self, fname, env=None):
