@@ -219,29 +219,14 @@ simple_tests = [
      'VAL:1VAL:2VAL:3Done\n'
      ),
     #
-    ('comment_in_text', [],
-     'A\nB @! Comment\nC\n',
-     'A\nB \nC\n'
+    ('comment_single', [],
+     ' @! Comment here\nDone\n',
+     'Done\n',
      ),
     #
-    ('comment_out_line', [],
-     'A\n@! Comment\nC\n',
-     'A\n\nC\n'
-     ),
-    #
-    ('comment_in_linesubs', [],
-     '$: 1 + 2 @! Comment\n',
-     '3\n'
-     ),
-    #
-    ('comment_out_subs', [],
-     'A @! ${1}$\n',
-     'A \n',
-     ),
-    #
-    ('comment_in_directive', [],
-     '@:if 1 < 2 @! Comment\nTrue\n@:endif@!Comment2\n',
-     'True\n',
+    ('comment_multiple', [],
+     ' @! Comment1\n@! Comment2\nDone\n',
+     'Done\n',
      ),
     #
     ('setvar', [],
@@ -440,6 +425,16 @@ syncline_tests = [
     ('inline_setvar', [ _SYNCL_FLAG ],
      '@{setvar x 2}@${x}$Done\n',
      _strsyncl(0) + '2Done\n',
+     ),
+    #
+    ('comment_single', [ _SYNCL_FLAG ],
+     ' @! Comment here\nDone\n',
+     _strsyncl(0) + _strsyncl(1) + 'Done\n'
+     ),
+    #
+    ('comment_multiple', [ _SYNCL_FLAG ],
+     ' @! Comment1\n@! Comment2\nDone\n',
+     _strsyncl(0) + _strsyncl(2) + 'Done\n',
      ),
 ]
 
