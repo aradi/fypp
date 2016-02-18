@@ -470,6 +470,8 @@ include_tests = [
 
 exception_tests = [
     #
+    # Parser errors
+    #
     ('invalid_directive', [],
      '@:invalid\n',
      fypp.FyppParserError, fypp.STRING, (0, 1)
@@ -544,6 +546,8 @@ exception_tests = [
      '@:mute\ntest@{endmute}@\n',
      fypp.FyppParserError, fypp.STRING, (1, 1)
      ),
+    #
+    # Builder errors
     #
     ('line_if_inline_endif', [],
      '@:if 1 < 2\nTrue\n@{endif}@\n',
@@ -680,6 +684,13 @@ exception_tests = [
      fypp.FyppBuilderError, fypp.STRING, (2, 3)
      ),
     #
+    ('unclosed_directive', [],
+     '@:if 1 > 2\nA\n',
+     fypp.FyppBuilderError, fypp.STRING, None
+     ),
+    #
+    # Renderer errors
+    #
     ('invalid_expression', [],
      '${i}$',
      fypp.FyppRendererError, fypp.STRING, (0, 0)
@@ -743,7 +754,10 @@ def test_exception_method(args, inp, exc, fname, span):
             result = tool.process_text(inp)
         raised = cm.exception
         self.assertEqual(fname, raised.fname)
-        self.assertEqual(span, raised.span)
+        if span is None:
+            self.assertTrue(raised.span is None)
+        else:
+            self.assertEqual(span, raised.span)
     return test_exception
 
 

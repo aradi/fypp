@@ -94,7 +94,7 @@ class FyppError(Exception):
         msg = [ self.__class__.__name__, ':\n' ]
         if self.fname:
             msg.append("file '" + self.fname + "'")
-            if self.span:
+            if self.span is not None:
                 if self.span[1] > self.span[0] + 1:
                     msg.append(', lines {}-{}'.format(
                         self.span[0] + 1, self.span[1]))
@@ -147,6 +147,7 @@ class Parser:
             self._curdir = os.getcwd()
         self.handle_open_file(self._curfile, (0, 0))
         self._parse(fp.read())
+        self.handle_close_file(self._curfile, (-1, -1))
         if closefile:
             fp.close()
 
@@ -156,10 +157,15 @@ class Parser:
         self._curdir = os.getcwd()
         self.handle_open_file(self._curfile, (0, 0))
         self._parse(txt)
+        self.handle_close_file(self._curfile, (-1, -1))
 
     
     def handle_open_file(self, fname, span):
         self._log_event('open file', span, filename=fname)
+
+
+    def handle_close_file(self, fname, span):
+        self._log_event('close file', span, filename=fname)
 
         
     def handle_setvar(self, name, expr, span):
@@ -220,7 +226,7 @@ class Parser:
 
     @staticmethod
     def _log_event(event, span, **params):
-        print('{}: {}-{}'.format(event, span[0], span[1]))
+        print('{}: {} --> {}'.format(event, span[0], span[1]))
         for parname, parvalue in params.items():
             print('  {}: ->|{}|<-'.format(parname, parvalue))
         print()
@@ -387,7 +393,10 @@ class Builder:
     def __init__(self):
         self._tree = []
         self._path = []
+        self._open_files = []
         self._open_blocks = []
+        # Nr. of open blocks before current file was opened
+        self._nr_prev_blocks = []
         self._curnode = self._tree
         self._curfile = None
 
@@ -395,7 +404,9 @@ class Builder:
     def reset(self):
         self._tree = []
         self._path = []
+        self._open_files = []
         self._open_blocks = []
+        self._nr_prev_blocks = []
         self._curnode = self._tree
         self._curfile = None
 
@@ -403,8 +414,24 @@ class Builder:
     def handle_open_file(self, fname, span):
         self._curfile = fname
         self._curnode.append(('include', span, fname))
+        self._open_files.append(fname)
+        self._nr_prev_blocks.append(len(self._open_blocks))
 
 
+    def handle_close_file(self, fname, span):
+        oldfname = self._open_files.pop(-1)
+        if fname != oldfname:
+            msg = 'internal error: mismatching file name in close_file event'\
+                  " (expected: '{}', got '{}')".format(oldfname, fname)
+            raise FyppBuilderError(msg, fname, None)
+        if len(self._open_blocks) > self._nr_prev_blocks[-1]:
+            directive, spans = self._open_blocks[-1][0:2]
+            msg = '{} directive in line {} still unclosed when reaching end '\
+                  'of file'.format(directive, spans[0][0] + 1)
+            raise FyppBuilderError(msg, self._curfile, None)
+        del self._nr_prev_blocks[-1]
+        
+            
     def handle_if(self, cond, span):
         self._path.append(self._curnode)
         self._curnode = []
@@ -412,7 +439,7 @@ class Builder:
 
 
     def handle_elif(self, cond, span):
-        self._check_if_not_empty(self._open_blocks, span, 'elif')
+        self._check_for_open_block(span, 'elif')
         block = self._open_blocks[-1]
         directive, spans = block[0:2]
         self._check_if_matches_last(directive, 'if', spans[-1], span, 'elif')
@@ -424,7 +451,7 @@ class Builder:
 
 
     def handle_else(self, span):
-        self._check_if_not_empty(self._open_blocks, span, 'else')
+        self._check_for_open_block(span, 'else')
         block = self._open_blocks[-1]
         directive, spans = block[0:2]
         self._check_if_matches_last(directive, 'if', spans[-1], span, 'else')
@@ -436,7 +463,7 @@ class Builder:
 
 
     def handle_endif(self, span):
-        self._check_if_not_empty(self._open_blocks, span, 'endif')
+        self._check_for_open_block(span, 'endif')
         block = self._open_blocks.pop(-1)
         directive, spans = block[0:2]
         self._check_if_matches_last(directive, 'if', spans[-1], span, 'endif')
@@ -454,7 +481,7 @@ class Builder:
 
 
     def handle_enddef(self, span):
-        self._check_if_not_empty(self._open_blocks, span, 'enddef')
+        self._check_for_open_block(span, 'enddef')
         block = self._open_blocks.pop(-1)
         directive, spans = block[0:2]
         self._check_if_matches_last(directive, 'def', spans[-1], span, 'enddef')
@@ -472,7 +499,7 @@ class Builder:
         
 
     def handle_endfor(self, span):
-        self._check_if_not_empty(self._open_blocks, span, 'endfor')
+        self._check_for_open_block(span, 'endfor')
         block = self._open_blocks.pop(-1)
         directive, spans = block[0:2]
         self._check_if_matches_last(directive, 'for', spans[-1], span, 'endfor')
@@ -506,7 +533,7 @@ class Builder:
 
 
     def handle_endmute(self, span):
-        self._check_if_not_empty(self._open_blocks, span, 'endmute')
+        self._check_for_open_block(span, 'endmute')
         block = self._open_blocks.pop(-1)
         directive, spans = block[0:2]
         self._check_if_matches_last(directive, 'mute', spans[-1], span,
@@ -522,8 +549,8 @@ class Builder:
         return self._tree
 
 
-    def _check_if_not_empty(self, blocklist, span, directive):
-        if not len(blocklist):
+    def _check_for_open_block(self, span, directive):
+        if not len(self._open_blocks) > self._nr_prev_blocks[-1]:
             msg = 'unexpected {} directive'.format(directive)
             raise FyppBuilderError(msg, self._curfile, span)
 
@@ -1019,6 +1046,7 @@ class Processor:
             self._renderer = renderer
 
         self._parser.handle_open_file = self._builder.handle_open_file
+        self._parser.handle_close_file = self._builder.handle_close_file
         self._parser.handle_if = self._builder.handle_if
         self._parser.handle_else = self._builder.handle_else
         self._parser.handle_elif = self._builder.handle_elif
