@@ -468,6 +468,249 @@ include_tests = [
      ),
 ]
 
+exception_tests = [
+    #
+    ('invalid_directive', [],
+     '@:invalid\n',
+     fypp.FyppParserError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('invalid_macrodef', [],
+     '@:def alma[x]\n@:enddef\n',
+     fypp.FyppParserError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('invalid_variable_assign', [],
+     '@:setvar A=3\n',
+     fypp.FyppParserError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('invalid_for_decl', [],
+     '@:for i = 1, 2\n',
+     fypp.FyppParserError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('invalid_include', [],
+     '@:include <test.h>\n',
+     fypp.FyppParserError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('inline_include', [],
+     '@{include "test.h"}@\n',
+     fypp.FyppParserError, fypp.STRING, (0, 0)
+     ),
+    #
+    ('wrong_include_file', [],
+     '@:include "testfkjsdlfkjslf.h"\n',
+     fypp.FyppParserError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('invalid_else', [],
+     '@:if 1 > 2\nA\n@:else True\nB\n@:endif\n',
+     fypp.FyppParserError, fypp.STRING, (2, 3)
+     ),
+    #
+    ('invalid_endif', [],
+     '@:if 1 > 2\nA\n@:else\nB\n@:endif INV\n',
+     fypp.FyppParserError, fypp.STRING, (4, 5)
+     ),
+    #
+    ('invalid_enddef', [],
+     '@:def test(x)\nA:${x}$\n@:enddef INV\n',
+     fypp.FyppParserError, fypp.STRING, (2, 3)
+     ),
+    #
+    ('invalid_endfor', [],
+     '@:for i in range(5)\n${i}$\n@:endfor INV\n',
+     fypp.FyppParserError, fypp.STRING, (2, 3)
+     ),
+    #
+    ('invalid_mute', [],
+     '@:mute TEST\n@:endmute\n',
+     fypp.FyppParserError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('invalid_endmute', [],
+     '@:mute\n@:endmute INVALID\n',
+     fypp.FyppParserError, fypp.STRING, (1, 2)
+     ),
+    #
+    ('inline_mute', [],
+     '@{mute}@test@{endmute}@\n',
+     fypp.FyppParserError, fypp.STRING, (0, 0)
+     ),
+    #
+    ('inline_endmute', [],
+     '@:mute\ntest@{endmute}@\n',
+     fypp.FyppParserError, fypp.STRING, (1, 1)
+     ),
+    #
+    ('line_if_inline_endif', [],
+     '@:if 1 < 2\nTrue\n@{endif}@\n',
+     fypp.FyppBuilderError, fypp.STRING, (2, 2)
+     ),
+    #
+    ('inline_if_line_endif', [],
+     '@{if 1 < 2}@True\n@:endif\n',
+     fypp.FyppBuilderError, fypp.STRING, (1, 2)
+     ),
+    #
+    ('line_if_inline_elif', [],
+     '@:if 1 < 2\nTrue\n@{elif 2 > 3}@\n',
+     fypp.FyppBuilderError, fypp.STRING, (2, 2)
+     ),
+    #
+    ('inline_if_line_elif', [],
+     '@{if 1 < 2}@True\n@:elif 2 > 3\n',
+     fypp.FyppBuilderError, fypp.STRING, (1, 2)
+     ),
+    #
+    ('line_if_inline_else', [],
+     '@:if 1 < 2\nTrue\n@{else}@\n',
+     fypp.FyppBuilderError, fypp.STRING, (2, 2)
+     ),
+    #
+    ('inline_if_line_else', [],
+     '@{if 1 < 2}@True\n@:else\n',
+     fypp.FyppBuilderError, fypp.STRING, (1, 2)
+     ),
+    #
+    ('loose_else', [],
+     'A\n@:else\n',
+     fypp.FyppBuilderError, fypp.STRING, (1, 2)
+     ),
+    #
+    ('loose_inline_else', [],
+     'A\n@{else}@\n',
+     fypp.FyppBuilderError, fypp.STRING, (1, 1)
+     ),
+    #
+    ('loose_elif', [],
+     'A\n@:elif 1 > 2\n',
+     fypp.FyppBuilderError, fypp.STRING, (1, 2)
+     ),
+    #
+    ('loose_inline_elif', [],
+     'A\n@{elif 1 > 2}@\n',
+     fypp.FyppBuilderError, fypp.STRING, (1, 1)
+     ),
+    #
+    ('loose_endif', [],
+     'A\n@:endif\n',
+     fypp.FyppBuilderError, fypp.STRING, (1, 2)
+     ),
+    #
+    ('loose_inline_endif', [],
+     'A\n@{endif}@\n',
+     fypp.FyppBuilderError, fypp.STRING, (1, 1)
+     ),
+    #
+    ('mismatching_else', [],
+     '@:if 1 < 2\n@:for i in range(3)\n@:else\n',
+     fypp.FyppBuilderError, fypp.STRING, (2, 3)
+     ),
+    #
+    ('mismatching_elif', [],
+     '@:if 1 < 2\n@:for i in range(3)\n@:elif 1 > 2\n',
+     fypp.FyppBuilderError, fypp.STRING, (2, 3)
+     ),
+    #
+    ('mismatching_endif', [],
+     '@:if 1 < 2\n@:for i in range(3)\n@:endif\n',
+     fypp.FyppBuilderError, fypp.STRING, (2, 3)
+     ),
+    #
+    ('line_def_inline_enddef', [],
+     '@:def alma(x)\n@{enddef}@\n',
+     fypp.FyppBuilderError, fypp.STRING, (1, 1)
+     ),
+    #
+    ('inline_def_line_enddef', [],
+     '@{def alma(x)}@Empty\n@:enddef\n',
+     fypp.FyppBuilderError, fypp.STRING, (1, 2)
+     ),
+    #
+    ('loose_enddef', [],
+     '@:enddef\n',
+     fypp.FyppBuilderError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('loose_inline_enddef', [],
+     '@{enddef}@\n',
+     fypp.FyppBuilderError, fypp.STRING, (0, 0)
+     ),
+    #
+    ('mismatching_enddef', [],
+     '@:def test(x)\n@{if 1 < 2}@\n@:enddef\n',
+     fypp.FyppBuilderError, fypp.STRING, (2, 3)
+     ),
+    #
+    ('line_for_inline_endfor', [],
+     '@:for i in range(3)\nA\n@{endfor}@\n',
+     fypp.FyppBuilderError, fypp.STRING, (2, 2)
+     ),
+    #
+    ('inline_for_line_endfor', [],
+     '@{for i in range(3)}@Empty\n@:endfor\n',
+     fypp.FyppBuilderError, fypp.STRING, (1, 2)
+     ),
+    #
+    ('loose_endfor', [],
+     '@:endfor\n',
+     fypp.FyppBuilderError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('loose_inline_endfor', [],
+     '@{endfor}@',
+     fypp.FyppBuilderError, fypp.STRING, (0, 0)
+     ),
+    #
+    ('mismatching_endfor', [],
+     '@:for i in range(3)\n@{if 1 < 2}@\n@:endfor\n',
+     fypp.FyppBuilderError, fypp.STRING, (2, 3)
+     ),
+    #
+    ('loose_endmute', [],
+     '@:endmute\n',
+     fypp.FyppBuilderError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('mismatching_endmute', [],
+     '@:mute\n@{if 1 < 2}@\n@:endmute\n',
+     fypp.FyppBuilderError, fypp.STRING, (2, 3)
+     ),
+    #
+    ('invalid_expression', [],
+     '${i}$',
+     fypp.FyppRendererError, fypp.STRING, (0, 0)
+     ),
+    #
+    ('invalid_variable', [],
+     '@:setvar i 1.2.3\n',
+     fypp.FyppRendererError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('invalid_condition', [],
+     '@{if i >>> 3}@@{endif}@',
+     fypp.FyppRendererError, fypp.STRING, (0, 0)
+     ),
+    #
+    ('invalid_iterator', [],
+     '@:for i in 1.2.3\nDummy\n@:endfor\n',
+     fypp.FyppRendererError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('invalid_macro_name', [],
+     '@:def __test(x)\n@:enddef\n',
+     fypp.FyppRendererError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('invalid_variable_name', [],
+     '@:setvar __test 2\n',
+     fypp.FyppRendererError, fypp.STRING, (0, 1)
+     ),
+]
+
 
 class SimpleTest(unittest.TestCase):
     pass
@@ -481,25 +724,41 @@ class IncludeTest(unittest.TestCase):
     pass
 
 
+class ExceptionTest(unittest.TestCase):
+    pass
 
-def create_test_method(args, inp, out):
-    def testmethod(self):
+
+def test_output_method(args, inp, out):
+    def test_output(self):
         tool = fypp.Fypp(args)
         result = tool.process_text(inp)
         self.assertEqual(out, result)
-    return testmethod
+    return test_output
 
 
-def add_test_methods(tests, testclass):
+def test_exception_method(args, inp, exc, fname, span):
+    def test_exception(self):
+        tool = fypp.Fypp(args)
+        with self.assertRaises(exc) as cm:
+            result = tool.process_text(inp)
+        raised = cm.exception
+        self.assertEqual(fname, raised.fname)
+        self.assertEqual(span, raised.span)
+    return test_exception
+
+
+def add_test_methods(tests, testclass, methodfactory):
     for ii, test in enumerate(tests):
-        name, args, inp, out = test
+        name = test[0]
+        testargs = test[1:]
         methodname = 'test{}_{}'.format(ii + 1, name)
-        setattr(testclass, methodname, create_test_method(args, inp, out))
+        setattr(testclass, methodname, methodfactory(*testargs))
 
 
-add_test_methods(simple_tests, SimpleTest)
-add_test_methods(syncline_tests, SynclineTest)
-add_test_methods(include_tests, IncludeTest)
+add_test_methods(simple_tests, SimpleTest, test_output_method)
+add_test_methods(syncline_tests, SynclineTest, test_output_method)
+add_test_methods(include_tests, IncludeTest, test_output_method)
+add_test_methods(exception_tests, ExceptionTest, test_exception_method)
 
 
 if __name__ == '__main__':
