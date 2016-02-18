@@ -720,8 +720,40 @@ exception_tests = [
      '@:setvar __test 2\n',
      fypp.FyppRendererError, fypp.STRING, (0, 1)
      ),
+    #
+    ('macro_call_more_args', [],
+     '@:def test(x)\n${x}$\n@:enddef\n$: test(\'A\', 1)\n',
+     fypp.FyppRendererError, fypp.STRING, (3, 3)
+     ),
+    #
+    ('macro_call_less_args', [],
+     '@:def test(x)\n${x}$\n@:enddef\n$: test()\n',
+     fypp.FyppRendererError, fypp.STRING, (3, 3)
+     ),
+    #
+    # Command line errors
+    # 
+    ('def_error', [ '-DVAR=1.2.2'],
+     '',
+     fypp.FyppCmdLineError, None, None
+     ),
+    #
+    ('missing_module', [ '-mWhateverDummyKJFDKf'],
+     '',
+     fypp.FyppCmdLineError, None, None
+     ),
+    #
+    ('missing_ini', [ '-iWhateverDummyKJFDKf'],
+     '',
+     fypp.FyppCmdLineError, None, None
+     ),
+    #
+    ('broken_ini', [ '-iinclude/brokenini.py'],
+     '',
+     fypp.FyppCmdLineError, None, None
+     ),
 ]
-
+    
 
 class SimpleTest(unittest.TestCase):
     pass
@@ -749,11 +781,14 @@ def test_output_method(args, inp, out):
 
 def test_exception_method(args, inp, exc, fname, span):
     def test_exception(self):
-        tool = fypp.Fypp(args)
         with self.assertRaises(exc) as cm:
+            tool = fypp.Fypp(args)
             result = tool.process_text(inp)
         raised = cm.exception
-        self.assertEqual(fname, raised.fname)
+        if fname is None:
+            self.assertTrue(raised.fname is None)
+        else:
+            self.assertEqual(fname, raised.fname)
         if span is None:
             self.assertTrue(raised.span is None)
         else:

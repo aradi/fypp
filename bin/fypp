@@ -84,7 +84,7 @@ _RESERVED_PREFIX = '__'
 
 class FyppError(Exception):
     
-    def __init__(self, msg, fname, span):
+    def __init__(self, msg, fname=None, span=None):
         self.msg = msg
         self.fname = fname
         self.span = span
@@ -92,7 +92,7 @@ class FyppError(Exception):
 
     def __str__(self):
         msg = [ self.__class__.__name__, ':\n' ]
-        if self.fname:
+        if self.fname is not None:
             msg.append("file '" + self.fname + "'")
             if self.span is not None:
                 if self.span[1] > self.span[0] + 1:
@@ -115,6 +115,10 @@ class FyppBuilderError(FyppError):
 
 
 class FyppRendererError(FyppError):
+    pass
+
+
+class FyppCmdLineError(FyppError):
     pass
 
 
@@ -423,12 +427,12 @@ class Builder:
         if fname != oldfname:
             msg = 'internal error: mismatching file name in close_file event'\
                   " (expected: '{}', got '{}')".format(oldfname, fname)
-            raise FyppBuilderError(msg, fname, None)
+            raise FyppBuilderError(msg, fname)
         if len(self._open_blocks) > self._nr_prev_blocks[-1]:
             directive, spans = self._open_blocks[-1][0:2]
             msg = '{} directive in line {} still unclosed when reaching end '\
                   'of file'.format(directive, spans[0][0] + 1)
-            raise FyppBuilderError(msg, self._curfile, None)
+            raise FyppBuilderError(msg, self._curfile)
         del self._nr_prev_blocks[-1]
         
             
@@ -632,7 +636,7 @@ class Renderer:
                 output.append(self._get_muted_content(*node[1:3]))
             else:
                 msg = "internal error: unknown command '{}'".format(cmd)
-                raise FyppRenderError(msg, self._curfile, (None, None))
+                raise FyppRendererError(msg, self._curfile)
         if newscope:
             self._evaluator.popenv()
         return output, eval_inds, eval_pos
@@ -717,7 +721,6 @@ class Renderer:
         macro = _Macro(name, args, content, self.render, self._open_macro,
                        self._close_macro)
         self._evaluator.define(name, macro)
-        multiline = (spans[0][0] != spans[-1][1])
         if self.synclines and not self._active_macros:
             result = syncline(spans[1][1], self._curfile)
         return result
@@ -732,8 +735,8 @@ class Renderer:
         try:
             self._evaluator.setvar(name, valstr)
         except Exception as exc:
-            msg = "exception occured when setting variable {} to {}".format(
-                name, valstr)
+            msg = "exception occured when setting variable {} to {}\n{}".format(
+                name, valstr, exc)
             raise FyppRendererError(msg, self._curfile, span)
         multiline = (span[0] != span[1])
         if self.synclines and not self._active_macros and multiline:
@@ -765,7 +768,7 @@ class Renderer:
         if active_name != name:
             msg = "Internal error: mismatching macro name at closing " \
                   "(received '{}', expected '{}')".format(name, active_name)
-            raise FyppRendererError(msg, self._curfile, (None, None))
+            raise FyppRendererError(msg, self._curfile)
 
 
     def _register_file(self, span, fname):
@@ -990,7 +993,6 @@ class Evaluator:
             msg = "Import of module '{}' via '__import__' not allowed" \
                   .format(name)
             raise ImportError(msg)
-        return ''
 
 
     def _func_setvar(self, name, value):
@@ -1023,7 +1025,7 @@ class _Macro:
             msg = "Incorrect nr. of positional arguments for macro '{}' " \
                   "(provided: {}, needed: {})".format(
                       self._name, len(args), len(self._argnames))
-            raise FyppError(msg, None, (None, None))
+            raise FyppRendererError(msg)
         argdict = {}
         for argname, arg in zip(self._argnames, args):
             argdict[argname] = arg
@@ -1105,7 +1107,7 @@ def _shiftinds(inds, shift):
 # Command line tool
 ################################################################################
 
-_FYPP_DESC= '''Preprocess Fortran source files with FYPP directives.'''
+_FYPP_DESC = '''Preprocess Fortran source files with FYPP directives.'''
 
 
 class Fypp:
@@ -1113,15 +1115,14 @@ class Fypp:
     def __init__(self, cmdline_args=None):
         self._argparser = self._get_cmdline_parser()
         self._args = self._argparser.parse_args(cmdline_args)
-        errorfunc = self._argparser.error
         inieval = Evaluator(restricted=False)
         if self._args.modules:
-            self._import_modules(self._args.modules, inieval, errorfunc)
+            self._import_modules(self._args.modules, inieval)
         if self._args.inifiles:
-            self._exec_inifiles(self._args.inifiles, inieval, errorfunc)
+            self._exec_inifiles(self._args.inifiles, inieval)
         evaluator = Evaluator(env=inieval.env, restricted=True)
         if self._args.defines:
-            self._apply_definitions(self._args.defines, evaluator, errorfunc)
+            self._apply_definitions(self._args.defines, evaluator)
         parser = Parser(self._args.includes)
         builder = Builder()
         renderer = Renderer(evaluator, synclines=self._args.synclines,
@@ -1182,7 +1183,7 @@ class Fypp:
 
 
     @staticmethod
-    def _apply_definitions(defines, evaluator, errorfunc):
+    def _apply_definitions(defines, evaluator):
         for define in defines:
             words = define.split('=', 2)
             name = words[0]
@@ -1191,45 +1192,47 @@ class Fypp:
                 try:
                     value = evaluator.evaluate(words[1])
                 except Exception as exc:
-                    msg = "Exception at evaluating '{}' in definition for " \
-                          "'{}':\n{}".format(words[1], name, exc)
-                    errorfunc(msg)
+                    msg = "exception at evaluating '{}' in definition for " \
+                          "'{}'\n{}".format(words[1], name, exc)
+                    raise FyppCmdLineError(msg)
             evaluator.define(name, value)
 
 
     @staticmethod
-    def _import_modules(modules, evaluator, errorfunc):
+    def _import_modules(modules, evaluator):
         for module in modules:
             try:
                 evaluator.execute('import ' + module)
             except Exception as ex:
-                msg = "Exception occured during import of module '{}':\n{}"\
+                msg = "exception occured during import of module '{}'\n{}"\
                       .format(module, ex)
-                errorfunc(msg)
+                raise FyppCmdLineError(msg)
 
     
     @staticmethod
-    def _exec_inifiles(inifiles, evaluator, errorfunc):
+    def _exec_inifiles(inifiles, evaluator):
         for inifile in inifiles:
             try:
                 fp = open(inifile, 'r')
-                code = fp.read()
+                source = fp.read()
                 fp.close()
             except IOError as ex:
-                msg = "IO error occured at reading file '{}':\n{}"\
+                msg = "IO error occured at reading file '{}'\n{}"\
                     .format(inifile, ex)
-                errorfunc(msg)
+                raise FyppCmdLineError(msg)
             try:
+                code = compile(source, inifile, 'exec', dont_inherit=-1)
                 evaluator.execute(code)
             except Exception as ex:
-                msg = "Exception occured when executing ini-file '{}':\n{}"\
+                msg = "exception occured when executing ini-file '{}'\n{}"\
                       .format(inifile, ex)
-                errorfunc(msg)
+                raise FyppCmdLineError(msg)
 
 
 if __name__ == '__main__':
-    tool = Fypp()
     try:
+        tool = Fypp()
         tool.process_cmdline_files()
     except FyppError as exc:
         print(exc)
+        sys.exit(1)
