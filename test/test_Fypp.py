@@ -243,6 +243,16 @@ simple_tests = [
      'A\n@:mute\nB\n@:setvar VAR 2\n@:endmute\nVAR=${VAR}$\n',
      'A\nVAR=2\n'
      ),
+    #
+    ('builtin_var_line', [],
+     '${_LINE_}$',
+     '1'
+     ),
+    #
+    ('builtin_var_file', [],
+     '${_FILE_}$',
+     fypp.STRING
+     ),
 ]
 
 syncline_tests = [
@@ -711,13 +721,23 @@ exception_tests = [
      fypp.FyppRendererError, fypp.STRING, (0, 1)
      ),
     #
-    ('invalid_macro_name', [],
+    ('invalid_macro_prefix', [],
      '@:def __test(x)\n@:enddef\n',
      fypp.FyppRendererError, fypp.STRING, (0, 1)
      ),
     #
-    ('invalid_variable_name', [],
+    ('reserved_macro_name', [],
+     '@:def defined(x)\n@:enddef\n',
+     fypp.FyppRendererError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('invalid_variable_prefix', [],
      '@:setvar __test 2\n',
+     fypp.FyppRendererError, fypp.STRING, (0, 1)
+     ),
+    #
+    ('reserved_variable_name', [],
+     '@:setvar _LINE_ 2\n',
      fypp.FyppRendererError, fypp.STRING, (0, 1)
      ),
     #
