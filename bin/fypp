@@ -666,7 +666,7 @@ class Renderer:
         for condition, content, span in zip(conditions, contents, spans):
             self._update_linenr(span[1])
             try:
-                cond = self._evaluator.evaluate(condition)
+                cond = bool(self._evaluator.evaluate(condition))
             except Exception as exc:
                 msg = "exception occured when evaluating '{}'\n{}".format(
                     condition, exc)
@@ -1234,5 +1234,6 @@ if __name__ == '__main__':
         tool = Fypp()
         tool.process_cmdline_files()
     except FyppError as exc:
-        print(exc)
+        sys.stderr.write(str(exc))
+        sys.stderr.write('\n')
         sys.exit(1)
