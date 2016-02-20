@@ -82,9 +82,8 @@ _CONTLINE_REGEXP = re.compile(r'&[ \t]*\n(?:[ \t]*&)?')
 
 _RESERVED_PREFIX = '__'
 
-_RESERVED_MACROS = ('defined', 'setvar', 'default')
-
-_RESERVED_VARIABLES = ('_LINE_', '_FILE_', '_TIME_', '_DATE_')
+_RESERVED_NAMES = ('defined', 'setvar', 'default', '_LINE_', '_FILE_', 
+                   '_TIME_', '_DATE_')
 
 
 class FyppError(Exception):
@@ -724,15 +723,13 @@ class Renderer:
 
     def _define_macro(self, spans, name, args, content):
         result = ''
-        if name.startswith(_RESERVED_PREFIX):
-            msg = "macro name '{}' starts with reserved prefix".format(name)
+        try:
+            macro = _Macro(name, args, content, self.render, self._open_macro,
+                           self._close_macro)
+            self._evaluator.define(name, macro)
+        except Exception as exc:
+            msg = "exception occured when defining macro '{}'".format(name)
             raise FyppRendererError(msg, self._curfile, spans[0])
-        if name in _RESERVED_MACROS:
-            msg = "macro name '{}' is reserved".format(name)
-            raise FyppRendererError(msg, self._curfile, spans[0])
-        macro = _Macro(name, args, content, self.render, self._open_macro,
-                       self._close_macro)
-        self._evaluator.define(name, macro)
         if self.synclines and not self._active_macros:
             result = syncline(spans[1][1], self._curfile)
         return result
@@ -740,18 +737,12 @@ class Renderer:
 
     def _define_variable(self, span, name, valstr):
         result = ''
-        if name.startswith(_RESERVED_PREFIX):
-            msg = "variable name '{}' starts with reserved prefix".format(name)
-            raise FyppRendererError(msg, self._curfile, span)
-        if name in _RESERVED_VARIABLES:
-            msg = "variable name '{}' is reserved".format(name)
-            raise FyppRendererError(msg, self._curfile, span)
         self._update_linenr(span[0])
         try:
-            self._evaluator.setvar(name, valstr)
+            self._evaluator.define(name, self._evaluator.evaluate(valstr))
         except Exception as exc:
-            msg = "exception occured when setting variable {} to {}\n{}".format(
-                name, valstr, exc)
+            msg = "exception occured when setting variable {} to {}\n{}"\
+                .format(name, valstr, exc)
             raise FyppRendererError(msg, self._curfile, span)
         multiline = (span[0] != span[1])
         if self.synclines and not self._active_macros and multiline:
@@ -968,12 +959,15 @@ class Evaluator:
         exec(code, self._builtins, self._env)
 
 
-    def setvar(self, name, valstr):
-        value = self.evaluate(valstr)
-        self.define(name, value)
-
-
     def define(self, name, value):
+        if name.startswith(_RESERVED_PREFIX):
+            msg = "Name '{}' starts with reserved prefix '{}'"\
+                .format(name, _RESERVED_PREFIX)
+            raise FyppError(msg, None, None)
+        if name in _RESERVED_NAMES:
+            msg = "Name '{}' is reserved and can not be redefined"\
+                .format(name)
+            raise FyppError(msg, None, None)
         self._env[name] = value
 
     
@@ -1011,7 +1005,7 @@ class Evaluator:
 
 
     def _func_setvar(self, name, value):
-        self.setvar(name, value)
+        self.define(name, value)
         return ''
 
 
