@@ -80,6 +80,10 @@ _INCLUDE_PARAM_REGEXP = re.compile(r'^(\'|")(?P<fname>.*?)\1\s*$')
 
 _CONTLINE_REGEXP = re.compile(r'&[ \t]*\n(?:[ \t]*&)?')
 
+_UNESCAPE_REGEXP1 = re.compile(r'([$@])\\(\\*)([{:])')
+
+_UNESCAPE_REGEXP2 = re.compile(r'(\})\\(\\*)([$@])')
+
 _RESERVED_PREFIX = '__'
 
 _RESERVED_NAMES = ('defined', 'setvar', 'default', '_LINE_', '_FILE_', 
@@ -598,7 +602,10 @@ class Renderer:
         output, eval_inds, eval_pos = self._render(tree, env)
         if eval_inds:
             self._postprocess_eval_lines(output, eval_inds, eval_pos)
-        return ''.join(output)
+        txt = ''.join(output)
+        txt = _UNESCAPE_REGEXP1.sub(r'\1\2\3', txt)
+        txt = _UNESCAPE_REGEXP2.sub(r'\1\2\3', txt)
+        return txt
 
 
     def _render(self, tree, env=None):

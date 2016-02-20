@@ -253,6 +253,31 @@ simple_tests = [
      '${_FILE_}$',
      fypp.STRING
      ),
+    #
+    ('escaped_control_inline', [],
+     r'A@\{if False}\@B@\{endif}\@',
+     'A@{if False}@B@{endif}@'
+     ),
+    #
+    ('escaped_control_line', [],
+     '@\\:if False\n',
+     '@:if False\n'
+     ),
+    #
+    ('escaped_eval_inline', [],
+     r'A$\{1 + 1}\$',
+     'A${1 + 1}$'
+     ),
+    #
+    ('escaped_eval_line', [],
+     '$\\: 1 + 1\n',
+     '$: 1 + 1\n'
+     ),
+    #
+    ('multi_escape', [],
+     r'$\\\{1 + 1}\\$',
+     r'$\\{1 + 1}\$'
+     ),
 ]
 
 syncline_tests = [
