@@ -1,20 +1,25 @@
-FYPP -- Python powered Fortran preprocessor
-===========================================
+FYPP
+====
 
-FYPP is a preprocessor for Fortran source files containing special
-directives. It is specifically tailored for the Fortran programming language,
-offering Fortran-friendly preprocessor directive syntax and features extending
-the capabilities of usual CPP-like preprocessors. It uses Python for evaluating
-expressions, allowing for great flexibility when formulating preprocessor tasks.
+FYPP is a Python powered Fortran preprocessor. It extends Fortran with
+condititional compiling and template metaprogramming capabilities. It is written
+in Python and uses Python to evaluate expressions in preprocessor commands,
+enabling high flexibility in formulating metaprogramming tasks. It puts strong
+emphasis on robustness and on neat integration into Fortran developing
+toolchains.
 
 Main features:
 
 * Definition/evaluation of preprocessor variables.
 * Macro definitions with more than one line of source code.
-* Conditional compilation.
-* Loop directives for rapid generation of Fortran templates.
+* Conditional output.
+* Loop directives for generation of Fortran templates.
+* File inclusion
 * Insertion of arbitrary Python eval-expressions.
 * Fortran-style continuation lines in preprocessor directives.
 * Folding of preprocessed lines using continuation lines.
 
-FYPP is released under the BSD 2-Clause License.
+See the [DOCUMENTATION](http://fypp.readthedocs.org) for more detail.
+
+FYPP is [hosted on Bitbucket](https://bitbucket.org/aradi/fypp) and released
+under the BSD 2-Clause License.
