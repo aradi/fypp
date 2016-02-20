@@ -9,17 +9,16 @@ emphasis on robustness and on neat integration into Fortran developing
 toolchains.
 
 FYPP was inspired by the `pyratemp
-<http://www.simple-is-better.org/template/pyratemp.html>`_ templating engine,
-and I am indebted to its author Roland Koebler for helpful discussions. Although
-it shares many concepts with pyratemp, it was written from scratch focusing on
-the special needs when preprocessing Fortran source files. FYPP natively
-supports the output of synchronization line directives, which are used by many
-compilers to generate compiler messages with correct line numbers. Unlike most
-CPP/FPP-like preprocessors, FYPP also supports iterations, multiline macros,
-continuation lines in preprocessor directives and automatic line folding. It
-generally tries to extend the modern Fortran language with some useful features
-without tempting you to use it for tasks, which could/should be done in Fortran
-itself.
+<http://www.simple-is-better.org/template/pyratemp.html>`_ templating engine
+[#]_. Although it shares many concepts with pyratemp, it was written from
+scratch focusing on the special needs when preprocessing Fortran source
+files. FYPP natively supports the output of synchronization line directives,
+which are used by many compilers to generate compiler messages with correct line
+numbers. Unlike most CPP/FPP-like preprocessors, FYPP also supports iterations,
+multiline macros, continuation lines in preprocessor directives and automatic
+line folding. It generally tries to extend the modern Fortran language with some
+useful features without tempting you to use it for tasks, which could/should be
+done in Fortran itself.
 
 The project is `hosted on bitbucket <http://bitbucket.org/aradi/fypp>`_ with
 documentation available on `readthedocs.org
@@ -678,3 +677,5 @@ FYPP will not recognize the escaped strings as directives, but will remove the
 backslash between the delimiter characters in the output. If you put more than
 one backslash between the delimiters, only one will be removed.
 
+
+.. [#] I am indebted to pyratemps author Roland Koebler for helpful discussions
