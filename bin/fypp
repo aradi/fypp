@@ -42,7 +42,7 @@ classes:
 * `Renderer`_: Renders a tree built by the builder.
 
 * `Evaluator`_: Evaluates Python expressions in a designated environment. It is 
-   used by the Renderer when rendering eval directives.
+  used by the Renderer when rendering eval directives.
 
 * `Processor`_: Connects `Parser`, `Builder`, `Renderer` and `Evaluator` with
   each other and returns for a given input the preprocessed output.
