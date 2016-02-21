@@ -678,4 +678,62 @@ backslash between the delimiter characters in the output. If you put more than
 one backslash between the delimiters, only one will be removed.
 
 
+API documentation
+#################
+
+.. automodule:: fypp
+
+
+Parser
+======
+
+.. autoclass:: Parser
+   :members:
+
+
+Builder
+=======
+
+.. autoclass:: Builder
+   :members:
+
+
+Renderer
+========
+
+.. autoclass:: Renderer
+   :members:
+
+
+Evaluator
+=========
+
+.. autoclass:: Evaluator
+   :members:
+
+
+Processor
+=========
+
+.. autoclass:: Processor
+   :members:
+
+
+Fypp
+====
+
+.. autoclass:: Fypp
+   :members:
+
+
+FyppError
+=========
+
+.. autoclass:: FyppError
+   :members:
+
+
+Notes
+#####
+
 .. [#] I am indebted to pyratemps author Roland Koebler for helpful discussions
