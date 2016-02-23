@@ -107,7 +107,7 @@ _UNESCAPE_REGEXP2 = re.compile(r'(\})\\(\\*)([$@])')
 
 _RESERVED_PREFIX = '__'
 
-_RESERVED_NAMES = ('defined', 'setvar', 'default', '_LINE_', '_FILE_', 
+_RESERVED_NAMES = ('defined', 'setvar', 'getvar', '_LINE_', '_FILE_', 
                    '_TIME_', '_DATE_')
 
 
@@ -1261,7 +1261,7 @@ class Evaluator:
             builtindict = vars(builtins)
         builtindict['defined'] = self._func_defined
         builtindict['setvar'] = self._func_setvar
-        builtindict['default'] = self._func_default
+        builtindict['getvar'] = self._func_getvar
         self._builtins = {'__builtins__': builtindict}
 
 
@@ -1360,7 +1360,7 @@ class Evaluator:
         return ''
 
 
-    def _func_default(self, name, defvalue):
+    def _func_getvar(self, name, defvalue):
         if name in self._env:
             return self._env[name]
         else:
