@@ -524,7 +524,7 @@ class Parser:
     def _process_include(self, param, span):
         match = _INCLUDE_PARAM_REGEXP.search(param)
         if not match:
-            msg = "invalid include declaration '{}'".format(param)
+            msg = "invalid include file declaration '{}'".format(param)
             raise FyppError(msg, self._curfile, span)
         fname = match.group('fname')
         for incdir in [ self._curdir ] + self._includedirs:
