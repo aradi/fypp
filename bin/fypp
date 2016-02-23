@@ -62,7 +62,7 @@ import time
 from argparse import ArgumentParser
 
 
-VERSION = '0.9'
+VERSION = '1.0'
 
 STDIN = '<stdin>'
 
