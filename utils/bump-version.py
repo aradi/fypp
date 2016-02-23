@@ -7,9 +7,9 @@ VERSION_PATTERN = r'\d+\.\d+(?:\.\d+)?'
 FILES_PATTERNS = [ ('bin/fypp', 
                     r'^VERSION\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN), 
                     "VERSION = '{}'"),
-                   ('docs/index.rst',
-                    r'^Version:[ ]*{}[ ]*$'.format(VERSION_PATTERN),
-                    'Version: {}')
+                   ('docs/fypp.rst',
+                    r'FYPP Version[ ]*{}.'.format(VERSION_PATTERN),
+                    'FYPP Version {}.')
 ]
 
 if len(sys.argv) < 2:
