@@ -15,6 +15,9 @@ def _defvar(var, val):
 def _incdir(path):
     return '-I{}'.format(path)
 
+def _fold(linelen):
+    return '-l {}'.format(linelen)
+
 
 _SYNCL_FLAG = '-s'
 
@@ -481,6 +484,16 @@ syncline_tests = [
      'A\n@:mute\nB\n@:setvar VAR 2\n@:endmute\nVAR=${VAR}$\n',
      _strsyncl(0) + 'A\n' + _strsyncl(5) + 'VAR=2\n'
      ),
+    #
+    ('mute', [ _SYNCL_FLAG ],
+     'A\n@:mute\nB\n@:setvar VAR 2\n@:endmute\nVAR=${VAR}$\n',
+     _strsyncl(0) + 'A\n' + _strsyncl(5) + 'VAR=2\n'
+     ),
+    #
+    ('fold_lines', [ _fold(10) ],
+     'This line is not folded\nThis line ${1 + 1}$ is folded\n',
+     'This line is not folded\nThis line&\n  & 2 is &\n  &folded\n'
+     ),
 ]
 
 include_tests = [
@@ -774,6 +787,11 @@ exception_tests = [
     ('macro_call_less_args', [],
      '@:def test(x)\n${x}$\n@:enddef\n$: test()\n',
      fypp.FyppError, fypp.STRING, (3, 3)
+     ),
+    #
+    ('short_line_length', [ _fold(4) ],
+     '',
+     fypp.FyppError, None, None
      ),
     #
     # Command line errors

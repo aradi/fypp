@@ -873,6 +873,8 @@ class Renderer:
         self._curfile = None
         self._active_macros = []
         self.synclines = synclines
+        if linelength > 0 and linelength < 5:
+            raise FyppError('Maximal line length can not be less than 5')
         self._linelength = linelength
 
 
