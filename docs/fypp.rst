@@ -559,8 +559,10 @@ The `def` directive can also be used in its short form::
 
 .. warning:: The content of macros is usually inserted via an eval directive and
 	     is accordingly subject to eventual line folding. Macros should,
-	     therefore, not contain any Fortran comments. Use preprocessor
-	     comments (``@!``) instead for commenting.
+	     therefore, not contain any inline Fortran comments. (Comments
+	     starting at the beginning of the line preceeded by optional
+	     whitespaces only are OK, though). Use preprocessor comments
+	     (``@!``) instead.
 
 
 `include` directive
@@ -653,17 +655,34 @@ Line folding
 
 The Fortran standard only allows source lines up to 132 characters. In order to
 emit standard conforming code, FYPP folds all lines in the output, which it had
-manipulated before (all lines containing eval expression). Lines, which were
+manipulated before (all lines containing eval directives). Lines, which were
 just copied to the output, are left unaltered. The maximal line length can be
 chosen by the `-l` command line option. Setting it to zero switches off
 the line folding.
 
-.. warning:: FYPP applies the line folding mechanically at the position
-	     corresponding to the maximal line length. Lines containing eval
-	     directives and lines within macro definition should, therefore, not
-	     contain any Fortran style comments (started by ``!``), as folding a
-	     comment would result in invalid Fortran code. For comments in such
-	     lines, FYPPs comment directive (``@!``) should be used instead.
+FYPP applies the line folding mechanically at the position corresponding to the
+maximal line length. Lines containing eval directives and lines within macro
+definition should, therefore, not contain any Fortran style comments (started by
+``!``) within the line, as folding within the comment would result in invalid
+Fortran code. For comments within such lines, FYPPs comment directive (``@!``)
+can be used instead::
+
+  @:def macro()
+  print *, "DO NOT DO THIS!"  ! Warning: Line may be folded within the comment
+  print *, "This is OK."  @! Preprocessor comment is safe as it will be stripped
+
+If the comment starts at the beginning of the line (preceeded by optional
+whitespace characters only), the folding is suppressed, though. This way, you
+can define macros producing comment lines on the output::
+
+  @:def macro(DTYPE)
+  !> This functions calculates something (version ${DTYPE}$)
+  !! \param xx  Ingoing value
+  !! \return  Some calculated value.
+  ${DTYPE}$ function calcSomething(xx)
+  :
+  end function calcSomething
+  @:enddef
 
 
 Escaping

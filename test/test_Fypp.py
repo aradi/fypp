@@ -179,6 +179,11 @@ simple_tests = [
      'MACRO|1|'
      ),
     #
+    ('macro_noargs', [],
+     '@:def macro()\nMACRO\n@:enddef\n${macro()}$',
+     'MACRO'
+     ),
+    #
     ('recursive_macrosubs', [],
      '@:def macro(var)\nMACRO|${var}$|\n@:enddef\n${macro(macro(1))}$',
      'MACRO|MACRO|1||'
@@ -493,6 +498,12 @@ syncline_tests = [
     ('fold_lines', [ _fold(10) ],
      'This line is not folded\nThis line ${1 + 1}$ is folded\n',
      'This line is not folded\nThis line&\n  & 2 is &\n  &folded\n'
+     ),
+    #
+    ('prevent_comment_folding', [ _fold(10) ],
+     '@:def macro()\n ! Should be not folded\nShould be folded\n@:enddef\n'
+     '$:macro()\n',
+     ' ! Should be not folded\nShould be&\n  & folded\n'
      ),
 ]
 

@@ -90,7 +90,7 @@ _DIRECTIVE_REGEXP = re.compile(r'''
 ''', re.VERBOSE | re.MULTILINE)
 
 _MACRO_PARAM_REGEXP = re.compile(
-    r'^(?P<name>\w+)\((?P<args>\s*(?:\w+\s*,\s*)*(?:\w+)\s*)\)$')
+    r'^(?P<name>\w+)\(\s*(?P<args>(?:(?:\w+\s*,\s*)*(?:\w+)))?\s*\)$')
 
 _SETVAR_PARAM_REGEXP = re.compile(r'^(?P<name>\w+)(?:\s+(?P<expr>.*))?\s*$')
 
@@ -98,6 +98,8 @@ _FOR_PARAM_REGEXP = re.compile(
     r'^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)\s*$')
 
 _INCLUDE_PARAM_REGEXP = re.compile(r'^(\'|")(?P<fname>.*?)\1\s*$')
+
+_COMMENTLINE_REGEXP = re.compile(r'^[ \t]*!.*$')
 
 _CONTLINE_REGEXP = re.compile(r'&[ \t]*\n(?:[ \t]*&)?')
 
@@ -499,7 +501,10 @@ class Parser:
             raise FyppError(msg, self._curfile, span)
         name = match.group('name')
         argstr = match.group('args')
-        args = [s.strip() for s in argstr.split(',')]
+        if argstr is None:
+            args = []
+        else:
+            args = [s.strip() for s in argstr.split(',')]
         self.handle_def(span, name, args)
         
 
@@ -1160,11 +1165,14 @@ class Renderer:
             lastproc = inext
 
 
-    def _splitlines(self, line):
-        lines = line.split('\n')
+    def _splitlines(self, txt):
+        lines = txt.split('\n')
         result = []
         for line in lines:
-            result += _split_line(line, self._linelength)
+            if _COMMENTLINE_REGEXP.match(line) is None:
+                result += _split_line(line, self._linelength)
+            else:
+                result.append(line)
         return result
 
 
