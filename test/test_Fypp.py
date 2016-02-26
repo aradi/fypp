@@ -210,6 +210,16 @@ simple_tests = [
      '\n20^2\nDone\n'
      ),
     #
+    ('macro_trailing_newlines', [],
+     '@:def macro()\nL1\n\n@:enddef\n$: macro()\n',
+     'L1\n\n',
+     ),
+    #
+    ('macro_trailing_newlines_inline', [],
+     '@:def macro()\nL1\n\n@:enddef\n|${macro()}$|',
+     '|L1\n|',
+     ),
+    #
     ('for', [],
      '@:for i in (1, 2, 3)\n${i}$\n@:endfor\n',
      '1\n2\n3\n'

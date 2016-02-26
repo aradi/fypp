@@ -889,7 +889,7 @@ class Renderer:
             self._linefolder = linefolder
 
 
-    def render(self, tree, env=None):
+    def __call__(self, tree, env=None):
         '''Renders a tree.
 
         Args:
@@ -1033,7 +1033,7 @@ class Renderer:
     def _define_macro(self, spans, name, args, content):
         result = ''
         try:
-            macro = _Macro(name, args, content, self.render, self._open_macro,
+            macro = _Macro(name, args, content, self, self._open_macro,
                            self._close_macro)
             self._evaluator.define(name, macro)
         except Exception as exc:
@@ -1423,7 +1423,10 @@ class _Macro:
         argdict.update(keywords)
         output = self._renderfunc(self._content, argdict)
         self._closefunc(self._name)
-        return output.rstrip()
+        if output.endswith('\n'):
+            return output[:-1]
+        else:
+            return output
 
 
 class Processor:
@@ -1500,7 +1503,7 @@ class Processor:
 
     def _render(self, env):
         env = {} if env is None else env
-        output = self._renderer.render(self._builder.tree, env)
+        output = self._renderer(self._builder.tree, env)
         self._builder.reset()
         return ''.join(output)
 
@@ -1518,12 +1521,7 @@ def syncline(linenr, fname):
 
 class FortranLineFolder:
 
-    '''Folds a line into correct Fortran continuation lines.
-
-    Can be directly called to return the list of folded lines::
-
-        linefolder = FortranLineFolder(maxlen=10)
-        linefolder('  print *, "some Fortran line"')
+    '''Implements line folding with Fortran continuation lines.
 
     Args:
         maxlen (int, optional): Maximal line length (default: 132).
@@ -1569,6 +1567,21 @@ class FortranLineFolder:
 
 
     def __call__(self, line):
+        '''Folds a line.
+
+        Can be directly called to return the list of folded lines::
+
+            linefolder = FortranLineFolder(maxlen=10)
+            linefolder('  print *, "some Fortran line"')
+        
+        Args:
+            line (str): Line to fold.
+        
+        Returns:
+            list of str: Components of folded line. They should be
+                assembled via ``\\n.join()`` to obtain the string
+                representation.
+        '''
         if self._maxlen < 0 or len(line) <= self._maxlen:
             return [line]
         if self._inherit_indent:

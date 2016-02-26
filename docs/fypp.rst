@@ -780,6 +780,7 @@ FortranLineFolder
 
 .. autoclass:: FortranLineFolder
    :members:
+   :special-members: __call__
 
 
 *****
