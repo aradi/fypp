@@ -6,17 +6,17 @@
 # Copyright (c) 2016, Bálint Aradi
 #
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this
 # list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 # this list of conditions and the following disclaimer in the documentation
 # and/or other materials provided with the distribution.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 'AS IS'
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -41,7 +41,7 @@ using following classes:
 
 * `Renderer`_: Renders a tree built by the builder.
 
-* `Evaluator`_: Evaluates Python expressions in a designated environment. It is 
+* `Evaluator`_: Evaluates Python expressions in a designated environment. It is
   used by the Renderer when rendering eval directives.
 
 * `Processor`_: Connects `Parser`, `Builder`, `Renderer` and `Evaluator` with
@@ -114,20 +114,20 @@ _UNESCAPE_REGEXP2 = re.compile(r'(\})\\(\\*)([$@])')
 
 _RESERVED_PREFIX = '__'
 
-_RESERVED_NAMES = ('defined', 'setvar', 'getvar', '_LINE_', '_FILE_', 
+_RESERVED_NAMES = ('defined', 'setvar', 'getvar', '_LINE_', '_FILE_',
                    '_TIME_', '_DATE_')
 
 
 class FyppError(Exception):
     '''Signalizes error occuring during preprocessing.
-    
+
     Args:
         msg (str): Error message.
         fname (str): File name. None (default) if file name is not available.
         span (tuple of int): Beginning and end line of the region where error
             occured or None if not available.
-    
-    
+
+
     Attributes:
         msg (str): Error message.
         fname (str or None): File name or None if not available.
@@ -136,15 +136,16 @@ class FyppError(Exception):
             from zero. For directives, which do not consume end of the line,
             start and end lines are identical.
     '''
-    
+
     def __init__(self, msg, fname=None, span=None):
+        super().__init__()
         self.msg = msg
         self.fname = fname
         self.span = span
 
 
     def __str__(self):
-        msg = [ self.__class__.__name__, ':\n' ]
+        msg = [self.__class__.__name__, ':\n']
         if self.fname is not None:
             msg.append("file '" + self.fname + "'")
             if self.span is not None:
@@ -199,7 +200,7 @@ class Parser:
             self._curdir = os.getcwd()
         self.handle_open_file((0, 0), self._curfile)
         self._parse(fp.read())
-        self.handle_close_file((-1, -1), self._curfile )
+        self.handle_close_file((-1, -1), self._curfile)
         if closefile:
             fp.close()
 
@@ -216,10 +217,10 @@ class Parser:
         self._parse(txt)
         self.handle_close_file((-1, -1), self._curfile)
 
-    
+
     def handle_open_file(self, span, fname):
         '''Called when parser starts to parse a new file.
-        
+
         It is a dummy methond and should be overriden for actual use.
 
         Args:
@@ -231,7 +232,7 @@ class Parser:
 
     def handle_close_file(self, span, fname):
         '''Called when parser finished processing a file.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
@@ -240,10 +241,10 @@ class Parser:
         '''
         self._log_event('close file', span, filename=fname)
 
-        
+
     def handle_setvar(self, span, name, expr):
         '''Called when parser encounters a setvar directive.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
@@ -254,10 +255,10 @@ class Parser:
         '''
         self._log_event('setvar', span, name=name, expression=expr)
 
-    
+
     def handle_def(self, span, name, args):
         '''Called when parser encounters a def directive.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
@@ -270,7 +271,7 @@ class Parser:
 
     def handle_enddef(self, span):
         '''Called when parser encounters an enddef directive.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
@@ -281,31 +282,31 @@ class Parser:
 
     def handle_if(self, span, cond):
         '''Called when parser encounters an if directive.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
             cond (str): String representation of the branching condition.
         '''
-        self._log_event('if', span, condition=param)
+        self._log_event('if', span, condition=cond)
 
 
     def handle_elif(self, span, cond):
         '''Called when parser encounters an elif directive.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
             cond (str): String representation of the branching condition.
         '''
-        self._log_event('elif', span, condition=param)
+        self._log_event('elif', span, condition=cond)
 
 
     def handle_else(self, span):
         '''Called when parser encounters an else directive.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
@@ -313,10 +314,10 @@ class Parser:
         '''
         self._log_event('else', span)
 
-        
+
     def handle_endif(self, span):
         '''Called when parser encounters an endif directive.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
@@ -327,12 +328,12 @@ class Parser:
 
     def handle_for(self, span, varexpr, iterator):
         '''Called when parser encounters a for directive.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
-            varexpr (str): String representation of the loop variable 
+            varexpr (str): String representation of the loop variable
                 expression.
             iterator (str): String representation of the iterable.
         '''
@@ -341,7 +342,7 @@ class Parser:
 
     def handle_endfor(self, span):
         '''Called when parser encounters an endfor directive.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
@@ -352,7 +353,7 @@ class Parser:
 
     def handle_eval(self, span, expr):
         '''Called when parser encounters an eval directive.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
@@ -365,7 +366,7 @@ class Parser:
 
     def handle_text(self, span, txt):
         '''Called when parser finds text which must left unaltered.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
@@ -377,7 +378,7 @@ class Parser:
 
     def handle_comment(self, span):
         '''Called when parser finds a preprocessor comment.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
@@ -388,7 +389,7 @@ class Parser:
 
     def handle_mute(self, span):
         '''Called when parser finds a mute directive.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
@@ -396,10 +397,10 @@ class Parser:
         '''
         self._log_event('mute', span)
 
-    
+
     def handle_endmute(self, span):
         '''Called when parser finds an endmute directive.
-        
+
         It is a dummy method and should be overriden for actual use.
 
         Args:
@@ -415,7 +416,7 @@ class Parser:
             print('  {}: ->|{}|<-'.format(parname, parvalue))
         print()
 
-        
+
     def _parse(self, txt):
         pos = 0
         linenr = 0
@@ -429,7 +430,7 @@ class Parser:
             endlinenr = linenr + txt.count('\n', start, end)
             if groups['ldirective'] is not None:
                 self._process_directive(
-                    groups['ldirective'], groups['lparam'], 
+                    groups['ldirective'], groups['lparam'],
                     (linenr, endlinenr))
             elif groups['lexpr'] is not None:
                 self._process_lexpreval(groups['lexpr'], (linenr, endlinenr))
@@ -489,7 +490,7 @@ class Parser:
             msg = "unknown directive '{}'".format(directive)
             raise FyppError(msg, self._curfile, span)
 
-            
+
     def _process_lexpreval(self, expr, span):
         expr = _CONTLINE_REGEXP.sub('', expr)
         self.handle_eval(span, expr)
@@ -511,7 +512,7 @@ class Parser:
         else:
             args = [s.strip() for s in argstr.split(',')]
         self.handle_def(span, name, args)
-        
+
 
     def _process_setvar(self, param, span):
         match = _SETVAR_PARAM_REGEXP.search(param)
@@ -530,14 +531,14 @@ class Parser:
         loopvars = [s.strip() for s in loopexpr.split(',')]
         self.handle_for(span, loopvars, match.group('iter'))
 
-        
+
     def _process_include(self, param, span):
         match = _INCLUDE_PARAM_REGEXP.search(param)
         if not match:
             msg = "invalid include file declaration '{}'".format(param)
             raise FyppError(msg, self._curfile, span)
         fname = match.group('fname')
-        for incdir in [ self._curdir ] + self._includedirs:
+        for incdir in [self._curdir] + self._includedirs:
             fpath = os.path.join(incdir, fname)
             if os.path.exists(fpath):
                 break
@@ -603,7 +604,7 @@ class Builder:
 
     def handle_open_file(self, span, fname):
         '''Should be called to signalize change to new file.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
             fname (str): Name of the file.
@@ -616,7 +617,7 @@ class Builder:
 
     def handle_close_file(self, span, fname):
         '''Should be called when processing of a file finished.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
             fname (str): Name of the file.
@@ -632,11 +633,11 @@ class Builder:
                   'of file'.format(directive, spans[0][0] + 1)
             raise FyppError(msg, self._curfile)
         del self._nr_prev_blocks[-1]
-        
-            
+
+
     def handle_if(self, span, cond):
         '''Should be called to signalize an if directive.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
             param (str): String representation of the branching condition.
@@ -648,7 +649,7 @@ class Builder:
 
     def handle_elif(self, span, cond):
         '''Should be called to signalize an elif directive.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
             cond (str): String representation of the branching condition.
@@ -666,7 +667,7 @@ class Builder:
 
     def handle_else(self, span):
         '''Should be called to signalize an else directive.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
         '''
@@ -683,7 +684,7 @@ class Builder:
 
     def handle_endif(self, span):
         '''Should be called to signalize an endif directive.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
         '''
@@ -691,7 +692,7 @@ class Builder:
         block = self._open_blocks.pop(-1)
         directive, spans = block[0:2]
         self._check_if_matches_last(directive, 'if', spans[-1], span, 'endif')
-        conds, contents = block[2:4]
+        _, contents = block[2:4]
         contents.append(self._curnode)
         spans.append(span)
         self._curnode = self._path.pop(-1)
@@ -700,17 +701,17 @@ class Builder:
 
     def handle_for(self, span, loopvar, iterator):
         '''Should be called to signalize a for directive.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
-            varexpr (str): String representation of the loop variable 
+            varexpr (str): String representation of the loop variable
                 expression.
             iterator (str): String representation of the iterable.
         '''
         self._path.append(self._curnode)
         self._curnode = []
         self._open_blocks.append(('for', [span], loopvar, iterator, None))
-        
+
 
     def handle_endfor(self, span):
         '''Should be called to signalize an endfor directive.
@@ -731,7 +732,7 @@ class Builder:
 
     def handle_def(self, span, name, args):
         '''Should be called to signalize a def directive.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
             name (str): Name of the macro to be defined.
@@ -744,7 +745,7 @@ class Builder:
 
     def handle_enddef(self, span):
         '''Should be called to signalize an enddef directive.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
         '''
@@ -761,7 +762,7 @@ class Builder:
 
     def handle_setvar(self, span, name, expr):
         '''Should be called to signalize a setvar directive.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
             name (str): Name of the variable.
@@ -773,18 +774,18 @@ class Builder:
 
     def handle_eval(self, span, expr):
         '''Should be called to signalize an eval directive.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
             expr (str): String representation of the Python expression to
                 be evaluated.
         '''
         self._curnode.append(('eval', span, expr))
-        
+
 
     def handle_comment(self, span):
         '''Should be called to signalize a comment directive.
-        
+
         The content of the comment is not needed by the builder, but it needs
         the span of the comment to generate proper synclines if needed.
 
@@ -792,21 +793,21 @@ class Builder:
             span (tuple of int): Start and end line of the directive.
         '''
         self._curnode.append(('comment', span))
-        
+
 
     def handle_text(self, span, txt):
         '''Should be called to pass text which goes to output unaltered.
-        
+
         Args:
             span (tuple of int): Start and end line of the text.
             txt (str): Text.
         '''
         self._curnode.append(('txt', span, txt))
 
-    
+
     def handle_mute(self, span):
         '''Should be called to signalize a mute directive.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
         '''
@@ -817,7 +818,7 @@ class Builder:
 
     def handle_endmute(self, span):
         '''Should be called to signalize an endmute directive.
-        
+
         Args:
             span (tuple of int): Start and end line of the directive.
         '''
@@ -844,7 +845,7 @@ class Builder:
             raise FyppError(msg, self._curfile, span)
 
 
-    def _check_if_matches_last(self, lastdir, curdir, lastspan, curspan, 
+    def _check_if_matches_last(self, lastdir, curdir, lastspan, curspan,
                                directive):
         if curdir != lastdir:
             msg = 'mismatching {} directive'.format(directive)
@@ -874,7 +875,7 @@ class Renderer:
             defaults to False.
         linefolder (callable): Callable to use when folding a line.
     '''
-    
+
     def __init__(self, evaluator=None, synclines=False, linefolder=None):
         self._evaluator = Evaluator() if evaluator is None else evaluator
         self._evaluator.updateenv(_DATE_=time.strftime('%Y-%m-%d'),
@@ -883,20 +884,20 @@ class Renderer:
         self._active_macros = []
         self.synclines = synclines
         if linefolder is None:
-            self._linefolder = lambda line: [line, ]
+            self._linefolder = lambda line: [line]
         else:
             self._linefolder = linefolder
 
 
     def render(self, tree, env=None):
         '''Renders a tree.
-        
+
         Args:
             tree (fypp-tree): Tree to render.
             env (dict, optional): Dictionary containing additional definitions
                 for the evaluator. The definitions are removed from the
                 from the evaluator, once the rendering finished.
-        
+
         Returns:
             str: Rendered string.
         '''
@@ -1016,7 +1017,7 @@ class Renderer:
             if len(loopvars) == 1:
                 loopscope = {loopvars[0]: var}
             else:
-                loopscope = {varname: value 
+                loopscope = {varname: value
                              for varname, value in zip(loopvars, var)}
             if self.synclines and not self._active_macros and multiline:
                 out.append(syncline(spans[0][1], self._curfile))
@@ -1036,7 +1037,8 @@ class Renderer:
                            self._close_macro)
             self._evaluator.define(name, macro)
         except Exception as exc:
-            msg = "exception occured when defining macro '{}'".format(name)
+            msg = "exception occured when defining macro '{}'\n{}"\
+                .format(name, exc)
             raise FyppError(msg, self._curfile, spans[0])
         if self.synclines and not self._active_macros:
             result = syncline(spans[1][1], self._curfile)
@@ -1072,11 +1074,11 @@ class Renderer:
         else:
             return ''
 
-    
+
     def _open_macro(self, name):
         self._active_macros.append(name)
-        
-    
+
+
     def _close_macro(self, name):
         active_name = self._active_macros.pop(-1)
         if active_name != name:
@@ -1096,7 +1098,7 @@ class Renderer:
 
     def _update_linenr(self, linenr):
         if not self._active_macros:
-            self._evaluator.updateenv(_LINE_=linenr + 1) 
+            self._evaluator.updateenv(_LINE_=linenr + 1)
 
 
     def _postprocess_eval_lines(self, output, eval_inds, eval_pos):
@@ -1116,7 +1118,7 @@ class Renderer:
             else:
                 iprev = 0
                 eolprev = -1
-                
+
             # find first eol after expr. evaluation
             inext = ind + 1
             while inext < len(output):
@@ -1131,7 +1133,7 @@ class Renderer:
             # Create full line containing the evaluated expression
             curline_parts = []
             if iprev != ind:
-                curline_parts = [ output[iprev][eolprev + 1:] ]
+                curline_parts = [output[iprev][eolprev + 1:]]
                 output[iprev] = output[iprev][:eolprev + 1]
             curline_parts.extend(output[iprev + 1:ind])
             curline_parts.extend(output[ind])
@@ -1140,8 +1142,8 @@ class Renderer:
                 curline_parts.append(output[inext][:eolnext + 1])
                 output[inext] = output[inext][eolnext + 1:]
             curline = ''.join(curline_parts)
-            output[iprev + 1:inext] = [ '' ] * (inext - iprev - 1)
-            
+            output[iprev + 1:inext] = [''] * (inext - iprev - 1)
+
             # Split lines and add synclines if needed
             lines = self._splitlines(curline)
             # if curline ended with '\n', last element of lines is ''
@@ -1149,7 +1151,7 @@ class Renderer:
             if self.synclines and (nrlines > 1 or span[0] != span[1]):
                 oldlines = lines
                 syncl = syncline(span[0], fname)
-                lines = [ oldlines[0] + '\n' ]
+                lines = [oldlines[0] + '\n']
                 for line in oldlines[1:-1]:
                     lines.append(syncl)
                     lines.append(line + '\n')
@@ -1193,7 +1195,7 @@ class Evaluator:
     modules. If you need a restricted environment with modules loaded,
     launch a non-restricted one, load the modules, export its environment
     and launch a restricted one using that environment.
-    
+
     Args:
         env (dict, optional): Initial definitions for the environment, defaults
             to None.
@@ -1282,10 +1284,10 @@ class Evaluator:
 
     def evaluate(self, expr):
         '''Evaluate a Python expression using the `eval()` builtin.
-        
+
         Args:
             expr (str): String represantion of the expression.
-        
+
         Return:
             Python object: Result of the expression evaluation.
         '''
@@ -1295,7 +1297,7 @@ class Evaluator:
 
     def execute(self, code):
         '''Run Python code using the `exec()` builtin.
-        
+
         Args:
             code (str): Python code to run.
         '''
@@ -1304,7 +1306,7 @@ class Evaluator:
 
     def define(self, name, value):
         '''Define a Python entity.
-        
+
         Args:
             name (str): Name of the entity.
             value (Python object): Value of the entity.
@@ -1323,10 +1325,10 @@ class Evaluator:
             raise FyppError(msg, None, None)
         self._env[name] = value
 
-    
+
     def updateenv(self, **vardict):
         '''Add variables to the environment.
-        
+
         Args:
             **vardict: variable defintions.
         '''
@@ -1336,10 +1338,10 @@ class Evaluator:
     def pushenv(self, vardict):
         '''Push current environment to stack, and use its copy with additional
         new defintions instead.
-        
+
         Args:
             vardict (dict): New variables.
-        ''' 
+        '''
         self._envstack.append(self._env)
         self._env = self._env.copy()
         self._env.update(vardict)
@@ -1349,7 +1351,7 @@ class Evaluator:
         '''Replace current environment with pop last one from stack.'''
         self._env = self._envstack.pop(-1)
 
-    
+
     @property
     def env(self):
         '''Return current environment.'''
@@ -1359,7 +1361,7 @@ class Evaluator:
     def _func_defined(self, var):
         return var in self._env
 
-    
+
     def _func_import(self, name, *_, **__):
         module = self._env.get(name, None)
         if module is not None and isinstance(module, types.ModuleType):
@@ -1398,7 +1400,7 @@ class _Macro:
             This is typically the corresponding render routine of the Builder.
     '''
 
-    def __init__(self, name, argnames, content, renderfunc, openfunc, 
+    def __init__(self, name, argnames, content, renderfunc, openfunc,
                  closefunc):
         self._name = name
         self._argnames = argnames
@@ -1429,7 +1431,7 @@ class Processor:
     '''Connects various objects with each other to create a processor.
 
     Args:
-        parser (Parser, optional): Parser to use for parsing text. If None 
+        parser (Parser, optional): Parser to use for parsing text. If None
             (default), `Parser()` is used.
         builder (Builder, optional): Builder to use for building the tree
             representation of the text. If None (default), `Builder()` is used.
@@ -1470,11 +1472,11 @@ class Processor:
 
     def process_file(self, fname, env=None):
         '''Processeses a file.
-        
+
         Args:
             fname (str): Name of the file to process.
             env (dict): Additional definitons for the evaluator.
-        
+
         Returns:
             str: Processed content.
         '''
@@ -1484,11 +1486,11 @@ class Processor:
 
     def process_text(self, txt, env=None):
         '''Processes a string.
-        
+
         Args:
             txt (str): Text to process.
             env (dict): Additional definitons for the evaluator.
-        
+
         Returns:
             str: Processed content.
         '''
@@ -1505,7 +1507,7 @@ class Processor:
 
 def syncline(linenr, fname):
     '''Returns a syncline directive.
-    
+
     Args:
         linenr (int): Line nr (starting with 0).
         fname (str): File name.
@@ -1528,7 +1530,7 @@ class FortranLineFolder:
         indent (int, optional): Indentation for continuation lines (default: 4).
         method (str, optional): Folding method with following options:
 
-            * ``none``: no folding, 
+            * ``none``: no folding,
             * ``brute``: folding with maximal length of continuation lines,
             * ``simple``: indents with respect of indentation of first line,
             * ``smart``: like ``simple``, but tries to fold at whitespaces.
@@ -1544,7 +1546,7 @@ class FortranLineFolder:
             raise FyppError(msg)
         self._maxlen = maxlen
         self._indent = indent
-        if method not in [ 'brute', 'smart', 'simple', 'none' ]:
+        if method not in ['brute', 'smart', 'simple', 'none']:
             raise FyppError('invalid folding type')
         if method == 'brute':
             self._prefix = ' ' * self._indent + '&'
@@ -1564,11 +1566,11 @@ class FortranLineFolder:
         else:
             # No folding occurs, line is returned unaltered
             self._maxlen = -1
-        
+
 
     def __call__(self, line):
         if self._maxlen < 0 or len(line) <= self._maxlen:
-            return [line, ]
+            return [line]
         if self._inherit_indent:
             indent = len(line) - len(line.lstrip())
             prefix = ' ' * indent + self._prefix
@@ -1576,7 +1578,7 @@ class FortranLineFolder:
             indent = 0
             prefix = self._prefix
         suffix = self._suffix
-        return self._split_line(line, self._maxlen, prefix, suffix, 
+        return self._split_line(line, self._maxlen, prefix, suffix,
                                 self._fold_position_finder)
 
 
@@ -1587,7 +1589,7 @@ class FortranLineFolder:
         maxlen2 = maxlen1 - len(suffix)
         start = 0
         end = fold_position_finder(line, start, maxlen - len(suffix))
-        result = [line[start:end] + suffix, ]
+        result = [line[start:end] + suffix]
         while end < len(line) - maxlen1:
             start = end
             end = fold_position_finder(line, start, start + maxlen2)
@@ -1595,11 +1597,11 @@ class FortranLineFolder:
         result.append(prefix + line[end:])
         return result
 
-        
+
     @staticmethod
-    def _get_maximal_fold_pos(line, start, end):
+    def _get_maximal_fold_pos(_, __, end):
         return end
-        
+
 
     @staticmethod
     def _get_smart_fold_pos(line, start, end):
@@ -1613,8 +1615,8 @@ class FortranLineFolder:
 
 
 def _shiftinds(inds, shift):
-    return [ ind + shift for ind in inds ]
-    
+    return [ind + shift for ind in inds]
+
 
 ################################################################################
 # Command line tool
@@ -1626,7 +1628,7 @@ _FYPP_DESC = '''Preprocess Fortran source files with FYPP directives.'''
 class Fypp:
 
     '''Represents the FYPP command line tool.
-    
+
     Args:
         cmdline_args (list of str, optional): Command line arguments. If None
             (default), the arguments are read from sys.argv using Argparser.
@@ -1646,7 +1648,7 @@ class Fypp:
         parser = Parser(self._args.includes)
         builder = Builder()
         linefolder = FortranLineFolder(self._args.line_length,
-                                       self._args.indentation, 
+                                       self._args.indentation,
                                        self._args.folding_method)
         renderer = Renderer(evaluator, synclines=self._args.synclines,
                             linefolder=linefolder)
@@ -1673,10 +1675,10 @@ class Fypp:
 
     def process_text(self, txt, env=None):
         '''Processes a string.
-        
+
         Args:
             txt (str): String to process.
-        
+
         Returns:
             str: Processed content.
         '''
@@ -1705,16 +1707,16 @@ class Fypp:
               'context and whitespace aware, \'simple\': indentation context '\
               'aware, \'brute\': mechnical folding, \'none\': no folding'
         parser.add_argument('-f', '--folding-method', metavar='METHOD',
-                            choices=[ 'smart', 'simple', 'brute', 'none' ],
+                            choices=['smart', 'simple', 'brute', 'none'],
                             default='smart', help=msg)
         msg = 'indentation to use for continuation lines (default 4)'
-        parser.add_argument('--indentation', type=int, metavar='IND', 
+        parser.add_argument('--indentation', type=int, metavar='IND',
                             default=4, help=msg)
         msg = 'import python module before starting the processing'
         parser.add_argument('-m', '--module', action='append', dest='modules',
                             metavar='MOD', help=msg)
         msg = 'execute python initialization script before starting processing'
-        parser.add_argument('-i', '--ini-file', action='append', 
+        parser.add_argument('-i', '--ini-file', action='append',
                             dest='inifiles', metavar='INI', help=msg)
         versionstr = '%(prog)s ' + VERSION
         parser.add_argument('-v', '--version', action='version',
@@ -1753,7 +1755,7 @@ class Fypp:
                       .format(module, ex)
                 raise FyppError(msg)
 
-    
+
     @staticmethod
     def _exec_inifiles(inifiles, evaluator):
         for inifile in inifiles:
