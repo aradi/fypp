@@ -30,8 +30,8 @@
 #
 ################################################################################
 
-'''The functionality of the FYPP preprocessor is realized using following
-classes:
+'''The functionality of the FYPP preprocessor is mainly realized by
+using following classes:
 
 * `Parser`_: Reads a source file, does basic syntax checking and generates
   events.
@@ -51,6 +51,11 @@ classes:
   command line arguments.
 
 If any expected error occurs during processing, `FyppError`_ is raised.
+
+Additional to the ones above, following class is used for fine tuning:
+
+* `FortranLineFolder`_: Folds overlong lines by using Fortran continuation
+  lines.
 '''
 
 import builtins
@@ -867,20 +872,20 @@ class Renderer:
             directives. If None (default), Evaluator() is used.
         synclines (bool, optional): Whether synclines should be generated,
             defaults to False.
-        linelength (int, optional): Maximal line length, above which line 
-            folding should be applied. Zero (default) switches off line folding.
+        linefolder (callable): Callable to use when folding a line.
     '''
     
-    def __init__(self, evaluator=None, synclines=False, linelength=0):
+    def __init__(self, evaluator=None, synclines=False, linefolder=None):
         self._evaluator = Evaluator() if evaluator is None else evaluator
         self._evaluator.updateenv(_DATE_=time.strftime('%Y-%m-%d'),
                                   _TIME_=time.strftime('%H:%M:%S'))
         self._curfile = None
         self._active_macros = []
         self.synclines = synclines
-        if linelength > 0 and linelength < 5:
-            raise FyppError('Maximal line length can not be less than 5')
-        self._linelength = linelength
+        if linefolder is None:
+            self._linefolder = lambda line: [line, ]
+        else:
+            self._linefolder = linefolder
 
 
     def render(self, tree, env=None):
@@ -1170,7 +1175,7 @@ class Renderer:
         result = []
         for line in lines:
             if _COMMENTLINE_REGEXP.match(line) is None:
-                result += _split_line(line, self._linelength)
+                result += self._linefolder(line)
             else:
                 result.append(line)
         return result
@@ -1508,17 +1513,103 @@ def syncline(linenr, fname):
     return '# {} "{}"\n'.format(linenr + 1, fname)
 
 
-def _split_line(line, maxlen):
-    if len(line) <= maxlen:
-        result = [ line ]
-    else:
-        result = [line[:maxlen - 1] + '&']
-        maxlen4 = maxlen - 4
-        pos = maxlen - 1 - maxlen4
-        for pos in range(maxlen - 1, len(line) - maxlen4 - 1, maxlen4):
-            result.append('  &' + line[pos:pos + maxlen4] + '&')
-        result.append('  &' + line[pos + maxlen4:])
-    return result
+
+class FortranLineFolder:
+
+    '''Folds a line into correct Fortran continuation lines.
+
+    Can be directly called to return the list of folded lines::
+
+        linefolder = FortranLineFolder(maxlen=10)
+        linefolder('  print *, "some Fortran line"')
+
+    Args:
+        maxlen (int, optional): Maximal line length (default: 132).
+        indent (int, optional): Indentation for continuation lines (default: 4).
+        method (str, optional): Folding method with following options:
+
+            * ``none``: no folding, 
+            * ``brute``: folding with maximal length of continuation lines,
+            * ``simple``: indents with respect of indentation of first line,
+            * ``smart``: like ``simple``, but tries to fold at whitespaces.
+    '''
+
+    def __init__(self, maxlen=132, indent=4, method='smart'):
+        # Line length should be long enough that contintuation lines can host at
+        # east one character apart of indentation and two continuation signs
+        minmaxlen = indent + 2 + 1
+        if maxlen < minmaxlen:
+            msg = 'Maximal line length less than {} when using an indentation' \
+                  'of {}'.format(minmaxlen, indent)
+            raise FyppError(msg)
+        self._maxlen = maxlen
+        self._indent = indent
+        if method not in [ 'brute', 'smart', 'simple', 'none' ]:
+            raise FyppError('invalid folding type')
+        if method == 'brute':
+            self._prefix = ' ' * self._indent + '&'
+            self._suffix = '&'
+            self._inherit_indent = False
+            self._fold_position_finder = self._get_maximal_fold_pos
+        elif method == 'simple':
+            self._prefix = ' ' * self._indent + '&'
+            self._suffix = '&'
+            self._inherit_indent = True
+            self._fold_position_finder = self._get_maximal_fold_pos
+        elif method == 'smart':
+            self._prefix = ' ' * self._indent + '&'
+            self._suffix = '&'
+            self._inherit_indent = True
+            self._fold_position_finder = self._get_smart_fold_pos
+        else:
+            # No folding occurs, line is returned unaltered
+            self._maxlen = -1
+        
+
+    def __call__(self, line):
+        if self._maxlen < 0 or len(line) <= self._maxlen:
+            return [line, ]
+        if self._inherit_indent:
+            indent = len(line) - len(line.lstrip())
+            prefix = ' ' * indent + self._prefix
+        else:
+            indent = 0
+            prefix = self._prefix
+        suffix = self._suffix
+        return self._split_line(line, self._maxlen, prefix, suffix, 
+                                self._fold_position_finder)
+
+
+    @staticmethod
+    def _split_line(line, maxlen, prefix, suffix, fold_position_finder):
+        # length of continuation lines with 1 or two continuation chars.
+        maxlen1 = maxlen - len(prefix)
+        maxlen2 = maxlen1 - len(suffix)
+        start = 0
+        end = fold_position_finder(line, start, maxlen - len(suffix))
+        result = [line[start:end] + suffix, ]
+        while end < len(line) - maxlen1:
+            start = end
+            end = fold_position_finder(line, start, start + maxlen2)
+            result.append(prefix + line[start:end] + suffix)
+        result.append(prefix + line[end:])
+        return result
+
+        
+    @staticmethod
+    def _get_maximal_fold_pos(line, start, end):
+        return end
+        
+
+    @staticmethod
+    def _get_smart_fold_pos(line, start, end):
+        linelen = end - start
+        ispace = line.rfind(' ', start, end)
+        # The space we waste for smart folding should be max. 1/3rd of the line
+        if ispace != -1 and ispace >= start + (2 * linelen) // 3:
+            return ispace
+        else:
+            return end
 
 
 def _shiftinds(inds, shift):
@@ -1554,8 +1645,11 @@ class Fypp:
             self._apply_definitions(self._args.defines, evaluator)
         parser = Parser(self._args.includes)
         builder = Builder()
+        linefolder = FortranLineFolder(self._args.line_length,
+                                       self._args.indentation, 
+                                       self._args.folding_method)
         renderer = Renderer(evaluator, synclines=self._args.synclines,
-                            linelength=self._args.line_length)
+                            linefolder=linefolder)
         self._preprocessor = Processor(parser, builder, renderer)
 
 
@@ -1592,9 +1686,9 @@ class Fypp:
     @staticmethod
     def _get_cmdline_parser():
         parser = ArgumentParser(description=_FYPP_DESC)
-        msg = 'define variable. Value is interpreted as ' \
+        msg = 'define variable, value is interpreted as ' \
               'Python expression (e.g \'-DDEBUG=1\' sets DEBUG to the ' \
-              'integer 1) or set to None if ommitted.'
+              'integer 1) or set to None if ommitted'
         parser.add_argument('-D', '--define', action='append', dest='defines',
                             metavar='VAR[=VALUE]', help=msg)
         msg = 'add directory to the search paths for include files'
@@ -1603,11 +1697,19 @@ class Fypp:
         msg = 'include CPP style sync-lines in the output'
         parser.add_argument('-s', '--synclines', action='store_true',
                             default=False, help=msg)
-        msg = 'maximal line length (default: 132). Lines modified by the ' \
-              'preprocessor will be folded to this length. Setting to 0 ' \
-              'disables line folding.'
+        msg = 'maximal line length (default: 132), lines modified by the '\
+              'preprocessor are folded if becoming longer'
         parser.add_argument('-l', '--line-length', type=int, default=132,
                             metavar='LEN', help=msg)
+        msg = 'folding method, \'smart\' (default): indentation '\
+              'context and whitespace aware, \'simple\': indentation context '\
+              'aware, \'brute\': mechnical folding, \'none\': no folding'
+        parser.add_argument('-f', '--folding-method', metavar='METHOD',
+                            choices=[ 'smart', 'simple', 'brute', 'none' ],
+                            default='smart', help=msg)
+        msg = 'indentation to use for continuation lines (default 4)'
+        parser.add_argument('--indentation', type=int, metavar='IND', 
+                            default=4, help=msg)
         msg = 'import python module before starting the processing'
         parser.add_argument('-m', '--module', action='append', dest='modules',
                             metavar='MOD', help=msg)

@@ -15,9 +15,14 @@ def _defvar(var, val):
 def _incdir(path):
     return '-I{}'.format(path)
 
-def _fold(linelen):
-    return '-l {}'.format(linelen)
+def _linelen(linelen):
+    return '-l{}'.format(linelen)
 
+def _indentation(ind):
+    return '--indentation={}'.format(ind)
+
+def _folding(fold):
+    return '-f{}'.format(fold)
 
 _SYNCL_FLAG = '-s'
 
@@ -495,15 +500,36 @@ syncline_tests = [
      _strsyncl(0) + 'A\n' + _strsyncl(5) + 'VAR=2\n'
      ),
     #
-    ('fold_lines', [ _fold(10) ],
+    ('fold_lines', [ _linelen(10), _indentation(2), _folding('simple') ],
      'This line is not folded\nThis line ${1 + 1}$ is folded\n',
      'This line is not folded\nThis line&\n  & 2 is &\n  &folded\n'
      ),
     #
-    ('prevent_comment_folding', [ _fold(10) ],
+    ('prevent_comment_folding',  
+     [ _linelen(10), _indentation(2), _folding('simple') ],
      '@:def macro()\n ! Should be not folded\nShould be folded\n@:enddef\n'
      '$:macro()\n',
      ' ! Should be not folded\nShould be&\n  & folded\n'
+     ),
+    #
+    ('no_folding', [ _linelen(15), _indentation(4), _folding('none') ],
+     '  ${3}$456 89 123456 8',
+     '  3456 89 123456 8',
+     ),
+    #
+    ('brute_folding', [ _linelen(15), _indentation(4), _folding('brute') ],
+     '  ${3}$456 89 123456 8',
+     '  3456 89 1234&\n    &56 8',
+     ),
+    #
+    ('simple_folding', [ _linelen(15), _indentation(4), _folding('simple') ],
+     '  ${3}$456 89 123456 8',
+     '  3456 89 1234&\n      &56 8',
+     ),
+    #
+    ('smart_folding', [ _linelen(15), _indentation(4), _folding('smart') ],
+     '  ${3}$456 89 123456 8',
+     '  3456 89&\n      & 123456&\n      & 8',
      ),
 ]
 
@@ -800,7 +826,7 @@ exception_tests = [
      fypp.FyppError, fypp.STRING, (3, 3)
      ),
     #
-    ('short_line_length', [ _fold(4) ],
+    ('short_line_length', [ _linelen(4) ],
      '',
      fypp.FyppError, None, None
      ),

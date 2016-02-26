@@ -657,23 +657,42 @@ The Fortran standard only allows source lines up to 132 characters. In order to
 emit standard conforming code, FYPP folds all lines in the output, which it had
 manipulated before (all lines containing eval directives). Lines, which were
 just copied to the output, are left unaltered. The maximal line length can be
-chosen by the `-l` command line option. Setting it to zero switches off
-the line folding.
+chosen by the ``-l`` command line option. The indentation of the continuation
+lines can be tuned with the ``--indentation`` option, and the folding strategy
+can be selected by the ``-f`` option with following possibilities:
 
-FYPP applies the line folding mechanically at the position corresponding to the
-maximal line length. Lines containing eval directives and lines within macro
-definition should, therefore, not contain any Fortran style comments (started by
-``!``) within the line, as folding within the comment would result in invalid
-Fortran code. For comments within such lines, FYPPs comment directive (``@!``)
-can be used instead::
+* ``none``: Switches line folding off.
+
+* ``brute``: Continuation lines are indented relative to the beginning of
+  the line, and each line is folded at the maximal line position.
+
+* ``simple``: Like ``brute``, but continuation lines are indented with respect
+  of the indentation of the original line.
+
+* ``smart``: Like ``simple``, but FYPP tries to fold the line at a whitespace
+  character in order to prevent split tokens. To prevent continuation lines
+  becoming too short, it defaults to ``simple`` if no whitespace occurs in the
+  last third of the line.
+
+
+.. warning:: FYPP is not aware of the Fortran semantics represented by the lines
+             it folds.
+
+FYPP applies the line folding rather mechanically (only considering the the
+position of the whitespace characters). Lines containing eval directives and
+lines within macro definition should, therefore, not contain any Fortran style
+comments (started by ``!``) *within* the line, as folding within the comment
+would result in invalid Fortran code. For comments within such lines, FYPPs
+comment directive (``@!``) can be used instead::
 
   @:def macro()
   print *, "DO NOT DO THIS!"  ! Warning: Line may be folded within the comment
   print *, "This is OK."  @! Preprocessor comment is safe as it will be stripped
 
 If the comment starts at the beginning of the line (preceeded by optional
-whitespace characters only), the folding is suppressed, though. This way, you
-can define macros producing comment lines on the output::
+whitespace characters only), the folding is suppressed, though. This enables you
+to define macros, which emit non-negligible comment lines (e.g. containing
+source code documentation or OpenMP directives)::
 
   @:def macro(DTYPE)
   !> This functions calculates something (version ${DTYPE}$)
@@ -753,6 +772,13 @@ FyppError
 =========
 
 .. autoclass:: FyppError
+   :members:
+
+
+FortranLineFolder
+=================
+
+.. autoclass:: FortranLineFolder
    :members:
 
 
