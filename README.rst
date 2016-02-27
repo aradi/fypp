@@ -1,8 +1,8 @@
 ====
-FYPP
+Fypp
 ====
 
-FYPP is a Python powered Fortran preprocessor. It extends Fortran with
+Fypp is a Python powered Fortran preprocessor. It extends Fortran with
 condititional compiling and template metaprogramming capabilities. It is written
 in Python and uses Python to evaluate expressions in preprocessor commands,
 enabling high flexibility in formulating metaprogramming tasks. It puts strong
@@ -14,7 +14,7 @@ The project is `hosted on bitbucket <http://bitbucket.org/aradi/fypp>`_.
 `Detailed DOCUMENTATION <http://fypp.readthedocs.org>`_ is available on
 `readthedocs.org <http://fypp.readthedocs.org>`_. 
 
-FYPP is released under the *BSD 2-clause license*.
+Fypp is released under the *BSD 2-clause license*.
 
 
 Main features
@@ -103,13 +103,13 @@ environment variable, by just issuing ::
 
   fypp
 
-FYPP needs a working Python interpreter with version 3.2 or above.
+Fypp needs a working Python interpreter with version 3.2 or above.
 
 
 Running
 =======
 
-The FYPP command line tool reads a file, preprocesses it and writes it to
+The Fypp command line tool reads a file, preprocesses it and writes it to
 another file, so you would typically invoke it like::
 
   fypp source.fypp source.f90
@@ -118,8 +118,7 @@ which would process `source.fypp` and write the result to `source.f90`.  If
 input and output files are not specified, information is read from stdin and
 written to stdout.
 
-The behavior of FYPP can be influenced with various command line options. A
+The behavior of Fypp can be influenced with various command line options. A
 summary of all command line options can be obtained by::
 
   fypp -h
-

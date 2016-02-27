@@ -1,5 +1,5 @@
 ##################
-FYPP Documentation
+Fypp documentation
 ##################
 
 .. toctree::

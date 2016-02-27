@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# FYPP documentation build configuration file, created by
+# Fypp documentation build configuration file, created by
 # sphinx-quickstart on Fri Feb 19 08:36:50 2016.
 #
 # This file is execfile()d with the current directory set to its
@@ -45,7 +45,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'FYPP'
+project = u'Fypp'
 copyright = u'2016, Bálint Aradi'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -178,7 +178,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'FYPPdoc'
+htmlhelp_basename = 'Fyppdoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -198,7 +198,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'FYPP.tex', u'FYPP Documentation',
+  ('index', 'Fypp.tex', u'Fypp Documentation',
    u'Bálint Aradi', 'manual'),
 ]
 
@@ -228,7 +228,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'fypp', u'FYPP Documentation',
+    ('index', 'fypp', u'Fypp Documentation',
      [u'Bálint Aradi'], 1)
 ]
 
@@ -242,8 +242,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'FYPP', u'FYPP Documentation',
-   u'Bálint Aradi', 'FYPP', 'One line description of project.',
+  ('index', 'Fypp', u'Fypp Documentation',
+   u'Bálint Aradi', 'Fypp', 'One line description of project.',
    'Miscellaneous'),
 ]
 

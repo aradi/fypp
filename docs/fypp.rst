@@ -2,20 +2,20 @@
 Introduction
 ************
 
-FYPP is a Python powered Fortran preprocessor. It extends Fortran with
+Fypp is a Python powered Fortran preprocessor. It extends Fortran with
 condititional compiling and template metaprogramming capabilities. It is written
 in Python and uses Python to evaluate expressions in preprocessor commands,
 enabling high flexibility in formulating metaprogramming tasks. It puts strong
 emphasis on robustness and on neat integration into Fortran developing
 toolchains.
 
-FYPP was inspired by the `pyratemp
+Fypp was inspired by the `pyratemp
 <http://www.simple-is-better.org/template/pyratemp.html>`_ templating engine
 [#]_. Although it shares many concepts with pyratemp, it was written from
 scratch focusing on the special needs when preprocessing Fortran source
-files. FYPP natively supports the output of synchronization line directives,
+files. Fypp natively supports the output of synchronization line directives,
 which are used by many compilers to generate compiler messages with correct line
-numbers. Unlike most CPP/FPP-like preprocessors, FYPP also supports iterations,
+numbers. Unlike most cpp/fpp-like preprocessors, Fypp also supports iterations,
 multiline macros, continuation lines in preprocessor directives and automatic
 line folding. It generally tries to extend the modern Fortran language with some
 useful features without tempting you to use it for tasks, which could/should be
@@ -23,16 +23,16 @@ done in Fortran itself.
 
 The project is `hosted on bitbucket <http://bitbucket.org/aradi/fypp>`_ with
 documentation available on `readthedocs.org
-<http://fypp.readthedocs.org>`_. FYPP is released under the *BSD 2-clause
+<http://fypp.readthedocs.org>`_. Fypp is released under the *BSD 2-clause
 license*.
 
-This document describes FYPP Version 1.0.
+This document describes Fypp Version 1.0.
 
 
 Features
 ========
 
-Below you find a summary over FYPPs main features. Each of them is described in
+Below you find a summary over Fypps main features. Each of them is described in
 more detail in individual sections further down.
 
 * Definition and evaluation of preprocessor variables::
@@ -112,7 +112,7 @@ Getting started
 Installing
 ==========
 
-Download the source code from the `FYPP project website
+Download the source code from the `Fypp project website
 <http://bitbucket.org/aradi/fypp>`_ ::
 
   git clone https://aradi@bitbucket.org/aradi/fypp.git
@@ -134,31 +134,31 @@ obtain
 The command line tool is a single stand-alone script. You can run it directly
 from the source folder ::
   
-  FYPP_SOURCE_FOLDER/bin/fypp
+  Fypp_SOURCE_FOLDER/bin/fypp
 
 or after copying it from the `bin` folder to any location listed in your `PATH`
 environment variable, by just issuing ::
 
   fypp
 
-FYPP needs a working Python interpreter with version 3.2 or above.
+Fypp needs a working Python interpreter with version 3.2 or above.
 
 
 Testing
 =======
 
-You can test FYPP on your system by running ::
+You can test Fypp on your system by running ::
 
   ./test/runtests.sh
 
-in its source tree. This will execute various unit tests to check whether FYPP
+in its source tree. This will execute various unit tests to check whether Fypp
 works as expected.
 
 
 Running
 =======
 
-The FYPP command line tool reads a file, preprocesses it and writes it to
+The Fypp command line tool reads a file, preprocesses it and writes it to
 another file, so you would typically invoke it like::
 
   fypp source.fypp source.f90
@@ -167,7 +167,7 @@ which would process `source.fypp` and write the result to `source.f90`.  If
 input and output files are not specified, information is read from stdin and
 written to stdout.
 
-The behavior of FYPP can be influenced with various command line options. A
+The behavior of Fypp can be influenced with various command line options. A
 summary of all command line options can be obtained by::
 
   fypp -h
@@ -181,7 +181,7 @@ Preprocessor language
 General syntax
 ==============
 
-FYPP has two types of preprocessor directives, each of them having a line and an
+Fypp has two types of preprocessor directives, each of them having a line and an
 inline form:
 
 *  Control directives
@@ -575,7 +575,7 @@ include directive expects a quoted string with a file name::
   @:include 'mydefs.fypp'
 
 If the file name is relative, it is interpreted relative to the folder where the
-processed file is located (or to the current folder, if FYPP reads from
+processed file is located (or to the current folder, if Fypp reads from
 stdin). Further lookup paths can be added with the ``-I`` command line option.
 
 The `include` directive does not have an inline form.
@@ -584,8 +584,8 @@ The `include` directive does not have an inline form.
 `mute` directive
 ================
 
-Empty lines between FYPP definitions makes the code easier to read. However,
-being outside of FYPP-directives, those empty lines will be written unaltered to
+Empty lines between Fypp definitions makes the code easier to read. However,
+being outside of Fypp-directives, those empty lines will be written unaltered to
 the output file. This can be especially disturbing, if various macro definition
 files are included, as the resulting output would eventually contian a lot of
 empty lines. With the `mute` directive, the output can be suspended. While
@@ -654,7 +654,7 @@ Line folding
 ============
 
 The Fortran standard only allows source lines up to 132 characters. In order to
-emit standard conforming code, FYPP folds all lines in the output, which it had
+emit standard conforming code, Fypp folds all lines in the output, which it had
 manipulated before (all lines containing eval directives). Lines, which were
 just copied to the output, are left unaltered. The maximal line length can be
 chosen by the ``-l`` command line option. The indentation of the continuation
@@ -669,20 +669,20 @@ can be selected by the ``-f`` option with following possibilities:
 * ``simple``: Like ``brute``, but continuation lines are indented with respect
   of the indentation of the original line.
 
-* ``smart``: Like ``simple``, but FYPP tries to fold the line at a whitespace
+* ``smart``: Like ``simple``, but Fypp tries to fold the line at a whitespace
   character in order to prevent split tokens. To prevent continuation lines
   becoming too short, it defaults to ``simple`` if no whitespace occurs in the
   last third of the line.
 
 
-.. warning:: FYPP is not aware of the Fortran semantics represented by the lines
+.. warning:: Fypp is not aware of the Fortran semantics represented by the lines
              it folds.
 
-FYPP applies the line folding rather mechanically (only considering the the
+Fypp applies the line folding rather mechanically (only considering the the
 position of the whitespace characters). Lines containing eval directives and
 lines within macro definition should, therefore, not contain any Fortran style
 comments (started by ``!``) *within* the line, as folding within the comment
-would result in invalid Fortran code. For comments within such lines, FYPPs
+would result in invalid Fortran code. For comments within such lines, Fypps
 comment directive (``@!``) can be used instead::
 
   @:def macro()
@@ -707,7 +707,7 @@ source code documentation or OpenMP directives)::
 Escaping
 ========
 
-If you want to prevent FYPP to interprete something as control or eval
+If you want to prevent Fypp to interprete something as control or eval
 directive, put a backslash (``\``) between the first and second delimiter
 character. In case of inline directives, do it for the opening and the
 closing delimiter as well::
@@ -715,7 +715,7 @@ closing delimiter as well::
   $\: 1 + 2
   @\{if 1 > 2}\@
 
-FYPP will not recognize the escaped strings as directives, but will remove the
+Fypp will not recognize the escaped strings as directives, but will remove the
 backslash between the delimiter characters in the output. If you put more than
 one backslash between the delimiters, only one will be removed.
 
@@ -787,4 +787,4 @@ FortranLineFolder
 Notes
 *****
 
-.. [#] I am indebted to pyratemps author Roland Koebler for helpful discussions
+.. [#] I am indebted to pyratemps author Roland Koebler for helpful discussions.
