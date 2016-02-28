@@ -85,7 +85,7 @@ _DIRECTIVE_REGEXP = re.compile(r'''
 (?P<lparam>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
 |
 # line eval directive (with optional continuation lines)
-^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*$
+^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 |
 # inline control directive
 @\{[ \t]*(?P<idirective>\w+)[ \t]*(?P<param>.*?)?[ \t]*\}@
@@ -94,8 +94,10 @@ _DIRECTIVE_REGEXP = re.compile(r'''
 \$\{[ \t]*(?P<iexpr>.*?)[ \t]*\}\$
 ''', re.VERBOSE | re.MULTILINE)
 
-_MACRO_PARAM_REGEXP = re.compile(
+_DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>\w+)\(\s*(?P<args>(?:(?:\w+\s*,\s*)*(?:\w+)))?\s*\)$')
+
+_CALL_PARAM_REGEXP = re.compile(r'^(?P<name>\w+)\s*$')
 
 _SETVAR_PARAM_REGEXP = re.compile(r'^(?P<name>\w+)(?:\s+(?P<expr>.*))?\s*$')
 
@@ -351,6 +353,40 @@ class Parser:
         self._log_event('endfor', span)
 
 
+    def handle_call(self, span, macro):
+        '''Called when parser encounters a call directive.
+
+        It is a dummy method and should be overriden for actual use.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+            macro (str): Macro to call.
+        '''
+        self._log_event('call', span, macro=macro)
+
+
+    def handle_nextarg(self, span):
+        '''Called when parser encounters a nextarg directive.
+
+        It is a dummy method and should be overriden for actual use.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+        '''
+        self._log_event('nextarg', span)
+
+
+    def handle_endcall(self, span):
+        '''Called when parser encounters an endcall directive.
+
+        It is a dummy method and should be overriden for actual use.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+        '''
+        self._log_event('endcall', span)
+
+
     def handle_eval(self, span, expr):
         '''Called when parser encounters an eval directive.
 
@@ -425,7 +461,7 @@ class Parser:
             start, end = match.span()
             if start > pos:
                 endlinenr = linenr + txt.count('\n', pos, start)
-                self.handle_text((linenr, endlinenr), 
+                self.handle_text((linenr, endlinenr),
                                  self._unescape(txt[pos:start]))
                 linenr = endlinenr
             endlinenr = linenr + txt.count('\n', start, end)
@@ -476,6 +512,14 @@ class Parser:
         elif directive == 'endfor':
             self._check_empty_param('endfor', param, span)
             self.handle_endfor(span)
+        elif directive == 'call':
+            self._process_call(param, span)
+        elif directive == 'nextarg':
+            self._check_empty_param('nextcall', param, span)
+            self.handle_nextarg(span)
+        elif directive == 'endcall':
+            self._check_empty_param('endcall', param, span)
+            self.handle_endcall(span)
         elif directive == 'include':
             self._check_not_inline_directive('include', span)
             self._process_include(param, span)
@@ -502,7 +546,7 @@ class Parser:
 
 
     def _process_def(self, param, span):
-        match = _MACRO_PARAM_REGEXP.search(param)
+        match = _DEF_PARAM_REGEXP.search(param)
         if not match:
             msg = "invalid macro definition '{}'".format(param)
             raise FyppError(msg, self._curfile, span)
@@ -531,6 +575,15 @@ class Parser:
         loopexpr = match.group('loopexpr')
         loopvars = [s.strip() for s in loopexpr.split(',')]
         self.handle_for(span, loopvars, match.group('iter'))
+
+
+    def _process_call(self, param, span):
+        match = _CALL_PARAM_REGEXP.search(param)
+        if not match:
+            msg = "invalid macro call '{}'".format(param)
+            raise FyppError(msg, self._curfile, span)
+        name = match.group('name')
+        self.handle_call(span, name)
 
 
     def _process_include(self, param, span):
@@ -768,6 +821,53 @@ class Builder:
         self._curnode.append(block)
 
 
+    def handle_call(self, span, name):
+        '''Should be called to signalize a call directive.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+            name (str): Name of the macro to call.
+        '''
+        self._path.append(self._curnode)
+        self._curnode = []
+        self._open_blocks.append(('call', [span], name, []))
+
+
+    def handle_nextarg(self, span):
+        '''Should be called to signalize a nextarg directive.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+        '''
+        self._check_for_open_block(span, 'nextarg')
+        block = self._open_blocks[-1]
+        directive, spans = block[0:2]
+        self._check_if_matches_last(directive, 'call', spans[-1], span,
+                                    'endcall')
+        _, contents = block[2:4]
+        contents.append(self._curnode)
+        spans.append(span)
+        self._curnode = []
+
+
+    def handle_endcall(self, span):
+        '''Should be called to signalize an endcall directive.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+        '''
+        self._check_for_open_block(span, 'endcall')
+        block = self._open_blocks.pop(-1)
+        directive, spans = block[0:2]
+        self._check_if_matches_last(directive, 'call', spans[-1], span,
+                                    'endcall')
+        _, contents = block[2:4]
+        contents.append(self._curnode)
+        spans.append(span)
+        self._curnode = self._path.pop(-1)
+        self._curnode.append(block)
+
+
     def handle_setvar(self, span, name, expr):
         '''Should be called to signalize a setvar directive.
 
@@ -889,15 +989,15 @@ class Renderer:
         self._evaluator.updateenv(_DATE_=time.strftime('%Y-%m-%d'),
                                   _TIME_=time.strftime('%H:%M:%S'))
         self._curfile = None
-        self._active_macros = []
-        self.synclines = synclines
+        self._diversions = 0
+        self._synclines = synclines
         if linefolder is None:
             self._linefolder = lambda line: [line]
         else:
             self._linefolder = linefolder
 
 
-    def __call__(self, tree, env=None):
+    def render(self, tree, env=None):
         '''Renders a tree.
 
         Args:
@@ -948,6 +1048,11 @@ class Renderer:
                 eval_inds += _shiftinds(ieval, len(output))
                 eval_pos += peval
                 output += out
+            elif cmd == 'call':
+                out, ieval, peval = self._get_called_content(*node[1:4])
+                eval_inds += _shiftinds(ieval, len(output))
+                eval_pos += peval
+                output += out
             elif cmd == 'include':
                 result = self._register_file(*node[1:3])
                 output.append(result)
@@ -975,9 +1080,11 @@ class Renderer:
         peval = []
         if result is not None:
             out.append(str(result))
-            if not self._active_macros:
+            if not self._diversions:
                 ieval.append(0)
                 peval.append((span, self._curfile))
+        if span[0] != span[1]:
+            out.append('\n')
         return out, ieval, peval
 
 
@@ -995,14 +1102,14 @@ class Renderer:
                     condition, exc)
                 raise FyppError(msg, self._curfile, span)
             if cond:
-                if self.synclines and not self._active_macros and multiline:
+                if self._synclines and not self._diversions and multiline:
                     out.append(syncline(span[1], self._curfile))
                 outcont, ievalcont, pevalcont = self._render(content)
                 ieval += _shiftinds(ievalcont, len(out))
                 peval += pevalcont
                 out += outcont
                 break
-        if self.synclines and not self._active_macros and multiline:
+        if self._synclines and not self._diversions and multiline:
             out.append(syncline(spans[-1][1], self._curfile))
         return out, ieval, peval
 
@@ -1025,28 +1132,42 @@ class Renderer:
             else:
                 loopscope = {varname: value
                              for varname, value in zip(loopvars, var)}
-            if self.synclines and not self._active_macros and multiline:
+            if self._synclines and not self._diversions and multiline:
                 out.append(syncline(spans[0][1], self._curfile))
             outcont, ievalcont, pevalcont = self._render(content, loopscope)
             ieval += _shiftinds(ievalcont, len(out))
             peval += pevalcont
             out += outcont
-        if self.synclines and not self._active_macros and multiline:
+        if self._synclines and not self._diversions and multiline:
             out.append(syncline(spans[1][1], self._curfile))
+        return out, ieval, peval
+
+
+    def _get_called_content(self, spans, name, contents):
+        args = []
+        self._divert()
+        for content in contents:
+            out = self.render(content, {})
+            if len(out) and out[-1] == '\n':
+                out = out[:-1]
+            args.append('"""' + out.replace('"', r'\"') + '"""')
+        self._undivert()
+        expr = "{}({})".format(name, ','.join(args))
+        out, ieval, peval = self._get_eval((spans[0][0], spans[-1][1]), expr)
         return out, ieval, peval
 
 
     def _define_macro(self, spans, name, args, content):
         result = ''
         try:
-            macro = _Macro(name, args, content, self, self._open_macro,
-                           self._close_macro)
+            macro = _Macro(name, args, content, self.render, self._divert,
+                           self._undivert)
             self._evaluator.define(name, macro)
         except Exception as exc:
             msg = "exception occured when defining macro '{}'\n{}"\
                 .format(name, exc)
             raise FyppError(msg, self._curfile, spans[0])
-        if self.synclines and not self._active_macros:
+        if self._synclines and not self._diversions:
             result = syncline(spans[1][1], self._curfile)
         return result
 
@@ -1061,13 +1182,13 @@ class Renderer:
                 .format(name, valstr, exc)
             raise FyppError(msg, self._curfile, span)
         multiline = (span[0] != span[1])
-        if self.synclines and not self._active_macros and multiline:
+        if self._synclines and not self._diversions and multiline:
             result = syncline(span[1], self._curfile)
         return result
 
 
     def _get_comment(self, span):
-        if self.synclines and not self._active_macros:
+        if self._synclines and not self._diversions:
             return syncline(span[1], self._curfile)
         else:
             return ''
@@ -1075,21 +1196,20 @@ class Renderer:
 
     def _get_muted_content(self, spans, content):
         self._render(content)
-        if self.synclines and not self._active_macros:
+        if self._synclines and not self._diversions:
             return syncline(spans[-1][1], self._curfile)
         else:
             return ''
 
 
-    def _open_macro(self, name):
-        self._active_macros.append(name)
+    def _divert(self):
+        self._diversions += 1
 
 
-    def _close_macro(self, name):
-        active_name = self._active_macros.pop(-1)
-        if active_name != name:
-            msg = "Internal error: mismatching macro name at closing " \
-                  "(received '{}', expected '{}')".format(name, active_name)
+    def _undivert(self):
+        self._diversions -= 1
+        if self._diversions < 0:
+            msg = "Internal error: undivert without matching divert"
             raise FyppError(msg, self._curfile)
 
 
@@ -1097,13 +1217,13 @@ class Renderer:
         result = ''
         self._curfile = fname
         self._evaluator.updateenv(_FILE_=fname)
-        if self.synclines and not self._active_macros:
+        if self._synclines and not self._diversions:
             result = syncline(span[1], self._curfile)
         return result
 
 
     def _update_linenr(self, linenr):
-        if not self._active_macros:
+        if not self._diversions:
             self._evaluator.updateenv(_LINE_=linenr + 1)
 
 
@@ -1154,7 +1274,7 @@ class Renderer:
             lines = self._splitlines(curline)
             # if curline ended with '\n', last element of lines is ''
             nrlines = len(lines) if lines[-1] else len(lines) - 1
-            if self.synclines and (nrlines > 1 or span[0] != span[1]):
+            if self._synclines and (nrlines > 1 or span[0] != span[1]):
                 oldlines = lines
                 syncl = syncline(span[0], fname)
                 lines = [oldlines[0] + '\n']
@@ -1165,13 +1285,13 @@ class Renderer:
                     # Line did not end on '\n' -> it was last line of input
                     # -> no syncline is needed.
                     lines.append(oldlines[-1])
-                elif span[0] != span[1]:
+                elif span[1] > span[0] + 1:
                     # Syncline needed, if expression evaluation goes
                     # over multiple lines. Otherwise the syncline inserted
                     # before the last line of the evaluation (pointing to
                     # the line of the directive) ensures correct line numbering
                     # for the following content.
-                    lines.append(syncline(span[1] + 1, fname))
+                    lines.append(syncline(span[1], fname))
                 output[ind] = ''.join(lines)
             else:
                 output[ind] = '\n'.join(lines)
@@ -1400,24 +1520,24 @@ class _Macro:
         content (list): Content of the macro as tree.
         renderfunc (function): Function to call when content should be rendered.
             This is typically the corresponding render routine of the Builder.
-        openfunc (function): Function to call when macro rendering started.
-            This is typically the corresponding render routine of the Builder.
-        closefunc (function): Function to call when macro rendering finished.
-            This is typically the corresponding render routine of the Builder.
+        divert (function): Function to call when macro rendering started, in
+            order to suppress its output. Typically the corresponding routine
+            of the Builder.
+        undivert (function): Function to call when macro rendering finished.
+            Typically the corresponding routine of the Builder.
     '''
 
-    def __init__(self, name, argnames, content, renderfunc, openfunc,
-                 closefunc):
+    def __init__(self, name, argnames, content, renderfunc, divert, undivert):
         self._name = name
         self._argnames = argnames
         self._content = content
         self._renderfunc = renderfunc
-        self._openfunc = openfunc
-        self._closefunc = closefunc
+        self._divert = divert
+        self._undivert = undivert
 
 
     def __call__(self, *args, **keywords):
-        self._openfunc(self._name)
+        self._divert()
         if len(args) != len(self._argnames):
             msg = "Incorrect nr. of positional arguments for macro '{}' " \
                   "(provided: {}, needed: {})".format(
@@ -1428,7 +1548,7 @@ class _Macro:
             argdict[argname] = arg
         argdict.update(keywords)
         output = self._renderfunc(self._content, argdict)
-        self._closefunc(self._name)
+        self._undivert()
         if output.endswith('\n'):
             return output[:-1]
         else:
@@ -1474,6 +1594,9 @@ class Processor:
         self._parser.handle_setvar = self._builder.handle_setvar
         self._parser.handle_for = self._builder.handle_for
         self._parser.handle_endfor = self._builder.handle_endfor
+        self._parser.handle_call = self._builder.handle_call
+        self._parser.handle_nextarg = self._builder.handle_nextarg
+        self._parser.handle_endcall = self._builder.handle_endcall
         self._parser.handle_comment = self._builder.handle_comment
         self._parser.handle_mute = self._builder.handle_mute
         self._parser.handle_endmute = self._builder.handle_endmute
@@ -1509,7 +1632,7 @@ class Processor:
 
     def _render(self, env):
         env = {} if env is None else env
-        output = self._renderer(self._builder.tree, env)
+        output = self._renderer.render(self._builder.tree, env)
         self._builder.reset()
         return ''.join(output)
 
@@ -1579,10 +1702,10 @@ class FortranLineFolder:
 
             linefolder = FortranLineFolder(maxlen=10)
             linefolder('  print *, "some Fortran line"')
-        
+
         Args:
             line (str): Line to fold.
-        
+
         Returns:
             list of str: Components of folded line. They should be
                 assembled via ``\\n.join()`` to obtain the string

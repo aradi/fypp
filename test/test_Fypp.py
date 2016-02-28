@@ -139,24 +139,19 @@ simple_tests = [
      '<0 x -1>'
      ),
     #
-    ('linesub_no_eol', [ _defvar('TESTVAR', 1) ],
-     '$: TESTVAR + 1',
-     '2'
-     ),
-    #
     ('linesub_eol', [ _defvar('TESTVAR', 1) ],
      'A\n$: TESTVAR + 1\nB\n',
      'A\n2\nB\n'
      ),
     #
     ('linesub_contlines', [ _defvar('TESTVAR', 1) ],
-     '$: TESTVAR & \n  & + 1',
-     '2'
+     '$: TESTVAR & \n  & + 1\n',
+     '2\n'
      ),
     #
     ('linesub_contlines2', [ _defvar('TESTVAR', 1) ],
-     '$: TEST& \n  &VAR & \n  & + 1',
-     '2'
+     '$: TEST& \n  &VAR & \n  & + 1\n',
+     '2\n'
      ),
     #
     ('linesub_contlines_contchar1', [],
@@ -242,11 +237,29 @@ simple_tests = [
      'VAL:1VAL:2VAL:3Done\n'
      ),
     #
-    #('call_directive', [],
-    # '@:def mymacro(val)\n|${val}$|\n@:enddef\n'\
-    # '@:call mymacro(*)\nL1\nL2\L3\n@:enddef\n',
-    # '|L1\nL2\nL3|',
-    # ),
+    ('call_directive', [],
+     '@:def mymacro(val)\n|${val}$|\n@:enddef\n'\
+     '@:call mymacro\nL1\nL2\nL3\n@:endcall\n',
+     '|L1\nL2\nL3|\n',
+     ),
+    #
+    ('call_directive_quotation', [],
+     '@:def mymacro(val)\n|${val}$|\n@:enddef\n'\
+     '@:call mymacro\n"""L1"""\nL2\nL3\n@:endcall\n',
+     '|"""L1"""\nL2\nL3|\n',
+     ),
+    #
+    ('call_directive_2_args', [],
+     '@:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n@:enddef\n'\
+     '@:call mymacro\n"""L1"""\nL2\n@:nextarg\nL3\n@:endcall\n',
+     '|"""L1"""\nL2|L3|\n',
+     ),
+    #
+    ('call_directive_2_args_inline', [],
+     '@:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n@:enddef\n'\
+     '@{call mymacro}@A1@{nextarg}@A2@{endcall}@',
+     '|A1|A2|',
+     ),
     #
     ('comment_single', [],
      ' @! Comment here\nDone\n',
@@ -473,6 +486,13 @@ syncline_tests = [
     ('multiline_macrocall', [ _SYNCL_FLAG ],
      '@:def macro(c)\nMACRO|${c}$|\n@:enddef\n$: mac& \n  &ro(\'A\')\nDone\n',
      _strsyncl(0) + _strsyncl(3) + 'MACRO|A|\n' + _strsyncl(5) + 'Done\n'
+     ),
+    #
+    ('call_directive_2_args', [ _SYNCL_FLAG ],
+     '@:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n@:enddef\n'\
+     '@:call mymacro\nL1\nL2\n@:nextarg\nL3\n@:endcall\n',
+     _strsyncl(0) + _strsyncl(3) + '|L1\n' + _strsyncl(3) + 'L2|L3|\n'\
+     + _strsyncl(9),
      ),
     #
     ('for', [ _SYNCL_FLAG ],
@@ -834,12 +854,12 @@ exception_tests = [
     #
     ('macro_call_more_args', [],
      '@:def test(x)\n${x}$\n@:enddef\n$: test(\'A\', 1)\n',
-     fypp.FyppError, fypp.STRING, (3, 3)
+     fypp.FyppError, fypp.STRING, (3, 4)
      ),
     #
     ('macro_call_less_args', [],
      '@:def test(x)\n${x}$\n@:enddef\n$: test()\n',
-     fypp.FyppError, fypp.STRING, (3, 3)
+     fypp.FyppError, fypp.STRING, (3, 4)
      ),
     #
     ('short_line_length', [ _linelen(4) ],

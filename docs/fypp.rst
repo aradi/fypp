@@ -38,7 +38,7 @@ more detail in individual sections further down.
 * Definition and evaluation of preprocessor variables::
 
     @:if DEBUG > 0
-    print *, "Some debug information"
+      print *, "Some debug information"
     @:endif
 
     @:setvar LOGLEVEL 2
@@ -56,12 +56,13 @@ more detail in individual sections further down.
 
 * Conditional output::
   
+    program test
     @:if defined('WITH_MPI')
-    use mpi
+      use mpi
     @:elif defined('WITH_OPENMP')
-    use openmp
+      use openmp
     @:else
-    use serial
+      use serial
     @:endif
 
 * Iterated output::
@@ -87,9 +88,23 @@ more detail in individual sections further down.
 * Using Fortran-style continutation lines in preprocessor directives::
 
     @:if var1 > var2 &
-      & or var2 > var4
-    print *, "Doing something here"
+        & or var2 > var4
+      print *, "Doing something here"
     @:endif
+
+* Passing multiline arguments to macros::
+
+    @:def debug_code(code)
+      @:if DEBUG > 0
+        $:code
+      @:endif
+    @:enddef
+    
+    @:call debug_code
+      if (size(array) > 100) then
+        print *, "DEBUG: spuriously large array"
+      end if
+    @:endcall
 
 * Preprocessor comments::
 
@@ -189,7 +204,7 @@ inline form:
    * Line form, starting with ``@:`` (at colon)::
 
        @:if 1 > 2
-       Some fortran code
+         Some fortran code
        @:endif
 
    * Inline form, enclosed between ``@{`` and ``}@``::
@@ -230,22 +245,27 @@ examples are pairwise equivalent::
   ${time.strftime('%Y-%m-%d')}$
   ${ time.strftime('%Y-%m-%d') }$
 
-Starting whitespaces before line directives are ignored as well, enabling the
-directives to follow the natural indentation of the code they are embedded in::
+Starting whitespaces before line directives are also ignored, enabling you to
+choose any indentation strategy you like for the directives::
 
-  do ii = 1, nn
-    print *, ii
+  program test
+    :
+    do ii = 1, nn
+      print *, ii
     @:if DEBUG > 0
-    print *, "Some debug info about iteration ${ii}$"
+      print *, "Some debug info about iteration ${ii}$"
     @:endif
-  end do
+      print *, "Normal code"
+    end do
+    :
+  end program test
 
 Preprocessor directives can be nested arbitrarily::
 
   @:if DEBUG > 0
-  @:if DO_LOGGING
-  ...
-  @:endif
+    @:if DO_LOGGING
+      ...
+    @:endif
   @:endif
 
 Every open directive must be closed before the end of the file is reached.
@@ -563,6 +583,63 @@ The `def` directive can also be used in its short form::
 	     starting at the beginning of the line preceeded by optional
 	     whitespaces only are OK, though). Use preprocessor comments
 	     (``@!``) instead.
+
+
+`call` directive
+================
+
+When a macro (or any Python function) should be called with one or more
+multiline text arguments (e.g. many lines of Fortran code), it can be called
+using the `call` directive::
+
+  @:def debug_code(code)
+    @:if DEBUG > 0
+      $:code
+    @:endif
+  @:enddef
+
+  @:call debug_code
+    if (a < b) then
+      print *, "DEBUG: a is less than b"
+    end if
+  @:endcall
+
+The `call` directive takes the name of the macro to be called as argument. The
+lines between the opening and closing directives will be rendered and then
+passed as Python text argument to the macro. If the macro has more than one
+arguments, the `nextarg` directive can be used to separate the arguments from
+each other::
+
+  @:def choose_code(code_debug, code_nondebug)
+    @:if DEBUG > 0
+      $:code_debug
+    @:else
+      $:code_nondebug
+    @:endif
+  @:enddef
+
+  @:call chose_code
+    if (a < b) then
+        print *, "DEBUG: a is less than b"
+    end if
+  @:nextarg
+    print *, "No debugging"
+  @:endcall
+
+The lines in the body of the `call` directive can contain directives
+themselves. However, any variables defined within the body of the `call`
+directive will be local variables, existing only during the evaluation of that
+branch of the directive.
+
+The `call` directive can also be used in its inline form, however, usually it
+is more legible to use a direct Python call within an eval directive
+instead::
+
+  @{def choose(c1, c2)}@@{if DEBUG > 0}@${c1}$@{else}@${c2}$@{enddef}@
+
+  print *, @{call choose}@ a(:) @{nextarg}@ size(a) @{endcall}@
+  @! This is probably more compact:
+  print *, ${choose('a(:)', 'size(a)')}$
 
 
 `include` directive
