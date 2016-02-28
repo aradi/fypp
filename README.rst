@@ -76,6 +76,20 @@ Main features
     print *, "Doing something here"
     @:endif
 
+* Passing multiline arguments to macros::
+
+    @:def debug_code(code)
+      @:if DEBUG > 0
+        $:code
+      @:endif
+    @:enddef
+    
+    @:call debug_code
+      if (size(array) > 100) then
+        print *, "DEBUG: spuriously large array"
+      end if
+    @:endcall
+
 * Preprocessor comments::
 
     @! This will not show up in the output
