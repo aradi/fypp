@@ -80,17 +80,17 @@ _DIRECTIVE_REGEXP = re.compile(r'''
 # comment block
 (?P<comment>(?:^[ \t]*@!.*\n)+)
 |
-# line directive (with optional continuation lines)
+# line control directive (with optional continuation lines)
 ^[ \t]*@:[ \t]*(?P<ldirective>\w+)[ \t]*
 (?P<lparam>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
 |
-# line expression evaluation (with optional continuation lines)
+# line eval directive (with optional continuation lines)
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*$
 |
-# inline directive
+# inline control directive
 @\{[ \t]*(?P<idirective>\w+)[ \t]*(?P<param>.*?)?[ \t]*\}@
 |
-# inline expression evaluation
+# inline eval directive
 \$\{[ \t]*(?P<iexpr>.*?)[ \t]*\}\$
 ''', re.VERBOSE | re.MULTILINE)
 
@@ -425,7 +425,8 @@ class Parser:
             start, end = match.span()
             if start > pos:
                 endlinenr = linenr + txt.count('\n', pos, start)
-                self.handle_text((linenr, endlinenr), txt[pos:start])
+                self.handle_text((linenr, endlinenr), 
+                                 self._unescape(txt[pos:start]))
                 linenr = endlinenr
             endlinenr = linenr + txt.count('\n', start, end)
             if groups['ldirective'] is not None:
@@ -448,7 +449,7 @@ class Parser:
             linenr = endlinenr
         if pos < len(txt):
             endlinenr = linenr + txt.count('\n', pos)
-            self.handle_text((linenr, endlinenr), txt[pos:])
+            self.handle_text((linenr, endlinenr), self._unescape(txt[pos:]))
 
 
     def _process_directive(self, directive, param, span):
@@ -574,6 +575,13 @@ class Parser:
         if span[0] == span[1]:
             msg = 'Inline form of {} directive not allowed'.format(directive)
             raise FyppError(msg, self._curfile, span)
+
+
+    @staticmethod
+    def _unescape(txt):
+        txt = _UNESCAPE_REGEXP1.sub(r'\1\2\3', txt)
+        txt = _UNESCAPE_REGEXP2.sub(r'\1\2\3', txt)
+        return txt
 
 
 class Builder:
@@ -905,8 +913,6 @@ class Renderer:
         if eval_inds:
             self._postprocess_eval_lines(output, eval_inds, eval_pos)
         txt = ''.join(output)
-        txt = _UNESCAPE_REGEXP1.sub(r'\1\2\3', txt)
-        txt = _UNESCAPE_REGEXP2.sub(r'\1\2\3', txt)
         return txt
 
 

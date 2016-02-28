@@ -242,6 +242,12 @@ simple_tests = [
      'VAL:1VAL:2VAL:3Done\n'
      ),
     #
+    #('call_directive', [],
+    # '@:def mymacro(val)\n|${val}$|\n@:enddef\n'\
+    # '@:call mymacro(*)\nL1\nL2\L3\n@:enddef\n',
+    # '|L1\nL2\nL3|',
+    # ),
+    #
     ('comment_single', [],
      ' @! Comment here\nDone\n',
      'Done\n',
