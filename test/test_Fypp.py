@@ -249,6 +249,18 @@ simple_tests = [
      '|"""L1"""\nL2\nL3|\n',
      ),
     #
+    ('call_directive_backslash_escape1', [],
+     '@:def mymacro(val)\n|${val}$|\n@:enddef\n'\
+     '@:call mymacro\nL1\\n\nL2\nL3\n@:endcall\n',
+     '|L1\\n\nL2\nL3|\n',
+     ),
+    #
+    ('call_directive_backslash_escape2', [],
+     '@:def mymacro(val)\n|${val}$|\n@:enddef\n'\
+     '@:call mymacro\nL1\\"a\\"\\n\nL2\nL3\n@:endcall\n',
+     '|L1\\"a\\"\\n\nL2\nL3|\n',
+     ),
+    #
     ('call_directive_2_args', [],
      '@:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n@:enddef\n'\
      '@:call mymacro\n"""L1"""\nL2\n@:nextarg\nL3\n@:endcall\n',

@@ -1150,7 +1150,9 @@ class Renderer:
             out = self.render(content, {})
             if len(out) and out[-1] == '\n':
                 out = out[:-1]
-            args.append('"""' + out.replace('"', r'\"') + '"""')
+            out_escaped = out.replace('\\', '\\\\')
+            out_escaped = out_escaped.replace('"', r'\"')
+            args.append('"""' + out_escaped + '"""')
         self._undivert()
         expr = "{}({})".format(name, ','.join(args))
         out, ieval, peval = self._get_eval((spans[0][0], spans[-1][1]), expr)
