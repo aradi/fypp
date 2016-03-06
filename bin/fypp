@@ -1650,7 +1650,7 @@ def syncline(linenr, fname):
 
 
 
-class FortranLineFolder:
+class LineFolder:
 
     '''Implements line folding with Fortran continuation lines.
 
@@ -1663,33 +1663,35 @@ class FortranLineFolder:
             * ``brute``: folding with maximal length of continuation lines,
             * ``simple``: indents with respect of indentation of first line,
             * ``smart``: like ``simple``, but tries to fold at whitespaces.
+
+        prefix (str, optional): String to use at the beginning of a continuation
+            line (default: '&').
+        suffix (str, optional): String to use at the end of the line preceeding
+            a continuation line (default: '&')
     '''
 
-    def __init__(self, maxlen=132, indent=4, method='smart'):
+    def __init__(self, maxlen=132, indent=4, method='smart', prefix='&', 
+                 suffix='&'):
         # Line length should be long enough that contintuation lines can host at
         # east one character apart of indentation and two continuation signs
-        minmaxlen = indent + 2 + 1
+        minmaxlen = indent + len(prefix) + len(suffix) + 1
         if maxlen < minmaxlen:
             msg = 'Maximal line length less than {} when using an indentation' \
                   'of {}'.format(minmaxlen, indent)
             raise FyppError(msg)
         self._maxlen = maxlen
         self._indent = indent
+        self._prefix = ' ' * self._indent + prefix
+        self._suffix = suffix
         if method not in ['brute', 'smart', 'simple', 'none']:
             raise FyppError('invalid folding type')
         if method == 'brute':
-            self._prefix = ' ' * self._indent + '&'
-            self._suffix = '&'
             self._inherit_indent = False
             self._fold_position_finder = self._get_maximal_fold_pos
         elif method == 'simple':
-            self._prefix = ' ' * self._indent + '&'
-            self._suffix = '&'
             self._inherit_indent = True
             self._fold_position_finder = self._get_maximal_fold_pos
         elif method == 'smart':
-            self._prefix = ' ' * self._indent + '&'
-            self._suffix = '&'
             self._inherit_indent = True
             self._fold_position_finder = self._get_smart_fold_pos
         else:
@@ -1702,7 +1704,7 @@ class FortranLineFolder:
 
         Can be directly called to return the list of folded lines::
 
-            linefolder = FortranLineFolder(maxlen=10)
+            linefolder = LineFolder(maxlen=10)
             linefolder('  print *, "some Fortran line"')
 
         Args:
@@ -1791,9 +1793,15 @@ class Fypp:
             self._apply_definitions(self._args.defines, evaluator)
         parser = Parser(self._args.includes)
         builder = Builder()
-        linefolder = FortranLineFolder(self._args.line_length,
-                                       self._args.indentation,
-                                       self._args.folding_method)
+
+        fixed_format = self._args.fixed_format
+        folding = 'brute' if fixed_format else self._args.folding_method
+        linelength = 72 if fixed_format else self._args.line_length
+        indentation = 5 if fixed_format else self._args.indentation
+        prefix = '&'
+        suffix = '' if fixed_format else '&'
+        linefolder = LineFolder(linelength, indentation, folding, prefix,
+                                suffix)
         renderer = Renderer(evaluator, synclines=self._args.synclines,
                             linefolder=linefolder)
         self._preprocessor = Processor(parser, builder, renderer)
@@ -1847,9 +1855,9 @@ class Fypp:
               'preprocessor are folded if becoming longer'
         parser.add_argument('-l', '--line-length', type=int, default=132,
                             metavar='LEN', help=msg)
-        msg = 'folding method, \'smart\' (default): indentation '\
-              'context and whitespace aware, \'simple\': indentation context '\
-              'aware, \'brute\': mechnical folding, \'none\': no folding'
+        msg = 'folding method, \'smart\' (default): indentation context and '\
+              'whitespace aware, \'simple\': indentation context aware, '\
+              '\'brute\' : mechnical folding, none\': no folding'
         parser.add_argument('-f', '--folding-method', metavar='METHOD',
                             choices=['smart', 'simple', 'brute', 'none'],
                             default='smart', help=msg)
@@ -1862,6 +1870,10 @@ class Fypp:
         msg = 'execute python initialization script before starting processing'
         parser.add_argument('-i', '--ini-file', action='append',
                             dest='inifiles', metavar='INI', help=msg)
+        msg = 'produce fixed format output (any settings for options '\
+              '--line-length, --folding-method and --indentation are ignored)'
+        parser.add_argument('--fixed-format', action='store_true', 
+                            default=False, help=msg)
         versionstr = '%(prog)s ' + VERSION
         parser.add_argument('-v', '--version', action='version',
                             version=versionstr)

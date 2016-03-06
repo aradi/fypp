@@ -26,6 +26,8 @@ def _folding(fold):
 
 _SYNCL_FLAG = '-s'
 
+_FIXED_FORMAT_FLAG = '--fixed-format'
+
 
 simple_tests = [
     ('if_true', [ _defvar('TESTVAR', 1) ],
@@ -332,6 +334,46 @@ simple_tests = [
      r'$\\\{1 + 1}\\$',
      r'$\\{1 + 1}\$'
      ),
+    #
+    ('fold_lines', [ _linelen(10), _indentation(2), _folding('simple') ],
+     'This line is not folded\nThis line ${1 + 1}$ is folded\n',
+     'This line is not folded\nThis line&\n  & 2 is &\n  &folded\n'
+     ),
+    #
+    ('prevent_comment_folding',  
+     [ _linelen(10), _indentation(2), _folding('simple') ],
+     '@:def macro()\n ! Should be not folded\nShould be folded\n@:enddef\n'
+     '$:macro()\n',
+     ' ! Should be not folded\nShould be&\n  & folded\n'
+     ),
+    #
+    ('no_folding', [ _linelen(15), _indentation(4), _folding('none') ],
+     '  ${3}$456 89 123456 8',
+     '  3456 89 123456 8',
+     ),
+    #
+    ('brute_folding', [ _linelen(15), _indentation(4), _folding('brute') ],
+     '  ${3}$456 89 123456 8',
+     '  3456 89 1234&\n    &56 8',
+     ),
+    #
+    ('simple_folding', [ _linelen(15), _indentation(4), _folding('simple') ],
+     '  ${3}$456 89 123456 8',
+     '  3456 89 1234&\n      &56 8',
+     ),
+    #
+    ('smart_folding', [ _linelen(15), _indentation(4), _folding('smart') ],
+     '  ${3}$456 89 123456 8',
+     '  3456 89&\n      & 123456&\n      & 8',
+     ),
+    #
+    ('fixed_format_folding', 
+     [ _FIXED_FORMAT_FLAG ],
+     '      print *, ${\'aa\'}$, bb, cc, dd, ee, ff, gg, hh, ii, jj, kk, ll, '
+     'mm, nn, oo, pp, qq, rr, ss, tt\n',
+     '      print *, aa, bb, cc, dd, ee, ff, gg, hh, ii, jj, kk, ll, mm, nn, '
+     'o\n     &o, pp, qq, rr, ss, tt\n',
+     ),
 ]
 
 syncline_tests = [
@@ -546,38 +588,6 @@ syncline_tests = [
     ('mute', [ _SYNCL_FLAG ],
      'A\n@:mute\nB\n@:setvar VAR 2\n@:endmute\nVAR=${VAR}$\n',
      _strsyncl(0) + 'A\n' + _strsyncl(5) + 'VAR=2\n'
-     ),
-    #
-    ('fold_lines', [ _linelen(10), _indentation(2), _folding('simple') ],
-     'This line is not folded\nThis line ${1 + 1}$ is folded\n',
-     'This line is not folded\nThis line&\n  & 2 is &\n  &folded\n'
-     ),
-    #
-    ('prevent_comment_folding',  
-     [ _linelen(10), _indentation(2), _folding('simple') ],
-     '@:def macro()\n ! Should be not folded\nShould be folded\n@:enddef\n'
-     '$:macro()\n',
-     ' ! Should be not folded\nShould be&\n  & folded\n'
-     ),
-    #
-    ('no_folding', [ _linelen(15), _indentation(4), _folding('none') ],
-     '  ${3}$456 89 123456 8',
-     '  3456 89 123456 8',
-     ),
-    #
-    ('brute_folding', [ _linelen(15), _indentation(4), _folding('brute') ],
-     '  ${3}$456 89 123456 8',
-     '  3456 89 1234&\n    &56 8',
-     ),
-    #
-    ('simple_folding', [ _linelen(15), _indentation(4), _folding('simple') ],
-     '  ${3}$456 89 123456 8',
-     '  3456 89 1234&\n      &56 8',
-     ),
-    #
-    ('smart_folding', [ _linelen(15), _indentation(4), _folding('smart') ],
-     '  ${3}$456 89 123456 8',
-     '  3456 89&\n      & 123456&\n      & 8',
      ),
 ]
 
