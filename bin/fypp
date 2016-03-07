@@ -54,8 +54,7 @@ If any expected error occurs during processing, `FyppError`_ is raised.
 
 Additional to the ones above, following class is used for fine tuning:
 
-* `FortranLineFolder`_: Folds overlong lines by using Fortran continuation
-  lines.
+* `LineFolder`_: Folds overlong lines by using Fortran continuation lines.
 '''
 
 import builtins

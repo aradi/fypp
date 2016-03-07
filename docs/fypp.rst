@@ -1,3 +1,5 @@
+.. highlight:: none
+
 ************
 Introduction
 ************
@@ -852,10 +854,10 @@ FyppError
    :members:
 
 
-FortranLineFolder
-=================
+LineFolder
+==========
 
-.. autoclass:: FortranLineFolder
+.. autoclass:: LineFolder
    :members:
    :special-members: __call__
 
