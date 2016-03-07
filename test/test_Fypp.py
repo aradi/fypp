@@ -31,107 +31,107 @@ _FIXED_FORMAT_FLAG = '--fixed-format'
 
 simple_tests = [
     ('if_true', [ _defvar('TESTVAR', 1) ],
-     '@:if TESTVAR > 0\nTrue\n@:endif\n',
+     '#:if TESTVAR > 0\nTrue\n#:endif\n',
      'True\n'
      ),
     #
     ('if_false', [ _defvar('TESTVAR', 0) ],
-     '@:if TESTVAR > 0\nTrue\n@:endif\n',
+     '#:if TESTVAR > 0\nTrue\n#:endif\n',
      ''
      ),
     #
     ('if_else_true', [ _defvar('TESTVAR', 1) ],
-     '@:if TESTVAR > 0\nTrue\n@:else\nFalse\n@:endif\n',
+     '#:if TESTVAR > 0\nTrue\n#:else\nFalse\n#:endif\n',
      'True\n'
      ),
     #
     ('if_else_false', [ _defvar('TESTVAR', 0) ],
-     '@:if TESTVAR > 0\nTrue\n@:else\nFalse\n@:endif\n',
+     '#:if TESTVAR > 0\nTrue\n#:else\nFalse\n#:endif\n',
      'False\n'
      ),
     #
     ('if_elif_true1', [ _defvar('TESTVAR', 1) ],
-     '@:if TESTVAR == 1\nTrue1\n@:elif TESTVAR == 2\nTrue2\n@:endif\n',
+     '#:if TESTVAR == 1\nTrue1\n#:elif TESTVAR == 2\nTrue2\n#:endif\n',
      'True1\n'
      ),
     #
     ('if_elif_true2', [ _defvar('TESTVAR', 2) ],
-     '@:if TESTVAR == 1\nTrue1\n@:elif TESTVAR == 2\nTrue2\n@:endif\n',
+     '#:if TESTVAR == 1\nTrue1\n#:elif TESTVAR == 2\nTrue2\n#:endif\n',
      'True2\n'
      ),
     #
     ('if_elif_false', [ _defvar('TESTVAR', 0) ],
-     '@:if TESTVAR == 1\nTrue1\n@:elif TESTVAR == 2\nTrue2\n@:endif\n',
+     '#:if TESTVAR == 1\nTrue1\n#:elif TESTVAR == 2\nTrue2\n#:endif\n',
      ''
      ),
     #
     ('if_elif_else_true1', [ _defvar('TESTVAR', 1) ],
-     '@:if TESTVAR == 1\nTrue1\n@:elif TESTVAR == 2\nTrue2\n'
-     '@:else\nFalse\n@:endif\n',
+     '#:if TESTVAR == 1\nTrue1\n#:elif TESTVAR == 2\nTrue2\n'
+     '#:else\nFalse\n#:endif\n',
      'True1\n'
      ),
     #
     ('if_elif_else_true2', [ _defvar('TESTVAR', 2) ],
-     '@:if TESTVAR == 1\nTrue1\n@:elif TESTVAR == 2\nTrue2\n'
-     '@:else\nFalse\n@:endif\n',
+     '#:if TESTVAR == 1\nTrue1\n#:elif TESTVAR == 2\nTrue2\n'
+     '#:else\nFalse\n#:endif\n',
      'True2\n'
      ),
     #
     ('if_elif_else_false', [ _defvar('TESTVAR', 0) ],
-     '@:if TESTVAR == 1\nTrue1\n@:elif TESTVAR == 2\nTrue2\n'
-     '@:else\nFalse\n@:endif\n',
+     '#:if TESTVAR == 1\nTrue1\n#:elif TESTVAR == 2\nTrue2\n'
+     '#:else\nFalse\n#:endif\n',
      'False\n'
      ),
     #
     ('inline_if_true', [ _defvar('TESTVAR', 1) ],
-     '@{if TESTVAR > 0}@True@{endif}@Done',
+     '#{if TESTVAR > 0}#True#{endif}#Done',
      'TrueDone'
      ),
     #
     ('inline_if_false', [ _defvar('TESTVAR', 0) ],
-     '@{if TESTVAR > 0}@True@{endif}@Done',
+     '#{if TESTVAR > 0}#True#{endif}#Done',
      'Done'
      ),
     #
     ('inline_if_else_true', [ _defvar('TESTVAR', 1) ],
-     '@{if TESTVAR > 0}@True@{else}@False@{endif}@Done',
+     '#{if TESTVAR > 0}#True#{else}#False#{endif}#Done',
      'TrueDone'
      ),
     #
     ('inline_if_else_false', [ _defvar('TESTVAR', 0) ],
-     '@{if TESTVAR > 0}@True@{else}@False@{endif}@Done',
+     '#{if TESTVAR > 0}#True#{else}#False#{endif}#Done',
      'FalseDone'
      ),
     #
     ('inline_if_elif_true1', [ _defvar('TESTVAR', 1) ],
-     '@{if TESTVAR == 1}@True1@{elif TESTVAR == 2}@True2@{endif}@Done',
+     '#{if TESTVAR == 1}#True1#{elif TESTVAR == 2}#True2#{endif}#Done',
      'True1Done'
      ),
     #
     ('inline_if_elif_true2', [ _defvar('TESTVAR', 2) ],
-     '@{if TESTVAR == 1}@True1@{elif TESTVAR == 2}@True2@{endif}@Done',
+     '#{if TESTVAR == 1}#True1#{elif TESTVAR == 2}#True2#{endif}#Done',
      'True2Done'
      ),
     #
     ('inline_if_elif_false', [ _defvar('TESTVAR', 0) ],
-     '@{if TESTVAR == 1}@True1@{elif TESTVAR == 2}@True2@{endif}@Done',
+     '#{if TESTVAR == 1}#True1#{elif TESTVAR == 2}#True2#{endif}#Done',
      'Done'
      ),
     #
     ('inline_if_elif_else_true1', [ _defvar('TESTVAR', 1) ],
-     '@{if TESTVAR == 1}@True1@{elif TESTVAR == 2}@True2@{else}@False@{endif}@'
+     '#{if TESTVAR == 1}#True1#{elif TESTVAR == 2}#True2#{else}#False#{endif}#'
      'Done',
      'True1Done'
      ),
     #
     ('inline_if_elif_else_true2', [ _defvar('TESTVAR', 2) ],
-     '@{if TESTVAR == 1}@True1@{elif TESTVAR == 2}@True2@{else}@False@{endif}@'
+     '#{if TESTVAR == 1}#True1#{elif TESTVAR == 2}#True2#{else}#False#{endif}#'
      'Done',
      'True2Done'
      ),
     #
     ('inline_if_elif_else_false', [ _defvar('TESTVAR', 0) ],
-     '@{if TESTVAR == 1}@True1@{elif TESTVAR == 2}@True2@{else}@False@{endif}@'
+     '#{if TESTVAR == 1}#True1#{elif TESTVAR == 2}#True2#{else}#False#{endif}#'
      'Done',
      'FalseDone'
      ),
@@ -177,126 +177,126 @@ simple_tests = [
      ),
     #
     ('macrosubs', [],
-     '@:def macro(var)\nMACRO|${var}$|\n@:enddef\n${macro(1)}$',
+     '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n${macro(1)}$',
      'MACRO|1|'
      ),
     #
     ('macro_noargs', [],
-     '@:def macro()\nMACRO\n@:enddef\n${macro()}$',
+     '#:def macro()\nMACRO\n#:enddef\n${macro()}$',
      'MACRO'
      ),
     #
     ('recursive_macrosubs', [],
-     '@:def macro(var)\nMACRO|${var}$|\n@:enddef\n${macro(macro(1))}$',
+     '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n${macro(macro(1))}$',
      'MACRO|MACRO|1||'
      ),
     #
     ('macrosubs_extvarsubs', [ _defvar('TESTVAR', 1) ],
-     '@:def macro(var)\nMACRO|${var}$-${TESTVAR}$|\n@:enddef\n${macro(2)}$',
+     '#:def macro(var)\nMACRO|${var}$-${TESTVAR}$|\n#:enddef\n${macro(2)}$',
      'MACRO|2-1|'
      ),
     #
     ('macrosubs_extvar_override', [ _defvar('TESTVAR', 1) ],
-     '@:def macro(var)\nMACRO|${var}$-${TESTVAR}$|\n@:enddef\n'
+     '#:def macro(var)\nMACRO|${var}$-${TESTVAR}$|\n#:enddef\n'
      '${macro(2, TESTVAR=4)}$',
      'MACRO|2-4|'
      ),
     #
     ('inline_macrodef', [],
-     '@{def f(x)}@${x}$^2@{enddef}@\n$: f(20)\nDone\n',
+     '#{def f(x)}#${x}$^2#{enddef}#\n$: f(20)\nDone\n',
      '\n20^2\nDone\n'
      ),
     #
     ('macro_trailing_newlines', [],
-     '@:def macro()\nL1\n\n@:enddef\n$: macro()\n',
+     '#:def macro()\nL1\n\n#:enddef\n$: macro()\n',
      'L1\n\n',
      ),
     #
     ('macro_trailing_newlines_inline', [],
-     '@:def macro()\nL1\n\n@:enddef\n|${macro()}$|',
+     '#:def macro()\nL1\n\n#:enddef\n|${macro()}$|',
      '|L1\n|',
      ),
     #
     ('for', [],
-     '@:for i in (1, 2, 3)\n${i}$\n@:endfor\n',
+     '#:for i in (1, 2, 3)\n${i}$\n#:endfor\n',
      '1\n2\n3\n'
      ),
     #
     ('for_macro', [],
-     '@:def mymacro(val)\nVAL:${val}$\n@:enddef\n'
-     '@:for i in (1, 2, 3)\n$: mymacro(i)\n@:endfor\n',
+     '#:def mymacro(val)\nVAL:${val}$\n#:enddef\n'
+     '#:for i in (1, 2, 3)\n$: mymacro(i)\n#:endfor\n',
      'VAL:1\nVAL:2\nVAL:3\n'
      ),
     #
     ('inline_for', [],
-     '@{for i in (1, 2, 3)}@${i}$@{endfor}@Done\n',
+     '#{for i in (1, 2, 3)}#${i}$#{endfor}#Done\n',
      '123Done\n'
      ),
     #
     ('inline_for_macro', [],
-     '@:def mymacro(val)\nVAL:${val}$\n@:enddef\n'
-     '@{for i in (1, 2, 3)}@${mymacro(i)}$@{endfor}@Done\n',
+     '#:def mymacro(val)\nVAL:${val}$\n#:enddef\n'
+     '#{for i in (1, 2, 3)}#${mymacro(i)}$#{endfor}#Done\n',
      'VAL:1VAL:2VAL:3Done\n'
      ),
     #
     ('call_directive', [],
-     '@:def mymacro(val)\n|${val}$|\n@:enddef\n'\
-     '@:call mymacro\nL1\nL2\nL3\n@:endcall\n',
+     '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+     '#:call mymacro\nL1\nL2\nL3\n#:endcall\n',
      '|L1\nL2\nL3|\n',
      ),
     #
     ('call_directive_quotation', [],
-     '@:def mymacro(val)\n|${val}$|\n@:enddef\n'\
-     '@:call mymacro\n"""L1"""\nL2\nL3\n@:endcall\n',
+     '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+     '#:call mymacro\n"""L1"""\nL2\nL3\n#:endcall\n',
      '|"""L1"""\nL2\nL3|\n',
      ),
     #
     ('call_directive_backslash_escape1', [],
-     '@:def mymacro(val)\n|${val}$|\n@:enddef\n'\
-     '@:call mymacro\nL1\\n\nL2\nL3\n@:endcall\n',
+     '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+     '#:call mymacro\nL1\\n\nL2\nL3\n#:endcall\n',
      '|L1\\n\nL2\nL3|\n',
      ),
     #
     ('call_directive_backslash_escape2', [],
-     '@:def mymacro(val)\n|${val}$|\n@:enddef\n'\
-     '@:call mymacro\nL1\\"a\\"\\n\nL2\nL3\n@:endcall\n',
+     '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+     '#:call mymacro\nL1\\"a\\"\\n\nL2\nL3\n#:endcall\n',
      '|L1\\"a\\"\\n\nL2\nL3|\n',
      ),
     #
     ('call_directive_2_args', [],
-     '@:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n@:enddef\n'\
-     '@:call mymacro\n"""L1"""\nL2\n@:nextarg\nL3\n@:endcall\n',
+     '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+     '#:call mymacro\n"""L1"""\nL2\n#:nextarg\nL3\n#:endcall\n',
      '|"""L1"""\nL2|L3|\n',
      ),
     #
     ('call_directive_2_args_inline', [],
-     '@:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n@:enddef\n'\
-     '@{call mymacro}@A1@{nextarg}@A2@{endcall}@',
+     '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+     '#{call mymacro}#A1#{nextarg}#A2#{endcall}#',
      '|A1|A2|',
      ),
     #
     ('comment_single', [],
-     ' @! Comment here\nDone\n',
+     ' #! Comment here\nDone\n',
      'Done\n',
      ),
     #
     ('comment_multiple', [],
-     ' @! Comment1\n@! Comment2\nDone\n',
+     ' #! Comment1\n#! Comment2\nDone\n',
      'Done\n',
      ),
     #
     ('setvar', [],
-     '@:setvar x 2\n$: x\n',
+     '#:setvar x 2\n$: x\n',
      '2\n',
      ),
     #
     ('inline_setvar', [],
-     '@{setvar x 2}@${x}$Done\n',
+     '#{setvar x 2}#${x}$Done\n',
      '2Done\n',
      ),
     #
     ('mute', [],
-     'A\n@:mute\nB\n@:setvar VAR 2\n@:endmute\nVAR=${VAR}$\n',
+     'A\n#:mute\nB\n#:setvar VAR 2\n#:endmute\nVAR=${VAR}$\n',
      'A\nVAR=2\n'
      ),
     #
@@ -311,13 +311,13 @@ simple_tests = [
      ),
     #
     ('escaped_control_inline', [],
-     r'A@\{if False}\@B@\{endif}\@',
-     'A@{if False}@B@{endif}@'
+     r'A#\{if False}\#B#\{endif}\#',
+     'A#{if False}#B#{endif}#'
      ),
     #
     ('escaped_control_line', [],
-     '@\\:if False\n',
-     '@:if False\n'
+     '#\\:if False\n',
+     '#:if False\n'
      ),
     #
     ('escaped_eval_inline', [],
@@ -342,7 +342,7 @@ simple_tests = [
     #
     ('prevent_comment_folding',  
      [ _linelen(10), _indentation(2), _folding('simple') ],
-     '@:def macro()\n ! Should be not folded\nShould be folded\n@:enddef\n'
+     '#:def macro()\n ! Should be not folded\nShould be folded\n#:enddef\n'
      '$:macro()\n',
      ' ! Should be not folded\nShould be&\n  & folded\n'
      ),
@@ -389,103 +389,103 @@ syncline_tests = [
      ),
     #
     ('if_true', [ _SYNCL_FLAG ],
-     '@:if 1 < 2\nTrue\n@:endif\nDone\n',
+     '#:if 1 < 2\nTrue\n#:endif\nDone\n',
      _strsyncl(0) + _strsyncl(1) + 'True\n' + _strsyncl(3) + 'Done\n'
      ),
     #
     ('if_false', [ _SYNCL_FLAG ],
-     '@:if 1 > 2\nTrue\n@:endif\nDone\n',
+     '#:if 1 > 2\nTrue\n#:endif\nDone\n',
      _strsyncl(0) + _strsyncl(3) + 'Done\n'
      ),
     #
     ('if_else_true', [ _SYNCL_FLAG ],
-     '@:if 1 < 2\nTrue\n@:else\nFalse\n@:endif\nDone\n',
+     '#:if 1 < 2\nTrue\n#:else\nFalse\n#:endif\nDone\n',
      _strsyncl(0) + _strsyncl(1) + 'True\n' + _strsyncl(5) + 'Done\n'
      ),
     #
     ('if_else_false', [ _SYNCL_FLAG ],
-     '@:if 1 > 2\nTrue\n@:else\nFalse\n@:endif\nDone\n',
+     '#:if 1 > 2\nTrue\n#:else\nFalse\n#:endif\nDone\n',
      _strsyncl(0) + _strsyncl(3) + 'False\n' + _strsyncl(5) + 'Done\n'
      ),
     ('if_elif_true1', [ _SYNCL_FLAG ],
-     '@:if 1 == 1\nTrue1\n@:elif 1 == 2\nTrue2\n@:endif\nDone\n',
+     '#:if 1 == 1\nTrue1\n#:elif 1 == 2\nTrue2\n#:endif\nDone\n',
      _strsyncl(0) + _strsyncl(1) + 'True1\n' + _strsyncl(5) + 'Done\n'
      ),
     #
     ('if_elif_true2', [ _SYNCL_FLAG ],
-     '@:if 2 == 1\nTrue1\n@:elif 2 == 2\nTrue2\n@:endif\nDone\n',
+     '#:if 2 == 1\nTrue1\n#:elif 2 == 2\nTrue2\n#:endif\nDone\n',
      _strsyncl(0) + _strsyncl(3) + 'True2\n' + _strsyncl(5) + 'Done\n'
      ),
     #
     ('if_elif_false', [ _SYNCL_FLAG ],
-     '@:if 0 == 1\nTrue1\n@:elif 0 == 2\nTrue2\n@:endif\nDone\n',
+     '#:if 0 == 1\nTrue1\n#:elif 0 == 2\nTrue2\n#:endif\nDone\n',
      _strsyncl(0) + _strsyncl(5) + 'Done\n'
      ),
     #
     ('if_elif_else_true1', [ _SYNCL_FLAG ],
-     '@:if 1 == 1\nTrue1\n@:elif 1 == 2\nTrue2\n'
-     '@:else\nFalse\n@:endif\nDone\n',
+     '#:if 1 == 1\nTrue1\n#:elif 1 == 2\nTrue2\n'
+     '#:else\nFalse\n#:endif\nDone\n',
      _strsyncl(0) + _strsyncl(1) + 'True1\n' + _strsyncl(7) + 'Done\n'
      ),
     #
     ('if_elif_else_true2', [ _SYNCL_FLAG ],
-     '@:if 2 == 1\nTrue1\n@:elif 2 == 2\nTrue2\n'
-     '@:else\nFalse\n@:endif\nDone\n',
+     '#:if 2 == 1\nTrue1\n#:elif 2 == 2\nTrue2\n'
+     '#:else\nFalse\n#:endif\nDone\n',
      _strsyncl(0) + _strsyncl(3) + 'True2\n' + _strsyncl(7) + 'Done\n'
      ),
     #
     ('if_elif_else_false', [ _SYNCL_FLAG ],
-     '@:if 0 == 1\nTrue1\n@:elif 0 == 2\nTrue2\n'
-     '@:else\nFalse\n@:endif\nDone\n',
+     '#:if 0 == 1\nTrue1\n#:elif 0 == 2\nTrue2\n'
+     '#:else\nFalse\n#:endif\nDone\n',
      _strsyncl(0) + _strsyncl(5) + 'False\n' + _strsyncl(7) + 'Done\n'
      ),
     #
     ('inline_if_true', [ _SYNCL_FLAG ],
-     '@{if 1 < 2}@True@{endif}@Done\n',
+     '#{if 1 < 2}#True#{endif}#Done\n',
      _strsyncl(0) + 'TrueDone\n'
      ),
     #
     ('inline_if_false', [ _SYNCL_FLAG ],
-     '@{if 1 > 2}@True@{endif}@Done\n',
+     '#{if 1 > 2}#True#{endif}#Done\n',
      _strsyncl(0) + 'Done\n'
      ),
     #
     ('inline_if_else_true', [ _SYNCL_FLAG ],
-     '@{if 1 < 2}@True@{else}@False@{endif}@Done\n',
+     '#{if 1 < 2}#True#{else}#False#{endif}#Done\n',
      _strsyncl(0) + 'TrueDone\n'
      ),
     #
     ('inline_if_else_false', [ _SYNCL_FLAG ],
-     '@{if 1 > 2}@True@{else}@False@{endif}@Done\n',
+     '#{if 1 > 2}#True#{else}#False#{endif}#Done\n',
      _strsyncl(0) + 'FalseDone\n'
      ),
     ('inline_if_elif_true1', [ _SYNCL_FLAG ],
-     '@{if 1 == 1}@True1@{elif 1 == 2}@True2@{endif}@Done\n',
+     '#{if 1 == 1}#True1#{elif 1 == 2}#True2#{endif}#Done\n',
      _strsyncl(0) + 'True1Done\n'
      ),
     #
     ('inline_if_elif_true2', [ _SYNCL_FLAG ],
-     '@{if 2 == 1}@True1@{elif 2 == 2}@True2@{endif}@Done\n',
+     '#{if 2 == 1}#True1#{elif 2 == 2}#True2#{endif}#Done\n',
      _strsyncl(0) + 'True2Done\n'
      ),
     #
     ('inline_if_elif_false', [ _SYNCL_FLAG ],
-     '@{if 0 == 1}@True1@{elif 0 == 2}@True2@{endif}@Done\n',
+     '#{if 0 == 1}#True1#{elif 0 == 2}#True2#{endif}#Done\n',
      _strsyncl(0) + 'Done\n'
      ),
     #
     ('inline_if_elif_else_true1', [ _SYNCL_FLAG ],
-     '@{if 1 == 1}@True1@{elif 1 == 2}@True2@{else}@False@{endif}@Done\n',
+     '#{if 1 == 1}#True1#{elif 1 == 2}#True2#{else}#False#{endif}#Done\n',
      _strsyncl(0) + 'True1Done\n'
      ),
     #
     ('inline_if_elif_else_true2', [ _SYNCL_FLAG ],
-     '@{if 2 == 1}@True1@{elif 2 == 2}@True2@{else}@False@{endif}@Done\n',
+     '#{if 2 == 1}#True1#{elif 2 == 2}#True2#{else}#False#{endif}#Done\n',
      _strsyncl(0) + 'True2Done\n'
      ),
     #
     ('inline_if_elif_else_false', [ _SYNCL_FLAG ],
-     '@{if 0 == 1}@True1@{elif 0 == 2}@True2@{else}@False@{endif}@Done\n',
+     '#{if 0 == 1}#True1#{elif 0 == 2}#True2#{else}#False#{endif}#Done\n',
      _strsyncl(0) + 'FalseDone\n'
      ),
     #
@@ -515,78 +515,78 @@ syncline_tests = [
      ),
     #
     ('macrosubs', [ _SYNCL_FLAG ],
-     '@:def macro(var)\nMACRO|${var}$|\n@:enddef\n${macro(1)}$',
+     '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n${macro(1)}$',
      _strsyncl(0) + _strsyncl(3) + 'MACRO|1|'
      ),
     #
     ('recursive_macrosubs', [ _SYNCL_FLAG ],
-     '@:def macro(var)\nMACRO|${var}$|\n@:enddef\n${macro(macro(1))}$',
+     '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n${macro(macro(1))}$',
      _strsyncl(0) + _strsyncl(3) + 'MACRO|MACRO|1||'
      ),
     #
     ('macrosubs_multiline', [ _SYNCL_FLAG ],
-     '@:def macro(c)\nMACRO1|${c}$|\nMACRO2|${c}$|\n@:enddef\n${macro(\'A\')}$'
+     '#:def macro(c)\nMACRO1|${c}$|\nMACRO2|${c}$|\n#:enddef\n${macro(\'A\')}$'
      '\n',
      _strsyncl(0) + _strsyncl(4) + 'MACRO1|A|\n' + _strsyncl(4) + 'MACRO2|A|\n'
      ),
     #
     ('recursive_macrosubs_multiline', [ _SYNCL_FLAG ],
-     '@:def f(c)\nLINE1|${c}$|\nLINE2|${c}$|\n@:enddef\n$: f(f("A"))\n',
+     '#:def f(c)\nLINE1|${c}$|\nLINE2|${c}$|\n#:enddef\n$: f(f("A"))\n',
      (_strsyncl(0) + _strsyncl(4) + 'LINE1|LINE1|A|\n' + _strsyncl(4)
       + 'LINE2|A||\n' + _strsyncl(4) + 'LINE2|LINE1|A|\n' + _strsyncl(4)
       + 'LINE2|A||\n')
      ),
     # 
     ('multiline_macrocall', [ _SYNCL_FLAG ],
-     '@:def macro(c)\nMACRO|${c}$|\n@:enddef\n$: mac& \n  &ro(\'A\')\nDone\n',
+     '#:def macro(c)\nMACRO|${c}$|\n#:enddef\n$: mac& \n  &ro(\'A\')\nDone\n',
      _strsyncl(0) + _strsyncl(3) + 'MACRO|A|\n' + _strsyncl(5) + 'Done\n'
      ),
     #
     ('call_directive_2_args', [ _SYNCL_FLAG ],
-     '@:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n@:enddef\n'\
-     '@:call mymacro\nL1\nL2\n@:nextarg\nL3\n@:endcall\n',
+     '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+     '#:call mymacro\nL1\nL2\n#:nextarg\nL3\n#:endcall\n',
      _strsyncl(0) + _strsyncl(3) + '|L1\n' + _strsyncl(3) + 'L2|L3|\n'\
      + _strsyncl(9),
      ),
     #
     ('for', [ _SYNCL_FLAG ],
-     '@:for i in (1, 2)\n${i}$\n@:endfor\nDone\n',
+     '#:for i in (1, 2)\n${i}$\n#:endfor\nDone\n',
      (_strsyncl(0) + _strsyncl(1) + '1\n' + _strsyncl(1) + '2\n' 
       + _strsyncl(3) + 'Done\n')
      ),
     #
     ('inline_for', [ _SYNCL_FLAG ],
-     '@{for i in (1, 2)}@${i}$@{endfor}@Done\n',
+     '#{for i in (1, 2)}#${i}$#{endfor}#Done\n',
      _strsyncl(0) + '12Done\n'
      ),
     #
     ('setvar', [ _SYNCL_FLAG ],
-     '@:setvar x 2\n$: x\n',
+     '#:setvar x 2\n$: x\n',
      _strsyncl(0) + _strsyncl(1) + '2\n',
      ),
     #
     ('inline_setvar', [ _SYNCL_FLAG ],
-     '@{setvar x 2}@${x}$Done\n',
+     '#{setvar x 2}#${x}$Done\n',
      _strsyncl(0) + '2Done\n',
      ),
     #
     ('comment_single', [ _SYNCL_FLAG ],
-     ' @! Comment here\nDone\n',
+     ' #! Comment here\nDone\n',
      _strsyncl(0) + _strsyncl(1) + 'Done\n'
      ),
     #
     ('comment_multiple', [ _SYNCL_FLAG ],
-     ' @! Comment1\n@! Comment2\nDone\n',
+     ' #! Comment1\n#! Comment2\nDone\n',
      _strsyncl(0) + _strsyncl(2) + 'Done\n',
      ),
     #
     ('mute', [ _SYNCL_FLAG ],
-     'A\n@:mute\nB\n@:setvar VAR 2\n@:endmute\nVAR=${VAR}$\n',
+     'A\n#:mute\nB\n#:setvar VAR 2\n#:endmute\nVAR=${VAR}$\n',
      _strsyncl(0) + 'A\n' + _strsyncl(5) + 'VAR=2\n'
      ),
     #
     ('mute', [ _SYNCL_FLAG ],
-     'A\n@:mute\nB\n@:setvar VAR 2\n@:endmute\nVAR=${VAR}$\n',
+     'A\n#:mute\nB\n#:setvar VAR 2\n#:endmute\nVAR=${VAR}$\n',
      _strsyncl(0) + 'A\n' + _strsyncl(5) + 'VAR=2\n'
      ),
 ]
@@ -594,17 +594,17 @@ syncline_tests = [
 include_tests = [
     #
     ('explicit_include', [],
-     '@:include "include/fypp1.inc"\n',
+     '#:include "include/fypp1.inc"\n',
      'INCL1\nINCL5\n'
      ),
     #
     ('search_include', [ _incdir('include') ],
-     '@:include "fypp1.inc"\n',
+     '#:include "fypp1.inc"\n',
      'INCL1\nINCL5\n'
      ),
     #
     ('search_include_syncl', [ _SYNCL_FLAG, _incdir('include') ],
-     '@:include "fypp1.inc"\n$: incmacro(1)\n',
+     '#:include "fypp1.inc"\n$: incmacro(1)\n',
      (_strsyncl(0) + _filesyncl('include/fypp1.inc', 0) 
       + 'INCL1\n' + _filesyncl('include/fypp1.inc', 4) 
       + 'INCL5\n' + _strsyncl(1) + 'INCMACRO(1)\n')
@@ -616,219 +616,219 @@ exception_tests = [
     # Parser errors
     #
     ('invalid_directive', [],
-     '@:invalid\n',
+     '#:invalid\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('invalid_macrodef', [],
-     '@:def alma[x]\n@:enddef\n',
+     '#:def alma[x]\n#:enddef\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('invalid_variable_assign', [],
-     '@:setvar A=3\n',
+     '#:setvar A=3\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('invalid_for_decl', [],
-     '@:for i = 1, 2\n',
+     '#:for i = 1, 2\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('invalid_include', [],
-     '@:include <test.h>\n',
+     '#:include <test.h>\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('inline_include', [],
-     '@{include "test.h"}@\n',
+     '#{include "test.h"}#\n',
      fypp.FyppError, fypp.STRING, (0, 0)
      ),
     #
     ('wrong_include_file', [],
-     '@:include "testfkjsdlfkjslf.h"\n',
+     '#:include "testfkjsdlfkjslf.h"\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('invalid_else', [],
-     '@:if 1 > 2\nA\n@:else True\nB\n@:endif\n',
+     '#:if 1 > 2\nA\n#:else True\nB\n#:endif\n',
      fypp.FyppError, fypp.STRING, (2, 3)
      ),
     #
     ('invalid_endif', [],
-     '@:if 1 > 2\nA\n@:else\nB\n@:endif INV\n',
+     '#:if 1 > 2\nA\n#:else\nB\n#:endif INV\n',
      fypp.FyppError, fypp.STRING, (4, 5)
      ),
     #
     ('invalid_enddef', [],
-     '@:def test(x)\nA:${x}$\n@:enddef INV\n',
+     '#:def test(x)\nA:${x}$\n#:enddef INV\n',
      fypp.FyppError, fypp.STRING, (2, 3)
      ),
     #
     ('invalid_endfor', [],
-     '@:for i in range(5)\n${i}$\n@:endfor INV\n',
+     '#:for i in range(5)\n${i}$\n#:endfor INV\n',
      fypp.FyppError, fypp.STRING, (2, 3)
      ),
     #
     ('invalid_mute', [],
-     '@:mute TEST\n@:endmute\n',
+     '#:mute TEST\n#:endmute\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('invalid_endmute', [],
-     '@:mute\n@:endmute INVALID\n',
+     '#:mute\n#:endmute INVALID\n',
      fypp.FyppError, fypp.STRING, (1, 2)
      ),
     #
     ('inline_mute', [],
-     '@{mute}@test@{endmute}@\n',
+     '#{mute}#test#{endmute}#\n',
      fypp.FyppError, fypp.STRING, (0, 0)
      ),
     #
     ('inline_endmute', [],
-     '@:mute\ntest@{endmute}@\n',
+     '#:mute\ntest#{endmute}#\n',
      fypp.FyppError, fypp.STRING, (1, 1)
      ),
     #
     # Builder errors
     #
     ('line_if_inline_endif', [],
-     '@:if 1 < 2\nTrue\n@{endif}@\n',
+     '#:if 1 < 2\nTrue\n#{endif}#\n',
      fypp.FyppError, fypp.STRING, (2, 2)
      ),
     #
     ('inline_if_line_endif', [],
-     '@{if 1 < 2}@True\n@:endif\n',
+     '#{if 1 < 2}#True\n#:endif\n',
      fypp.FyppError, fypp.STRING, (1, 2)
      ),
     #
     ('line_if_inline_elif', [],
-     '@:if 1 < 2\nTrue\n@{elif 2 > 3}@\n',
+     '#:if 1 < 2\nTrue\n#{elif 2 > 3}#\n',
      fypp.FyppError, fypp.STRING, (2, 2)
      ),
     #
     ('inline_if_line_elif', [],
-     '@{if 1 < 2}@True\n@:elif 2 > 3\n',
+     '#{if 1 < 2}#True\n#:elif 2 > 3\n',
      fypp.FyppError, fypp.STRING, (1, 2)
      ),
     #
     ('line_if_inline_else', [],
-     '@:if 1 < 2\nTrue\n@{else}@\n',
+     '#:if 1 < 2\nTrue\n#{else}#\n',
      fypp.FyppError, fypp.STRING, (2, 2)
      ),
     #
     ('inline_if_line_else', [],
-     '@{if 1 < 2}@True\n@:else\n',
+     '#{if 1 < 2}#True\n#:else\n',
      fypp.FyppError, fypp.STRING, (1, 2)
      ),
     #
     ('loose_else', [],
-     'A\n@:else\n',
+     'A\n#:else\n',
      fypp.FyppError, fypp.STRING, (1, 2)
      ),
     #
     ('loose_inline_else', [],
-     'A\n@{else}@\n',
+     'A\n#{else}#\n',
      fypp.FyppError, fypp.STRING, (1, 1)
      ),
     #
     ('loose_elif', [],
-     'A\n@:elif 1 > 2\n',
+     'A\n#:elif 1 > 2\n',
      fypp.FyppError, fypp.STRING, (1, 2)
      ),
     #
     ('loose_inline_elif', [],
-     'A\n@{elif 1 > 2}@\n',
+     'A\n#{elif 1 > 2}#\n',
      fypp.FyppError, fypp.STRING, (1, 1)
      ),
     #
     ('loose_endif', [],
-     'A\n@:endif\n',
+     'A\n#:endif\n',
      fypp.FyppError, fypp.STRING, (1, 2)
      ),
     #
     ('loose_inline_endif', [],
-     'A\n@{endif}@\n',
+     'A\n#{endif}#\n',
      fypp.FyppError, fypp.STRING, (1, 1)
      ),
     #
     ('mismatching_else', [],
-     '@:if 1 < 2\n@:for i in range(3)\n@:else\n',
+     '#:if 1 < 2\n#:for i in range(3)\n#:else\n',
      fypp.FyppError, fypp.STRING, (2, 3)
      ),
     #
     ('mismatching_elif', [],
-     '@:if 1 < 2\n@:for i in range(3)\n@:elif 1 > 2\n',
+     '#:if 1 < 2\n#:for i in range(3)\n#:elif 1 > 2\n',
      fypp.FyppError, fypp.STRING, (2, 3)
      ),
     #
     ('mismatching_endif', [],
-     '@:if 1 < 2\n@:for i in range(3)\n@:endif\n',
+     '#:if 1 < 2\n#:for i in range(3)\n#:endif\n',
      fypp.FyppError, fypp.STRING, (2, 3)
      ),
     #
     ('line_def_inline_enddef', [],
-     '@:def alma(x)\n@{enddef}@\n',
+     '#:def alma(x)\n#{enddef}#\n',
      fypp.FyppError, fypp.STRING, (1, 1)
      ),
     #
     ('inline_def_line_enddef', [],
-     '@{def alma(x)}@Empty\n@:enddef\n',
+     '#{def alma(x)}#Empty\n#:enddef\n',
      fypp.FyppError, fypp.STRING, (1, 2)
      ),
     #
     ('loose_enddef', [],
-     '@:enddef\n',
+     '#:enddef\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('loose_inline_enddef', [],
-     '@{enddef}@\n',
+     '#{enddef}#\n',
      fypp.FyppError, fypp.STRING, (0, 0)
      ),
     #
     ('mismatching_enddef', [],
-     '@:def test(x)\n@{if 1 < 2}@\n@:enddef\n',
+     '#:def test(x)\n#{if 1 < 2}#\n#:enddef\n',
      fypp.FyppError, fypp.STRING, (2, 3)
      ),
     #
     ('line_for_inline_endfor', [],
-     '@:for i in range(3)\nA\n@{endfor}@\n',
+     '#:for i in range(3)\nA\n#{endfor}#\n',
      fypp.FyppError, fypp.STRING, (2, 2)
      ),
     #
     ('inline_for_line_endfor', [],
-     '@{for i in range(3)}@Empty\n@:endfor\n',
+     '#{for i in range(3)}#Empty\n#:endfor\n',
      fypp.FyppError, fypp.STRING, (1, 2)
      ),
     #
     ('loose_endfor', [],
-     '@:endfor\n',
+     '#:endfor\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('loose_inline_endfor', [],
-     '@{endfor}@',
+     '#{endfor}#',
      fypp.FyppError, fypp.STRING, (0, 0)
      ),
     #
     ('mismatching_endfor', [],
-     '@:for i in range(3)\n@{if 1 < 2}@\n@:endfor\n',
+     '#:for i in range(3)\n#{if 1 < 2}#\n#:endfor\n',
      fypp.FyppError, fypp.STRING, (2, 3)
      ),
     #
     ('loose_endmute', [],
-     '@:endmute\n',
+     '#:endmute\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('mismatching_endmute', [],
-     '@:mute\n@{if 1 < 2}@\n@:endmute\n',
+     '#:mute\n#{if 1 < 2}#\n#:endmute\n',
      fypp.FyppError, fypp.STRING, (2, 3)
      ),
     #
     ('unclosed_directive', [],
-     '@:if 1 > 2\nA\n',
+     '#:if 1 > 2\nA\n',
      fypp.FyppError, fypp.STRING, None
      ),
     #
@@ -840,47 +840,47 @@ exception_tests = [
      ),
     #
     ('invalid_variable', [],
-     '@:setvar i 1.2.3\n',
+     '#:setvar i 1.2.3\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('invalid_condition', [],
-     '@{if i >>> 3}@@{endif}@',
+     '#{if i >>> 3}##{endif}#',
      fypp.FyppError, fypp.STRING, (0, 0)
      ),
     #
     ('invalid_iterator', [],
-     '@:for i in 1.2.3\nDummy\n@:endfor\n',
+     '#:for i in 1.2.3\nDummy\n#:endfor\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('invalid_macro_prefix', [],
-     '@:def __test(x)\n@:enddef\n',
+     '#:def __test(x)\n#:enddef\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('reserved_macro_name', [],
-     '@:def defined(x)\n@:enddef\n',
+     '#:def defined(x)\n#:enddef\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('invalid_variable_prefix', [],
-     '@:setvar __test 2\n',
+     '#:setvar __test 2\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('reserved_variable_name', [],
-     '@:setvar _LINE_ 2\n',
+     '#:setvar _LINE_ 2\n',
      fypp.FyppError, fypp.STRING, (0, 1)
      ),
     #
     ('macro_call_more_args', [],
-     '@:def test(x)\n${x}$\n@:enddef\n$: test(\'A\', 1)\n',
+     '#:def test(x)\n${x}$\n#:enddef\n$: test(\'A\', 1)\n',
      fypp.FyppError, fypp.STRING, (3, 4)
      ),
     #
     ('macro_call_less_args', [],
-     '@:def test(x)\n${x}$\n@:enddef\n$: test()\n',
+     '#:def test(x)\n${x}$\n#:enddef\n$: test()\n',
      fypp.FyppError, fypp.STRING, (3, 4)
      ),
     #

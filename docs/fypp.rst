@@ -39,45 +39,45 @@ more detail in individual sections further down.
 
 * Definition and evaluation of preprocessor variables::
 
-    @:if DEBUG > 0
+    #:if DEBUG > 0
       print *, "Some debug information"
-    @:endif
+    #:endif
 
-    @:setvar LOGLEVEL 2
+    #:setvar LOGLEVEL 2
 
 * Macro defintions and macro calls::
 
-    @:def assertTrue(cond)
+    #:def assertTrue(cond)
     if (.not. ${cond}$) then
       print *, "Assert failed in file ${_FILE_}$, line ${_LINE_}$"
       error stop
     end if
-    @:enddef
+    #:enddef
 
     $:assertTrue('size(myArray) > 0')
 
 * Conditional output::
   
     program test
-    @:if defined('WITH_MPI')
+    #:if defined('WITH_MPI')
       use mpi
-    @:elif defined('WITH_OPENMP')
+    #:elif defined('WITH_OPENMP')
       use openmp
-    @:else
+    #:else
       use serial
-    @:endif
+    #:endif
 
 * Iterated output::
 
     interface myfunc
-    @:for dtype in [ 'real', 'dreal', 'complex', 'dcomplex' ]
+    #:for dtype in [ 'real', 'dreal', 'complex', 'dcomplex' ]
       module procedure myfunc_${dtype}$
-    @:endfor
+    #:endfor
     end interface myfunc
 
 * Inline directives::
 
-    logical, parameter :: hasMpi = @{if defined('MPI')}@.true.@{else}@.false.@{endif}@
+    logical, parameter :: hasMpi = #{if defined('MPI')}#.true.#{else}#.false.#{endif}#
 
 * Insertion of arbitrary Python eval-expressions::
 
@@ -85,40 +85,40 @@ more detail in individual sections further down.
 
 * Inclusion of files during preprocessing::
 
-    @:include "macrodefs.fypp"
+    #:include "macrodefs.fypp"
 
 * Using Fortran-style continutation lines in preprocessor directives::
 
-    @:if var1 > var2 &
+    #:if var1 > var2 &
         & or var2 > var4
       print *, "Doing something here"
-    @:endif
+    #:endif
 
 * Passing multiline arguments to macros::
 
-    @:def debug_code(code)
-      @:if DEBUG > 0
+    #:def debug_code(code)
+      #:if DEBUG > 0
         $:code
-      @:endif
-    @:enddef
+      #:endif
+    #:enddef
     
-    @:call debug_code
+    #:call debug_code
       if (size(array) > 100) then
         print *, "DEBUG: spuriously large array"
       end if
-    @:endcall
+    #:endcall
 
 * Preprocessor comments::
 
-    @! This will not show up in the output
-    @! Also the newline characters at the end of the lines will be suppressed
+    #! This will not show up in the output
+    #! Also the newline characters at the end of the lines will be suppressed
 
 * Suppressing the preprocessor output in selected regions::
 
-    @! Definitions are read, but no output (e.g. newlines) will be produced
-    @:mute
-    @:include "macrodefs.fypp"
-    @:endmute
+    #! Definitions are read, but no output (e.g. newlines) will be produced
+    #:mute
+    #:include "macrodefs.fypp"
+    #:endmute
     
 
 ***************
@@ -203,15 +203,15 @@ inline form:
 
 *  Control directives
 
-   * Line form, starting with ``@:`` (at colon)::
+   * Line form, starting with ``#:`` (hashmark colon)::
 
-       @:if 1 > 2
+       #:if 1 > 2
          Some fortran code
-       @:endif
+       #:endif
 
-   * Inline form, enclosed between ``@{`` and ``}@``::
+   * Inline form, enclosed between ``#{`` and ``}#``::
 
-       @{if 1 > 2}@Some code@{endif}@
+       #{if 1 > 2}#Some code#{endif}#
 
 * Eval directives
 
@@ -226,7 +226,7 @@ inline form:
 The line form must always start at the beginning of a line (preceded by optional
 whitespace characters only) and it goes until the end of the line. The inline
 form can appear anywhere, but if the construct consists of several directives
-(e.g. ``@{if ...}@`` and ``@{endif}@``), all of them must appear on the same
+(e.g. ``#{if ...}#`` and ``#{endif}#``), all of them must appear on the same
 line. While both forms can be used at the same time, for a particular construct
 they must be consistent, e.g. a directive opened as line directive can not be
 closed with an inline directive and vica versa.
@@ -235,11 +235,11 @@ Whitespaces in preprocessor commands are ignored, if they appear after the
 opening colon or curly brace or before the closing curly brace. So the following
 examples are pairwise equivalent::
 
-  @:if 1 > 2
-  @: if 1 > 2
+  #:if 1 > 2
+  #: if 1 > 2
   
-  @{if 1 > 2}@
-  @{ if 1 > 2 }@
+  #{if 1 > 2}#
+  #{ if 1 > 2 }#
   
   $:time.strftime('%Y-%m-%d')
   $: time.strftime('%Y-%m-%d')
@@ -254,9 +254,9 @@ choose any indentation strategy you like for the directives::
     :
     do ii = 1, nn
       print *, ii
-    @:if DEBUG > 0
+    #:if DEBUG > 0
       print *, "Some debug info about iteration ${ii}$"
-    @:endif
+    #:endif
       print *, "Normal code"
     end do
     :
@@ -264,11 +264,11 @@ choose any indentation strategy you like for the directives::
 
 Preprocessor directives can be nested arbitrarily::
 
-  @:if DEBUG > 0
-    @:if DO_LOGGING
+  #:if DEBUG > 0
+    #:if DO_LOGGING
       ...
-    @:endif
-  @:endif
+    #:endif
+  #:endif
 
 Every open directive must be closed before the end of the file is reached.
 
@@ -348,16 +348,16 @@ Additionally following predefined functions are provided:
 * ``defined(VARNAME)``: Returns ``True`` if a variable with a given name has
   been already defined. The variable name must be provided as string ::
 
-    @:if defined('WITH_MPI')
+    #:if defined('WITH_MPI')
 
 * ``getvar(VARNAME, DEFAULTVALUE)``: Returns the value of a variable or a
   default value if the variable is not defined. The variable name must be
   provided as string. ::
 
-    @:if getvar('DEBUG', 0)
+    #:if getvar('DEBUG', 0)
 
 * ``setvar(VARNAME, VALUE)``: Sets a variable to given value. It is identical to
-  the ``@:setvar`` control directive. The variable name must be provided as
+  the ``#:setvar`` control directive. The variable name must be provided as
   string ::
 
     $:setvar('i', 12)
@@ -392,16 +392,16 @@ line options.) The first argument is the name of the variable (unquoted),
 followed by an optional Python expression. If latter is not present, the
 variable is set to `None`::
 
-  @:setvar DEBUG
-  @:setvar LOG 1
-  @:setvar LOGLEVEL LOGLEVEL + 1
+  #:setvar DEBUG
+  #:setvar LOG 1
+  #:setvar LOGLEVEL LOGLEVEL + 1
 
 Note, that in the last example the variable `LOGLEVEL` must have been already
 defined in advance.
 
 The `setvar` directive can be also used in the inline form::
 
-  @{setvar X 2}print *, ${X}$
+  #{setvar X 2}#print *, ${X}$
 
 
 `if` directive
@@ -415,9 +415,9 @@ ignored.
 ::
 
   print *, "Before"
-  @:if DEBUG > 0
+  #:if DEBUG > 0
   print *, "Debug code"
-  @:endif
+  #:endif
   print *, "After"
 
 would result in
@@ -438,17 +438,17 @@ if the Python expression ``DEBUG > 0`` evaluates to `True`, otherwise in
 For more complex scenarios ``elif`` and ``else`` branches can be
 used as well::
 
-    @:if DEBUG >= 2
+    #:if DEBUG >= 2
     print *, "Very detailed debug info"
-    @:elif DEBUG >= 1
+    #:elif DEBUG >= 1
     print *, "Less detailed debug info"
-    @:else
+    #:else
     print *, "No debug info"
-    @:endif
+    #:endif
 
 The `if` directive is also available as inline directive::
   
-  print *, "COMPILATION MODE: @{if DEBUG > 0}@DEBUG@{else}@PRODUCTION@{endif}@"
+  print *, "COMPILATION MODE: #{if DEBUG > 0}#DEBUG#{else}#PRODUCTION#{endif}#"
   
 
 `for` directive
@@ -458,15 +458,15 @@ Fortran templates can be easily created by using the `for` directive. The
 following example creates a function for calculating the sine square for both
 single and double precision reals::
 
-  @:setvar real_kinds [ 'sp', 'dp' ]
+  #:setvar real_kinds [ 'sp', 'dp' ]
 
   interface sin2
-  @:for rkind in real_kinds
+  #:for rkind in real_kinds
     module procedure sin2_${rkind}$
-  @:endfor
+  #:endfor
   end interface sin2
 
-  @:for rkind in real_kinds
+  #:for rkind in real_kinds
   function sin2_${rkind}$(xx) result(res)
     real(${rkind}$), intent(in) :: xx
     real(${rkind}$) :: res
@@ -474,7 +474,7 @@ single and double precision reals::
     res = sin(xx) * sin(xx)
 
   end function sin2_${rkind}$
-  @:endfor
+  #:endfor
 
 The `for` directive expects a loop variable and an iterable expression,
 separated by the ``in`` keyword. The code within the `for` directive is outputed
@@ -483,17 +483,17 @@ inserted using eval directives. If the iterable consists of iterables
 (e.g. tuples), usual indexing can be used to access the components, or a
 variable tuple to unpack them directly in the loop header::
 
-  @:setvar kinds_names [ ('sp', 'real'), ('dp', 'dreal') ]
+  #:setvar kinds_names [ ('sp', 'real'), ('dp', 'dreal') ]
 
-  @! Acces by indexing
+  #! Acces by indexing
   interface sin2
-  @:for kind_name in kinds_names
+  #:for kind_name in kinds_names
     module procedure sin2_${kind_name[1]}$
-  @:endfor
+  #:endfor
   end interface sin2
 
-  @! Unpacking in the loop header
-  @:for kind, name in kinds_names
+  #! Unpacking in the loop header
+  #:for kind, name in kinds_names
   function sin2_${name}$(xx) result(res)
     real(${kind}$), intent(in) :: xx
     real(${kind}$) :: res
@@ -501,12 +501,12 @@ variable tuple to unpack them directly in the loop header::
     res = sin(xx) * sin(xx)
 
   end function sin2_${name}$
-  @:endfor
+  #:endfor
 
 
 The `for` directive can be used also in its inline form::
 
-  print *, "Numbers: @{for i in range(5)}@${i}$@{endfor}@"
+  print *, "Numbers: #{for i in range(5)}#${i}$#{endfor}#"
 
 
 
@@ -517,14 +517,14 @@ Parametrized macros can be defined with the `def` directive. The respective
 macro can be then substituted by calling it within an eval directive. Given the
 macro definition ::
 
-  @:def assertTrue(cond)
-  @:if DEBUG > 0
+  #:def assertTrue(cond)
+  #:if DEBUG > 0
   if (.not. (${cond}$)) then
     print *, "Assert failed!"
     error stop
   end if
-  @:endif
-  @:enddef
+  #:endif
+  #:enddef
 
 the code snippet ::
 
@@ -556,14 +556,14 @@ with the same name already exists in the encompassing scope, it will be shadowed
 by it for the time of the macro subsitution. For example preprocessing the code
 snippet ::
 
-  @:def macro(x)
+  #:def macro(x)
   print *, "Local XY: ${x}$ ${y}$"
-  @:setvar y -2
+  #:setvar y -2
   print *, "Local XY: ${x}$ ${y}$"
-  @:enddef
+  #:enddef
 
-  @:setvar x 1
-  @:setvar y 2
+  #:setvar x 1
+  #:setvar y 2
   print *, "Global XY: ${x}$ ${y}$"
   $:macro(-1)
   print *, "Global XY: ${x}$ ${y}$"
@@ -577,14 +577,14 @@ would result in ::
   
 The `def` directive can also be used in its short form::
 
-  @{def l2(x)}@log(log(${x}$))@{enddef}@
+  #{def l2(x)}#log(log(${x}$))#{enddef}#
 
 .. warning:: The content of macros is usually inserted via an eval directive and
 	     is accordingly subject to eventual line folding. Macros should,
 	     therefore, not contain any inline Fortran comments. (Comments
 	     starting at the beginning of the line preceeded by optional
 	     whitespaces only are OK, though). Use preprocessor comments
-	     (``@!``) instead.
+	     (``#!``) instead.
 
 
 `call` directive
@@ -594,17 +594,17 @@ When a macro (or any Python function) should be called with one or more
 multiline text arguments (e.g. many lines of Fortran code), it can be called
 using the `call` directive::
 
-  @:def debug_code(code)
-    @:if DEBUG > 0
+  #:def debug_code(code)
+    #:if DEBUG > 0
       $:code
-    @:endif
-  @:enddef
+    #:endif
+  #:enddef
 
-  @:call debug_code
+  #:call debug_code
     if (a < b) then
       print *, "DEBUG: a is less than b"
     end if
-  @:endcall
+  #:endcall
 
 The `call` directive takes the name of the macro to be called as argument. The
 lines between the opening and closing directives will be rendered and then
@@ -612,21 +612,21 @@ passed as Python text argument to the macro. If the macro has more than one
 arguments, the `nextarg` directive can be used to separate the arguments from
 each other::
 
-  @:def choose_code(code_debug, code_nondebug)
-    @:if DEBUG > 0
+  #:def choose_code(code_debug, code_nondebug)
+    #:if DEBUG > 0
       $:code_debug
-    @:else
+    #:else
       $:code_nondebug
-    @:endif
-  @:enddef
+    #:endif
+  #:enddef
 
-  @:call chose_code
+  #:call chose_code
     if (a < b) then
         print *, "DEBUG: a is less than b"
     end if
-  @:nextarg
+  #:nextarg
     print *, "No debugging"
-  @:endcall
+  #:endcall
 
 The lines in the body of the `call` directive can contain directives
 themselves. However, any variables defined within the body of the `call`
@@ -637,10 +637,10 @@ The `call` directive can also be used in its inline form, however, usually it
 is more legible to use a direct Python call within an eval directive
 instead::
 
-  @{def choose(c1, c2)}@@{if DEBUG > 0}@${c1}$@{else}@${c2}$@{enddef}@
+  #{def choose(c1, c2)}##{if DEBUG > 0}#${c1}$#{else}#${c2}$#{enddef}#
 
-  print *, @{call choose}@ a(:) @{nextarg}@ size(a) @{endcall}@
-  @! This is probably more compact:
+  print *, #{call choose}# a(:) #{nextarg}# size(a) #{endcall}#
+  #! This is probably more compact:
   print *, ${choose('a(:)', 'size(a)')}$
 
 
@@ -651,7 +651,7 @@ The `include` directive enables you to collect your preprocessor macro and
 variable definitions in a separate files and include them whenever needed. The
 include directive expects a quoted string with a file name::
 
-  @:include 'mydefs.fypp'
+  #:include 'mydefs.fypp'
 
 If the file name is relative, it is interpreted relative to the folder where the
 processed file is located (or to the current folder, if Fypp reads from
@@ -671,16 +671,16 @@ empty lines. With the `mute` directive, the output can be suspended. While
 everything is still processed as normal, no output is written for the code
 within the `mute` directive::
 
-  @:mute
+  #:mute
 
-  @:include "mydefs1.fypp"
-  @:include "mydefs2.fypp"
+  #:include "mydefs1.fypp"
+  #:include "mydefs2.fypp"
   
-  @:def test(x)
+  #:def test(x)
   print *, "TEST: ${x}$"
-  @:enddef
+  #:enddef
   
-  @:endmute
+  #:endmute
   $:test('me')
 
 The example above would only produce ::
@@ -695,11 +695,11 @@ The `mute` directive does not have an inline form.
 Comment directive
 =================
 
-Comment lines can be added by using the ``@!`` preprocessor directive. The
+Comment lines can be added by using the ``#!`` preprocessor directive. The
 comment line (including the newlines at their end) will be ignored by the
 prepropessor and not appear in the ouput::
 
-    @! This will not show up in the output
+    #! This will not show up in the output
 
 There is no inline form of the comment directive.
 
@@ -714,7 +714,7 @@ Multiline directives
 The line form of the control and eval directives can span arbitrary number of
 lines, if Fortran-style continuation charachters are used::
 
-  @:if a > b &
+  #:if a > b &
       & or b > c &
       & or c > d
   $:somePythonFunction(param1, &
@@ -762,25 +762,25 @@ position of the whitespace characters). Lines containing eval directives and
 lines within macro definition should, therefore, not contain any Fortran style
 comments (started by ``!``) *within* the line, as folding within the comment
 would result in invalid Fortran code. For comments within such lines, Fypps
-comment directive (``@!``) can be used instead::
+comment directive (``#!``) can be used instead::
 
-  @:def macro()
+  #:def macro()
   print *, "DO NOT DO THIS!"  ! Warning: Line may be folded within the comment
-  print *, "This is OK."  @! Preprocessor comment is safe as it will be stripped
+  print *, "This is OK."  #! Preprocessor comment is safe as it will be stripped
 
 If the comment starts at the beginning of the line (preceeded by optional
 whitespace characters only), the folding is suppressed, though. This enables you
 to define macros, which emit non-negligible comment lines (e.g. containing
 source code documentation or OpenMP directives)::
 
-  @:def macro(DTYPE)
+  #:def macro(DTYPE)
   !> This functions calculates something (version ${DTYPE}$)
   !! \param xx  Ingoing value
   !! \return  Some calculated value.
   ${DTYPE}$ function calcSomething(xx)
   :
   end function calcSomething
-  @:enddef
+  #:enddef
 
 
 Escaping
@@ -792,7 +792,7 @@ character. In case of inline directives, do it for the opening and the
 closing delimiter as well::
 
   $\: 1 + 2
-  @\{if 1 > 2}\@
+  #\{if 1 > 2}\#
 
 Fypp will not recognize the escaped strings as directives, but will remove the
 backslash between the delimiter characters in the output. If you put more than

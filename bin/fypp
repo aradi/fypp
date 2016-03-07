@@ -77,17 +77,17 @@ STRING = '<string>'
 
 _DIRECTIVE_REGEXP = re.compile(r'''
 # comment block
-(?P<comment>(?:^[ \t]*@!.*\n)+)
+(?P<comment>(?:^[ \t]*\#!.*\n)+)
 |
 # line control directive (with optional continuation lines)
-^[ \t]*@:[ \t]*(?P<ldirective>\w+)[ \t]*
+^[ \t]*\#:[ \t]*(?P<ldirective>\w+)[ \t]*
 (?P<lparam>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
 |
 # line eval directive (with optional continuation lines)
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 |
 # inline control directive
-@\{[ \t]*(?P<idirective>\w+)[ \t]*(?P<param>.*?)?[ \t]*\}@
+\#\{[ \t]*(?P<idirective>\w+)[ \t]*(?P<param>.*?)?[ \t]*\}\#
 |
 # inline eval directive
 \$\{[ \t]*(?P<iexpr>.*?)[ \t]*\}\$
@@ -109,9 +109,9 @@ _COMMENTLINE_REGEXP = re.compile(r'^[ \t]*!.*$')
 
 _CONTLINE_REGEXP = re.compile(r'&[ \t]*\n(?:[ \t]*&)?')
 
-_UNESCAPE_REGEXP1 = re.compile(r'([$@])\\(\\*)([{:])')
+_UNESCAPE_REGEXP1 = re.compile(r'([$#])\\(\\*)([{:])')
 
-_UNESCAPE_REGEXP2 = re.compile(r'(\})\\(\\*)([$@])')
+_UNESCAPE_REGEXP2 = re.compile(r'(\})\\(\\*)([$#])')
 
 _RESERVED_PREFIX = '__'
 
