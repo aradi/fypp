@@ -30,7 +30,7 @@
 #
 ################################################################################
 
-'''The functionality of the FYPP preprocessor is mainly realized by
+'''The functionality of the Fypp preprocessor is mainly realized by
 using following classes:
 
 * `Parser`_: Reads a source file, does basic syntax checking and generates
@@ -162,7 +162,7 @@ class FyppError(Exception):
 
 
 class Parser:
-    '''Parses a text and generates events when encountering FYPP constructs.
+    '''Parses a text and generates events when encountering Fypp constructs.
 
     Args:
         includedirs (list): List of directories, in which include files should
@@ -1767,12 +1767,12 @@ def _shiftinds(inds, shift):
 # Command line tool
 ################################################################################
 
-_FYPP_DESC = '''Preprocess Fortran source files with FYPP directives.'''
+_FYPP_DESC = '''Preprocess Fortran source files with Fypp directives.'''
 
 
 class Fypp:
 
-    '''Represents the FYPP command line tool.
+    '''Represents the Fypp command line tool.
 
     Args:
         cmdline_args (list of str, optional): Command line arguments. If None
