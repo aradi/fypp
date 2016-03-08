@@ -120,7 +120,8 @@ environment variable, by just issuing ::
 
   fypp
 
-Fypp needs a working Python interpreter with version 3.2 or above.
+Fypp needs a working Python interpreter either with version 2.7 or with version
+3.2 or above.
 
 
 Running
