@@ -5,11 +5,11 @@ Introduction
 ************
 
 Fypp is a Python powered Fortran preprocessor. It extends Fortran with
-condititional compiling and template metaprogramming capabilities. It is written
-in Python and uses Python to evaluate expressions in preprocessor commands,
-enabling high flexibility in formulating metaprogramming tasks. It puts strong
-emphasis on robustness and on neat integration into Fortran developing
-toolchains.
+condititional compiling and template metaprogramming capabilities. Instead of
+introducing its own expression syntax, it uses Python expressions in its
+preprocessor directives, offering the consistency and flexibility of Python when
+formulating metaprogramming tasks. It puts strong emphasis on robustness and on
+neat integration into Fortran developing toolchains.
 
 Fypp was inspired by the `pyratemp
 <http://www.simple-is-better.org/template/pyratemp.html>`_ templating engine
@@ -45,7 +45,9 @@ more detail in individual sections further down.
 
     #:setvar LOGLEVEL 2
 
-* Macro defintions and macro calls::
+* Macro defintions and macro calls (apart of minor syntax differences similar
+  to scoped intelligent Fortran macros, which probably will be once part of the
+  Fortran standard)::
 
     #:def assertTrue(cond)
     if (.not. ${cond}$) then
@@ -276,11 +278,35 @@ Every open directive must be closed before the end of the file is reached.
 Expression evaluation
 =====================
 
-Python expressions can occur either as part of control directives or directly
-inserted into the code using eval directives. They are evaluated by using
-Pythons ``eval()`` builtin and must be, therefore, syntactically and
-semantically correct Python expressions. Note, that variable names, macros
-etc. are in Python case sensitive.
+Python expressions can occur either as part of control directives, like ::
+
+  #:if DEBUG > 0
+  #:for dtype in [ 'real(dp)', 'integer', 'logical' ]
+
+or directly inserted into the code using eval directives. ::
+
+  $:time.strftime('%Y-%m-%d')
+  print *, "${time.strftime('%Y-%m-%d')}$"
+
+Experssions are always evaluated by using Pythons ``eval()`` builtin and must
+be, therefore, syntactically and semantically correct Python
+expressions. Although, this may require some additional quotations as compared
+to other preprocessor languages ::
+
+  #:if defined('DEBUG')  #! defined() takes a Python string as argument
+  #:for dtype in [ 'real(dp)', 'integer', 'logical' ]  # dtype runs over strings  
+
+it enables consistent expressions with (hopefully) least surprises (once you
+know, how to formulate the expression in Python, you exactly know, how to write
+it for Fypp). Also, note, that variable names, macros etc. are in Python (and
+therefore als for Fypp) case sensitive.
+
+If you access a variable in an expression, it must have been defined (either via
+command line options or via preprocessor directives) before. For example ::
+
+  #:if DEBUG > 0
+
+can only be evaluated, if the variable `DEBUG` had been already defined. 
 
 Python expressions are evaluted in an isolated Python environment. It contains a
 restricted set of Python built-in functions and a few predefined variables and
