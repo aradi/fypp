@@ -1779,9 +1779,32 @@ class Fypp:
 
     '''Represents the Fypp command line tool.
 
+    You can invoke it like::
+
+        tool = Fypp()
+        tool.process_cmdline_files()
+
+    to parse the command line arguments (in ``sys.argv``) and run Fypp using
+    the input/output files and options as specified there.
+
+    The command line arguments can also be passed directly as a list::
+
+        tool = Fypp(['-DDEBUG=0', 'input.F90', 'output.F90'])
+        tool.process_cmdline_files()
+
+    If the input should be read from a string and the result of the
+    preprocessing should be also returned as a string (instead of
+    using input/output files), the ``process_text()`` method can be
+    used::
+
+        tool = Fypp(['-DDEBUG=0'])
+        result = tool.process_text('#:if DEBUG > 0\\nprint *, "DEBUG"\\n#:endif\\n')
+
+
     Args:
         cmdline_args (list of str, optional): Command line arguments. If None
             (default), the arguments are read from sys.argv using Argparser.
+
     '''
 
     def __init__(self, cmdline_args=None):
