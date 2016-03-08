@@ -128,8 +128,8 @@ Getting started
 ***************
 
 
-Installing
-==========
+Obtaining the source
+====================
 
 Download the source code from the `Fypp project website
 <http://bitbucket.org/aradi/fypp>`_ ::
@@ -150,18 +150,31 @@ obtain
     cd fypp
     git co develop
 
+
+Installing
+==========
+
+Fypp needs a working Python interpreter either with version 2.7 or with version
+3.2 or above.
+
 The command line tool is a single stand-alone script. You can run it directly
 from the source folder ::
   
-  Fypp_SOURCE_FOLDER/bin/fypp
+  FYPP_SOURCE_FOLDER/bin/fypp
 
 or after copying it from the `bin` folder to any location listed in your `PATH`
 environment variable, by just issuing ::
 
   fypp
 
-Fypp needs a working Python interpreter either with version 2.7 or with version
-3.2 or above.
+Alternatively, you can use Pythons installer (`pip`) to install Fypp on your
+system::
+
+  pip install fypp
+
+This installs the command line tool ``fypp`` as well as the Python module
+``fypp``. Latter you can import if you want to access the functionality of Fypp
+directly from within your Python scripts.
 
 
 Testing
