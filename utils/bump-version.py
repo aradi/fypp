@@ -8,8 +8,11 @@ FILES_PATTERNS = [ ('bin/fypp',
                     r'^VERSION\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN), 
                     "VERSION = '{}'"),
                    ('docs/fypp.rst',
-                    r'FYPP Version[ ]*{}.'.format(VERSION_PATTERN),
-                    'FYPP Version {}.')
+                    r'Fypp Version[ ]*{}.'.format(VERSION_PATTERN),
+                    'Fypp Version {}.'),
+                   ('setup.py',
+                    r'version\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN),
+                    "version='{}'"),
 ]
 
 if len(sys.argv) < 2:

@@ -71,7 +71,7 @@ import time
 from argparse import ArgumentParser
 
 
-VERSION = '1.0'
+VERSION = '0.10'
 
 STDIN = '<stdin>'
 
@@ -1959,7 +1959,8 @@ class Fypp:
                 raise FyppError(msg)
 
 
-def _run_fypp():
+def run_fypp():
+    '''Run the Fypp command line tool.'''
     try:
         tool = Fypp()
         tool.process_cmdline_files()
@@ -1970,4 +1971,4 @@ def _run_fypp():
 
 
 if __name__ == '__main__':
-    _run_fypp()
+    run_fypp()
