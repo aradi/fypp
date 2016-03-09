@@ -6,7 +6,14 @@ import os
 VERSION_PATTERN = r'\d+\.\d+(?:\.\d+)?'
 FILES_PATTERNS = [ ('bin/fypp', 
                     r'^VERSION\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN), 
-                    "VERSION = '{}'") ]
+                    "VERSION = '{}'"),
+                   ('docs/fypp.rst',
+                    r'Fypp Version[ ]*{}.'.format(VERSION_PATTERN),
+                    'Fypp Version {}.'),
+                   ('setup.py',
+                    r'version\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN),
+                    "version='{}'"),
+]
 
 if len(sys.argv) < 2:
     print("Missing version string")
@@ -19,6 +26,7 @@ if match is None:
 
 rootdir = os.path.join(os.path.dirname(sys.argv[0]), '..')
 for fname, regexp, repl in FILES_PATTERNS:
+    fname = os.path.join(rootdir, fname)
     print("Replacments in '{}': ".format(fname), end='')
     fp = open(fname, 'r')
     txt = fp.read()
