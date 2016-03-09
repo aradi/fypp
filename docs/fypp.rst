@@ -28,7 +28,7 @@ documentation available on `readthedocs.org
 <http://fypp.readthedocs.org>`_. Fypp is released under the *BSD 2-clause
 license*.
 
-This document describes Fypp Version 0.10.
+This document describes Fypp Version 0.11.
 
 
 Features
