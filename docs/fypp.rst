@@ -45,8 +45,8 @@ more detail in individual sections further down.
 
     #:setvar LOGLEVEL 2
 
-* Macro defintions and macro calls (apart of minor syntax differences similar
-  to scoped intelligent Fortran macros, which probably will be once part of the
+* Macro defintions and macro calls (apart of minor syntax differences similar to
+  scoped intelligent Fortran macros, which probably will once become part of the
   Fortran standard)::
 
     #:def assertTrue(cond)
@@ -56,7 +56,12 @@ more detail in individual sections further down.
     end if
     #:enddef
 
+    ! Invoked via direct call (needs no quotation)
+    @:assertTrue(size(myArray) > 0)
+
+    ! Invoked as Python expression (needs quotation)
     $:assertTrue('size(myArray) > 0')
+    
 
 * Conditional output::
   
@@ -69,7 +74,7 @@ more detail in individual sections further down.
       use serial
     #:endif
 
-* Iterated output::
+* Iterated output (e.g. for Fortran templates)::
 
     interface myfunc
     #:for dtype in [ 'real', 'dreal', 'complex', 'dcomplex' ]
@@ -81,7 +86,7 @@ more detail in individual sections further down.
 
     logical, parameter :: hasMpi = #{if defined('MPI')}#.true.#{else}#.false.#{endif}#
 
-* Insertion of arbitrary Python eval-expressions::
+* Insertion of arbitrary Python expressions::
 
     character(*), parameter :: comp_date = "${time.strftime('%Y-%m-%d')}$"
 
@@ -96,7 +101,7 @@ more detail in individual sections further down.
       print *, "Doing something here"
     #:endif
 
-* Passing multiline arguments to macros::
+* Passing multiline string arguments to macros::
 
     #:def debug_code(code)
       #:if DEBUG > 0
@@ -127,11 +132,29 @@ more detail in individual sections further down.
 Getting started
 ***************
 
+Installing
+==========
 
-Obtaining the source
-====================
+Fypp needs a working Python interpreter, either version 2.7 or version 3.2 or
+above.
 
-Download the source code from the `Fypp project website
+Automatic install
+-----------------
+
+You can use Pythons installer `pip` to install the last stable release of Fypp
+on your system::
+
+  pip install fypp
+
+This installs the command line tool ``fypp`` as well as the Python module
+``fypp``. Latter you can import if you want to access the functionality of Fypp
+directly from within your Python scripts.
+
+
+Manual install
+--------------
+
+Alternatively, you can download the source code from the `Fypp project website
 <http://bitbucket.org/aradi/fypp>`_ ::
 
   git clone https://aradi@bitbucket.org/aradi/fypp.git
@@ -151,12 +174,6 @@ obtain
     git co develop
 
 
-Installing
-==========
-
-Fypp needs a working Python interpreter either with version 2.7 or with version
-3.2 or above.
-
 The command line tool is a single stand-alone script. You can run it directly
 from the source folder ::
   
@@ -167,15 +184,6 @@ environment variable, by just issuing ::
 
   fypp
 
-Alternatively, you can use Pythons installer (`pip`) to install Fypp on your
-system::
-
-  pip install fypp
-
-This installs the command line tool ``fypp`` as well as the Python module
-``fypp``. Latter you can import if you want to access the functionality of Fypp
-directly from within your Python scripts.
-
 
 Testing
 =======
@@ -185,7 +193,10 @@ You can test Fypp on your system by running ::
   ./test/runtests.sh
 
 in its source tree. This will execute various unit tests to check whether Fypp
-works as expected.
+works as expected. If you want to run the tests with a specific Python
+interpreter, you can specify it as argument to the script::
+
+  ./test/runtests.sh python3.2
 
 
 Running
@@ -214,8 +225,8 @@ Preprocessor language
 General syntax
 ==============
 
-Fypp has two types of preprocessor directives, each of them having a line and an
-inline form:
+Fypp has three types of preprocessor directives, two of them having a line and
+an inline form:
 
 *  Control directives
 
@@ -238,6 +249,12 @@ inline form:
   * Inline form, enclosed between ``${`` and ``}$``::
 
       print *, "Compilation date: ${time.strftime('%Y-%m-%d')}$"
+
+* Direct call directive, only available as line form, starting with ``@:`` (at
+  colon)::
+
+    @:mymacro(a < b)
+
 
 The line form must always start at the beginning of a line (preceded by optional
 whitespace characters only) and it goes until the end of the line. The inline
@@ -553,9 +570,14 @@ The `for` directive can be used also in its inline form::
 `def` directive
 ===============
 
-Parametrized macros can be defined with the `def` directive. The respective
-macro can be then substituted by calling it within an eval directive. Given the
-macro definition ::
+Parametrized macros can be defined with the `def` directive. This defines a
+regular Python callable which returns the rendered content of the macro body
+when called. The macro arguments are converted to local variables containing the
+actual arguments as values. The macro can be either called from within an
+eval-directive or via the `call` control directive or its abreviated form
+(direct call).
+
+Given the macro definition ::
 
   #:def assertTrue(cond)
   #:if DEBUG > 0
@@ -566,30 +588,38 @@ macro definition ::
   #:endif
   #:enddef
 
-the code snippet ::
+the following three calls ::
 
-  print *, "Before assert"
   $:assertTrue('x > y')
-  print *, "After assert"
 
-would yield after the preprocessing ::
+  #:call assertTrue
+  x > y
+  #:endcall
 
-  print *, "Before assert"
+  @:assertTrue(x > y)
+
+would all yield ::
+
   if (.not. (x > y)) then
     print *, "Assert failed!"
     error stop
   end if
-  print *, "After assert"
 
-if the `DEBUG` variable had a value greater than zero, or ::
-
-  print *, "Before assert"
-  print *, "After assert"
-
+if the variabl `DEBUG` had a value greater than zero or an empty string
 otherwise.
 
-Scopes follow the Python convention: Within the macro, all variables from the
-encompassing scope are available (as `DEBUG` in the example above), and
+When called from within an eval-directive, additional to the regular macro
+arguments, arbitrary optional parameters can be passed. Those optional
+parameters will be converted to local variables when the macro content is
+rendered. For example given the defintion of the ``assertTrue()`` macro from
+above, the call ::
+
+  $:assertTrue('x > y', DEBUG=1)
+
+would override the global value of the `DEBUG` variable within the macro.
+
+Scopes in general follow the Python convention: Within the macro, all variables
+from the encompassing scope are available (as `DEBUG` in the example above), and
 additionally those which were passed as arguments. If a variable is defined
 within the macro, it will be only accessible within the macro. If a variable
 with the same name already exists in the encompassing scope, it will be shadowed
@@ -614,6 +644,7 @@ would result in ::
   print *, "Local XY: -1 2"
   print *, "Local XY: -1 -2"
   print *, "Global XY: 1 2"
+
   
 The `def` directive can also be used in its short form::
 
@@ -630,9 +661,9 @@ The `def` directive can also be used in its short form::
 `call` directive
 ================
 
-When a macro (or any Python function) should be called with one or more
-multiline text arguments (e.g. many lines of Fortran code), it can be called
-using the `call` directive::
+When a Python callable (e.g. regular Python function, macro) is called with
+string arguments only (e.g. Fortran code), it can be called using the `call`
+directive to avoid extra quoting of the arguments::
 
   #:def debug_code(code)
     #:if DEBUG > 0
@@ -646,9 +677,9 @@ using the `call` directive::
     end if
   #:endcall
 
-The `call` directive takes the name of the macro to be called as argument. The
-lines between the opening and closing directives will be rendered and then
-passed as Python text argument to the macro. If the macro has more than one
+The `call` directive takes the name of the callable as argument. The lines
+between the opening and closing directives will be rendered and then passed as
+Python string argument to the callable. If the callable has more than one
 arguments, the `nextarg` directive can be used to separate the arguments from
 each other::
 
@@ -671,17 +702,61 @@ each other::
 The lines in the body of the `call` directive can contain directives
 themselves. However, any variables defined within the body of the `call`
 directive will be local variables, existing only during the evaluation of that
-branch of the directive.
+branch of the directive (and not being available during the call itself).
 
-The `call` directive can also be used in its inline form, however, usually it
-is more legible to use a direct Python call within an eval directive
-instead::
+The `call` directive can also be used in its inline form. As this easily leads
+to code being hard to read, it should be usually avoided::
 
-  #{def choose(c1, c2)}##{if DEBUG > 0}#${c1}$#{else}#${c2}$#{enddef}#
+  ! Rather ugly
+  print *, #{call choose_code}# a(:) #{nextarg}# size(a) #{endcall}#
+  
+  ! This form is more readable
+  print *, ${choose_code('a(:)', 'size(a)')}$
 
-  print *, #{call choose}# a(:) #{nextarg}# size(a) #{endcall}#
-  #! This is probably more compact:
-  print *, ${choose('a(:)', 'size(a)')}$
+
+
+Direct call directive
+=====================
+
+In order to enable compact (single line) calls while still maintaining code
+readability, the `call` directive has an alternative short form, the direct call
+directive::
+
+  #:def assertTrue(cond)
+  #:if DEBUG > 0
+  if (.not. (${cond}$)) then
+    print *, "Assert failed!"
+    error stop
+  end if
+  #:endif
+  #:enddef
+
+  @:assertTrue(size(aa) >= size(bb))
+
+The direct call directive starts with ``@:`` followed by the name of a Python
+callable and an opening paranthesis. It is closed by a closing paranthesis
+followed by optional whitespace characters and the end of the line. Everything
+in between is treated as text and is passed as string argument to the
+callable. When the callable needs more than one argument, the arguments must
+be separated by the character sequence ``@@``::
+
+  #:def assertEqual(lhs, rhs)
+  if (lhs != rhs) then
+    print *, "AssertEqual failed!"
+    error stop
+  end if
+  #:enddef
+
+  @:assertEqual(size(coords, dim=2) @@ size(types))
+
+The direct call directive can contain continuation lines::
+
+  @:assertEqual(size(coords, dim=2) &
+      & @@ size(types))
+
+Note, that in contrast to the `call` directive, the text within the direct call
+directive is not parsed for any further directives, but is passed as plain
+string to the callable. The direct call directive has no inline form.
 
 
 `include` directive

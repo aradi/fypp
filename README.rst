@@ -28,8 +28,8 @@ Main features
 
     #:setvar LOGLEVEL 2
 
-* Macro defintions and macro calls (apart of minor syntax differences similar
-  to scoped intelligent Fortran macros, which probably will be once part of the
+* Macro defintions and macro calls (apart of minor syntax differences similar to
+  scoped intelligent Fortran macros, which probably will once become part of the
   Fortran standard)::
 
     #:def assertTrue(cond)
@@ -39,7 +39,12 @@ Main features
     end if
     #:enddef
 
+    ! Invoked via direct call (needs no quotation)
+    @:assertTrue(size(myArray) > 0)
+
+    ! Invoked as Python expression (needs quotation)
     $:assertTrue('size(myArray) > 0')
+    
 
 * Conditional output::
   
@@ -52,7 +57,7 @@ Main features
       use serial
     #:endif
 
-* Iterated output::
+* Iterated output (e.g. for Fortran templates)::
 
     interface myfunc
     #:for dtype in [ 'real', 'dreal', 'complex', 'dcomplex' ]
@@ -64,7 +69,7 @@ Main features
 
     logical, parameter :: hasMpi = #{if defined('MPI')}#.true.#{else}#.false.#{endif}#
 
-* Insertion of arbitrary Python eval-expressions::
+* Insertion of arbitrary Python expressions::
 
     character(*), parameter :: comp_date = "${time.strftime('%Y-%m-%d')}$"
 
@@ -79,7 +84,7 @@ Main features
       print *, "Doing something here"
     #:endif
 
-* Passing multiline arguments to macros::
+* Passing multiline string arguments to macros::
 
     #:def debug_code(code)
       #:if DEBUG > 0
@@ -110,8 +115,44 @@ Main features
 Installing
 ==========
 
-Fypp needs a working Python interpreter either with version 2.7 or with version
-3.2 or above.
+Fypp needs a working Python interpreter, either version 2.7 or version 3.2 or
+above.
+
+Automatic install
+-----------------
+
+You can use Pythons installer `pip` to install the last stable release of Fypp
+on your system::
+
+  pip install fypp
+
+This installs the command line tool ``fypp`` as well as the Python module
+``fypp``. Latter you can import if you want to access the functionality of Fypp
+directly from within your Python scripts.
+
+
+Manual install
+--------------
+
+Alternatively, you can download the source code from the `Fypp project website
+<http://bitbucket.org/aradi/fypp>`_ ::
+
+  git clone https://aradi@bitbucket.org/aradi/fypp.git
+
+The project follows `Vincent Driessens git workflow
+<http://nvie.com/posts/a-successful-git-branching-model/>`_, so in order to
+obtain
+
+* the latest **stable** version, check out the `master` branch::
+
+    cd fypp
+    git co master
+
+* the latest **development** snapshot, check out the `develop` branch::
+
+    cd fypp
+    git co develop
+
 
 The command line tool is a single stand-alone script. You can run it directly
 from the source folder ::
@@ -122,15 +163,6 @@ or after copying it from the `bin` folder to any location listed in your `PATH`
 environment variable, by just issuing ::
 
   fypp
-
-Alternatively, you can use Pythons installer (`pip`) to install Fypp on your
-system::
-
-  pip install fypp
-
-This installs the command line tool ``fypp`` as well as the Python module
-``fypp``. Latter you can import if you want to access the functionality of Fypp
-directly from within your Python scripts.
 
 
 
