@@ -3,8 +3,10 @@
 import unittest
 import fypp
 
-def _strsyncl(linenr):
-    return fypp.syncline(linenr, fypp.STRING)
+def _strsyncl(linenr, fname=None):
+    if fname is None:
+        fname = fypp.STRING
+    return fypp.syncline(linenr, fname)
 
 def _filesyncl(fname, linenr):
     return fypp.syncline(linenr, fname)
@@ -604,11 +606,38 @@ INCLUDE_TESTS = [
      'INCL1\nINCL5\n'
     ),
     #
+    ('nested_include_in_incpath', [_incdir('include')],
+     '#:include "subfolder/include_fypp1.inc"\n',
+     'INCL1\nINCL5\n'
+    ),
+    #
+    ('nested_include_in_folder_of_incfile', [_incdir('include')],
+     '#:include "subfolder/include_fypp2.inc"\n',
+     'FYPP2\n'
+    ),
+    #
     ('search_include_syncl', [_SYNCL_FLAG, _incdir('include')],
      '#:include "fypp1.inc"\n$: incmacro(1)\n',
      (_strsyncl(0) + _filesyncl('include/fypp1.inc', 0)
       + 'INCL1\n' + _filesyncl('include/fypp1.inc', 4)
       + 'INCL5\n' + _strsyncl(1) + 'INCMACRO(1)\n')
+    ),
+    #
+    ('nested_include_in_incpath_syncl', [_SYNCL_FLAG, _incdir('include')],
+     '#:include "subfolder/include_fypp1.inc"\n',
+     (_strsyncl(0) + _strsyncl(0, 'include/subfolder/include_fypp1.inc')
+      + _strsyncl(0, 'include/fypp1.inc') + 'INCL1\n' 
+      + _strsyncl(4, 'include/fypp1.inc') + 'INCL5\n'
+      + _strsyncl(1, 'include/subfolder/include_fypp1.inc')
+      + _strsyncl(1))
+    ),
+    #
+    ('nested_include_in_folder_of_incfile', [_SYNCL_FLAG, _incdir('include')],
+     '#:include "subfolder/include_fypp2.inc"\n',
+     (_strsyncl(0) + _strsyncl(0, 'include/subfolder/include_fypp2.inc')
+      + _strsyncl(0, 'include/subfolder/fypp2.inc')
+      + 'FYPP2\n'
+      + _strsyncl(1, 'include/subfolder/include_fypp2.inc') + _strsyncl(1))
     ),
 ]
 
