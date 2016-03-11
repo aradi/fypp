@@ -28,7 +28,7 @@ documentation available on `readthedocs.org
 <http://fypp.readthedocs.org>`_. Fypp is released under the *BSD 2-clause
 license*.
 
-This document describes Fypp Version 0.11.
+This document describes Fypp Version 0.12.
 
 
 Features
@@ -755,7 +755,7 @@ The direct call directive can contain continuation lines::
 
 Note, that in contrast to the `call` directive, the text within the direct call
 directive is not parsed for any further directives, but is passed as plain
-string to the callable. The direct call directive has no inline form.
+string to the callable.
 
 
 `include` directive
