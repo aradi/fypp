@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 ################################################################################
 #
@@ -71,7 +71,7 @@ import time
 from argparse import ArgumentParser
 
 
-VERSION = '0.11'
+VERSION = '0.12'
 
 STDIN = '<stdin>'
 
@@ -90,6 +90,10 @@ _DIRECTIVE_REGEXP = re.compile(r'''
 |
 # line eval directive (with optional continuation lines)
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
+|
+# direct call directive (with optional continuation lines)
+^[ \t]*@:[ \t]*(?P<macro>\w+)[ \t]*
+(?P<macroparams>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
 |
 # inline control directive
 \#\{[ \t]*(?P<idirective>\w+)[ \t]*(?P<param>.*?)?[ \t]*\}\#
@@ -117,6 +121,8 @@ _CONTLINE_REGEXP = re.compile(r'&[ \t]*\n(?:[ \t]*&)?')
 _UNESCAPE_REGEXP1 = re.compile(r'([$#])\\(\\*)([{:])')
 
 _UNESCAPE_REGEXP2 = re.compile(r'(\})\\(\\*)([$#])')
+
+_UNESCAPE_REGEXP3 = re.compile(r'(@)\\(\\*)([:@])')
 
 _RESERVED_PREFIX = '__'
 
@@ -464,8 +470,7 @@ class Parser:
             start, end = match.span()
             if start > pos:
                 endlinenr = linenr + txt.count('\n', pos, start)
-                self.handle_text((linenr, endlinenr),
-                                 self._unescape(txt[pos:start]))
+                self._process_text(txt[pos:start], (linenr, endlinenr))
                 linenr = endlinenr
             endlinenr = linenr + txt.count('\n', start, end)
             if groups['ldirective'] is not None:
@@ -481,6 +486,9 @@ class Parser:
                 self._process_iexpreval(groups['iexpr'], (linenr, endlinenr))
             elif groups['comment'] is not None:
                 self.handle_comment((linenr, endlinenr))
+            elif groups['macro'] is not None:
+                self._process_macrocall(
+                    groups['macro'], groups['macroparams'], (linenr, endlinenr))
             else:
                 msg = 'internal error: unknown matching pattern'
                 raise FyppError(msg, self._curfile, (linenr, endlinenr))
@@ -488,7 +496,12 @@ class Parser:
             linenr = endlinenr
         if pos < len(txt):
             endlinenr = linenr + txt.count('\n', pos)
-            self.handle_text((linenr, endlinenr), self._unescape(txt[pos:]))
+            self._process_text(txt[pos:], (linenr, endlinenr))
+
+
+    def _process_text(self, txt, span):
+        escaped_txt = self._unescape(txt)
+        self.handle_text(span, escaped_txt)
 
 
     def _process_directive(self, directive, param, span):
@@ -546,6 +559,18 @@ class Parser:
 
     def _process_iexpreval(self, expr, span):
         self.handle_eval(span, expr)
+
+
+    def _process_macrocall(self, macroname, macroparams, span):
+        macroparams = _CONTLINE_REGEXP.sub('', macroparams)
+        self._process_call(macroname, span)
+        args = [arg.strip() for arg in macroparams.split('@@')]
+        if len(args):
+            self._process_text(args[0], span)
+            for arg in args[1:]:
+                self.handle_nextarg(span)
+                self._process_text(arg, span)
+        self.handle_endcall(span)
 
 
     def _process_def(self, param, span):
@@ -637,6 +662,7 @@ class Parser:
     def _unescape(txt):
         txt = _UNESCAPE_REGEXP1.sub(r'\1\2\3', txt)
         txt = _UNESCAPE_REGEXP2.sub(r'\1\2\3', txt)
+        txt = _UNESCAPE_REGEXP3.sub(r'\1\2\3', txt)
         return txt
 
 
