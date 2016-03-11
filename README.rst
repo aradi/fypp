@@ -40,7 +40,7 @@ Main features
     #:enddef
 
     ! Invoked via direct call (needs no quotation)
-    @:assertTrue(size(myArray) > 0)
+    @:assertTrue size(myArray) > 0
 
     ! Invoked as Python expression (needs quotation)
     $:assertTrue('size(myArray) > 0')

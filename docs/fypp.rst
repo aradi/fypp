@@ -57,7 +57,7 @@ more detail in individual sections further down.
     #:enddef
 
     ! Invoked via direct call (needs no quotation)
-    @:assertTrue(size(myArray) > 0)
+    @:assertTrue size(myArray) > 0
 
     ! Invoked as Python expression (needs quotation)
     $:assertTrue('size(myArray) > 0')
@@ -253,7 +253,7 @@ an inline form:
 * Direct call directive, only available as line form, starting with ``@:`` (at
   colon)::
 
-    @:mymacro(a < b)
+    @:mymacro a < b
 
 
 The line form must always start at the beginning of a line (preceded by optional
@@ -596,7 +596,7 @@ the following three calls ::
   x > y
   #:endcall
 
-  @:assertTrue(x > y)
+  @:assertTrue x > y
 
 would all yield ::
 
@@ -731,14 +731,13 @@ directive::
   #:endif
   #:enddef
 
-  @:assertTrue(size(aa) >= size(bb))
+  @:assertTrue size(aa) >= size(bb)
 
 The direct call directive starts with ``@:`` followed by the name of a Python
-callable and an opening paranthesis. It is closed by a closing paranthesis
-followed by optional whitespace characters and the end of the line. Everything
-in between is treated as text and is passed as string argument to the
-callable. When the callable needs more than one argument, the arguments must
-be separated by the character sequence ``@@``::
+callable. Everything between the callable name and the end of the line is
+treated as text and is passed as string argument to the callable. When the
+callable needs more than one argument, the arguments must be separated by the
+character sequence ``@@``::
 
   #:def assertEqual(lhs, rhs)
   if (lhs != rhs) then
@@ -747,12 +746,12 @@ be separated by the character sequence ``@@``::
   end if
   #:enddef
 
-  @:assertEqual(size(coords, dim=2) @@ size(types))
+  @:assertEqual size(coords, dim=2) @@ size(types)
 
 The direct call directive can contain continuation lines::
 
-  @:assertEqual(size(coords, dim=2) &
-      & @@ size(types))
+  @:assertEqual size(coords, dim=2) &
+      & @@ size(types)
 
 Note, that in contrast to the `call` directive, the text within the direct call
 directive is not parsed for any further directives, but is passed as plain

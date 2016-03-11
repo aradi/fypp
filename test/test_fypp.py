@@ -280,43 +280,49 @@ SIMPLE_TESTS = [
     #
     ('direct_call', [],
      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-     '@:mymacro(a < b)\n',
+     '@:mymacro a < b\n',
+     '|a < b|\n',
+    ),
+    #
+    ('direct_call2', [],
+     '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+     '@:mymacro a < b\n',
      '|a < b|\n',
     ),
     #
     ('direct_call_contline', [],
      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-     '@:mymacro(a &\n    &< b&\n    &)\n',
+     '@:mymacro a &\n    &< b&\n    &\n',
      '|a < b|\n',
     ),
     #
     ('direct_call_quotation', [],
      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-     '@:mymacro("""L1""")\n',
+     '@:mymacro """L1"""\n',
      '|"""L1"""|\n',
     ),
     #
     ('direct_call_escape1', [],
      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-     '@:mymacro(L1\\n)\n',
+     '@:mymacro L1\\n\n',
      '|L1\\n|\n',
     ),
     #
     ('direct_call_backslash_escape2', [],
      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-     '@:mymacro(L1\\"a\\"\\n)\n',
+     '@:mymacro L1\\"a\\"\\n\n',
      '|L1\\"a\\"\\n|\n',
     ),
     #
     ('direct_call_2_args', [],
      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-     '@:mymacro("""L1""" @@ L2)\n',
+     '@:mymacro """L1""" @@ L2\n',
      '|"""L1"""|L2|\n',
     ),
     #
     ('direct_call_2_args_escape', [],
      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-     '@:mymacro("""L1""" @\@ L2 @@ L3)\n',
+     '@:mymacro """L1""" @\@ L2 @@ L3\n',
      '|"""L1""" @@ L2|L3|\n',
     ),
     #
@@ -637,13 +643,13 @@ SYNCLINE_TESTS = [
     #
     ('direct_call', [_SYNCL_FLAG],
      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-     '@:mymacro(a < b)\n',
+     '@:mymacro a < b\n',
      _strsyncl(0) + _strsyncl(3) + '|a < b|\n',
     ),
     #
     ('direct_call_contline', [_SYNCL_FLAG],
      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-     '@:mymacro(a &\n    &< b&\n    &)\nDone\n',
+     '@:mymacro a &\n    &< b&\n    &\nDone\n',
      _strsyncl(0) + _strsyncl(3) + '|a < b|\n' + _strsyncl(6) + 'Done\n',
     ),
 

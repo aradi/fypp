@@ -92,8 +92,8 @@ _DIRECTIVE_REGEXP = re.compile(r'''
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 |
 # direct call directive (with optional continuation lines)
-^[ \t]*@:[ \t]*(?P<macro>\w+)\([ \t]*
-(?P<macroparams>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?\)[ \t]*\n
+^[ \t]*@:[ \t]*(?P<macro>\w+)[ \t]*
+(?P<macroparams>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
 |
 # inline control directive
 \#\{[ \t]*(?P<idirective>\w+)[ \t]*(?P<param>.*?)?[ \t]*\}\#
