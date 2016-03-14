@@ -1707,8 +1707,7 @@ def linenumdir(linenr, fname):
     return '# {} "{}"\n'.format(linenr + 1, fname)
 
 
-
-class LineFolder:
+class FortranLineFolder:
 
     '''Implements line folding with Fortran continuation lines.
 
@@ -1717,7 +1716,6 @@ class LineFolder:
         indent (int, optional): Indentation for continuation lines (default: 4).
         method (str, optional): Folding method with following options:
 
-            * ``none``: no folding,
             * ``brute``: folding with maximal length of continuation lines,
             * ``simple``: indents with respect of indentation of first line,
             * ``smart``: like ``simple``, but tries to fold at whitespaces.
@@ -1741,7 +1739,7 @@ class LineFolder:
         self._indent = indent
         self._prefix = ' ' * self._indent + prefix
         self._suffix = suffix
-        if method not in ['brute', 'smart', 'simple', 'none']:
+        if method not in ['brute', 'smart', 'simple']:
             raise FyppError('invalid folding type')
         if method == 'brute':
             self._inherit_indent = False
@@ -1752,9 +1750,6 @@ class LineFolder:
         elif method == 'smart':
             self._inherit_indent = True
             self._fold_position_finder = self._get_smart_fold_pos
-        else:
-            # No folding occurs, line is returned unaltered
-            self._maxlen = -1
 
 
     def __call__(self, line):
@@ -1762,7 +1757,7 @@ class LineFolder:
 
         Can be directly called to return the list of folded lines::
 
-            linefolder = LineFolder(maxlen=10)
+            linefolder = FortranLineFolder(maxlen=10)
             linefolder('  print *, "some Fortran line"')
 
         Args:
@@ -1816,6 +1811,21 @@ class LineFolder:
             return ispace
         else:
             return end
+
+
+class DummyLineFolder:
+
+    '''Implements a dummy line folder returning the line unaltered.'''
+
+    def __call__(self, line):
+        '''Returns the entire line without any folding.
+
+        Returns:
+            list of str: Components of folded line. They should be
+                assembled via ``\\n.join()`` to obtain the string
+                representation.
+        '''
+        return [line]
 
 
 def _shiftinds(inds, shift):
@@ -1876,13 +1886,16 @@ class Fypp:
         builder = Builder()
 
         fixed_format = self._args.fixed_format
-        folding = 'brute' if fixed_format else self._args.folding_method
-        linelength = 72 if fixed_format else self._args.line_length
-        indentation = 5 if fixed_format else self._args.indentation
-        prefix = '&'
-        suffix = '' if fixed_format else '&'
-        linefolder = LineFolder(linelength, indentation, folding, prefix,
-                                suffix)
+        if self._args.linefolding:
+            folding = 'brute' if fixed_format else self._args.folding_mode
+            linelength = 72 if fixed_format else self._args.line_length
+            indentation = 5 if fixed_format else self._args.indentation
+            prefix = '&'
+            suffix = '' if fixed_format else '&'
+            linefolder = FortranLineFolder(linelength, indentation, folding,
+                                           prefix, suffix)
+        else:
+            linefolder = DummyLineFolder()
         linenums = self._args.line_numbering
         contlinenums = (self._args.line_numbering_mode != 'nocontlines')
         renderer = Renderer(
@@ -1946,12 +1959,15 @@ class Fypp:
               'preprocessor are folded if becoming longer'
         parser.add_argument('-l', '--line-length', type=int, default=132,
                             metavar='LEN', help=msg)
-        msg = 'folding method, \'smart\' (default): indentation context and '\
-              'whitespace aware, \'simple\': indentation context aware, '\
-              '\'brute\' : mechnical folding, none\': no folding'
-        parser.add_argument('-f', '--folding-method', metavar='METHOD',
-                            choices=['smart', 'simple', 'brute', 'none'],
+        msg = 'line folding mode, \'smart\' (default): indentation context '\
+              'and whitespace aware, \'simple\': indentation context aware, '\
+              '\'brute\': mechnical folding'
+        parser.add_argument('-f', '--folding-mode', metavar='MODE',
+                            choices=['smart', 'simple', 'brute'],
                             default='smart', help=msg)
+        msg = 'suppress line folding'
+        parser.add_argument('-F', '--no-folding', action='store_false',
+                            dest='linefolding', default=True, help=msg)
         msg = 'indentation to use for continuation lines (default 4)'
         parser.add_argument('--indentation', type=int, metavar='IND',
                             default=4, help=msg)

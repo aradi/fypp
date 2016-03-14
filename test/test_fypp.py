@@ -30,6 +30,8 @@ _LINENUM_FLAG = '-n'
 
 _FIXED_FORMAT_FLAG = '--fixed-format'
 
+_NO_FOLDING_FLAG = '-F'
+
 
 SIMPLE_TESTS = [
     ('if_true', [_defvar('TESTVAR', 1)],
@@ -321,7 +323,7 @@ SIMPLE_TESTS = [
     #
     ('direct_call_2_args_escape', [],
      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-     '@:mymacro """L1""" @\@ L2 @@ L3\n',
+     '@:mymacro """L1""" @\\@ L2 @@ L3\n',
      '|"""L1""" @@ L2|L3|\n',
     ),
     #
@@ -397,7 +399,7 @@ SIMPLE_TESTS = [
      ' ! Should be not folded\nShould be&\n  & folded\n'
     ),
     #
-    ('no_folding', [_linelen(15), _indentation(4), _folding('none')],
+    ('no_folding', [_linelen(15), _indentation(4), _NO_FOLDING_FLAG],
      '  ${3}$456 89 123456 8',
      '  3456 89 123456 8',
     ),
@@ -647,15 +649,15 @@ LINENUM_TESTS = [
      _linenum(0) + _linenum(3) + '|a < b|\n' + _linenum(6) + 'Done\n',
     ),
     #
-    ('smart_folding', 
+    ('smart_folding',
      [_LINENUM_FLAG, _linelen(15), _indentation(4), _folding('smart')],
      '  ${3}$456 89 123456 8\nDone\n',
      _linenum(0) + '  3456 89&\n' + _linenum(0) + '      & 123456&\n' \
      + _linenum(0) + '      & 8\n' + 'Done\n'
     ),
     #
-    ('smart_folding_nocontlines', 
-     [_LINENUM_FLAG, _linenumbering('nocontlines'), _linelen(15), 
+    ('smart_folding_nocontlines',
+     [_LINENUM_FLAG, _linenumbering('nocontlines'), _linelen(15),
       _indentation(4), _folding('smart')],
      '  ${3}$456 89 123456 8\nDone\n',
      _linenum(0) + '  3456 89&\n' + '      & 123456&\n' \
@@ -695,7 +697,7 @@ INCLUDE_TESTS = [
     ('nested_include_in_incpath_linenum', [_LINENUM_FLAG, _incdir('include')],
      '#:include "subfolder/include_fypp1.inc"\n',
      (_linenum(0) + _linenum(0, 'include/subfolder/include_fypp1.inc')
-      + _linenum(0, 'include/fypp1.inc') + 'INCL1\n' 
+      + _linenum(0, 'include/fypp1.inc') + 'INCL1\n'
       + _linenum(4, 'include/fypp1.inc') + 'INCL5\n'
       + _linenum(1, 'include/subfolder/include_fypp1.inc')
       + _linenum(1))
