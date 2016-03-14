@@ -923,7 +923,7 @@ class Builder:
         '''Should be called to signalize a comment directive.
 
         The content of the comment is not needed by the builder, but it needs
-        the span of the comment to generate proper synclines if needed.
+        the span of the comment to generate proper line numbers if needed.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -1007,18 +1007,22 @@ class Renderer:
     Args:
         evaluator (Evaluator, optional): Evaluator to use when rendering eval
             directives. If None (default), Evaluator() is used.
-        synclines (bool, optional): Whether synclines should be generated,
+        linenums (bool, optional): Whether linenums should be generated,
             defaults to False.
+        contlinenums (bool, optional): Whether linenums for continuation
+            should be generated, defaults to False.
         linefolder (callable): Callable to use when folding a line.
     '''
 
-    def __init__(self, evaluator=None, synclines=False, linefolder=None):
+    def __init__(self, evaluator=None, linenums=False, contlinenums=False,
+                 linefolder=None):
         self._evaluator = Evaluator() if evaluator is None else evaluator
         self._evaluator.updateenv(_DATE_=time.strftime('%Y-%m-%d'),
                                   _TIME_=time.strftime('%H:%M:%S'))
         self._curfile = None
         self._diversions = 0
-        self._synclines = synclines
+        self._linenums = linenums
+        self._contlinenums = contlinenums
         if linefolder is None:
             self._linefolder = lambda line: [line]
         else:
@@ -1130,15 +1134,15 @@ class Renderer:
                     condition, exc)
                 raise FyppError(msg, self._curfile, span)
             if cond:
-                if self._synclines and not self._diversions and multiline:
-                    out.append(syncline(span[1], self._curfile))
+                if self._linenums and not self._diversions and multiline:
+                    out.append(linenumdir(span[1], self._curfile))
                 outcont, ievalcont, pevalcont = self._render(content)
                 ieval += _shiftinds(ievalcont, len(out))
                 peval += pevalcont
                 out += outcont
                 break
-        if self._synclines and not self._diversions and multiline:
-            out.append(syncline(spans[-1][1], self._curfile))
+        if self._linenums and not self._diversions and multiline:
+            out.append(linenumdir(spans[-1][1], self._curfile))
         return out, ieval, peval
 
 
@@ -1160,14 +1164,14 @@ class Renderer:
             else:
                 loopscope = {varname: value
                              for varname, value in zip(loopvars, var)}
-            if self._synclines and not self._diversions and multiline:
-                out.append(syncline(spans[0][1], self._curfile))
+            if self._linenums and not self._diversions and multiline:
+                out.append(linenumdir(spans[0][1], self._curfile))
             outcont, ievalcont, pevalcont = self._render(content, loopscope)
             ieval += _shiftinds(ievalcont, len(out))
             peval += pevalcont
             out += outcont
-        if self._synclines and not self._diversions and multiline:
-            out.append(syncline(spans[1][1], self._curfile))
+        if self._linenums and not self._diversions and multiline:
+            out.append(linenumdir(spans[1][1], self._curfile))
         return out, ieval, peval
 
 
@@ -1197,8 +1201,8 @@ class Renderer:
             msg = "exception occured when defining macro '{}'\n{}"\
                 .format(name, exc)
             raise FyppError(msg, self._curfile, spans[0])
-        if self._synclines and not self._diversions:
-            result = syncline(spans[1][1], self._curfile)
+        if self._linenums and not self._diversions:
+            result = linenumdir(spans[1][1], self._curfile)
         return result
 
 
@@ -1212,22 +1216,22 @@ class Renderer:
                 .format(name, valstr, exc)
             raise FyppError(msg, self._curfile, span)
         multiline = (span[0] != span[1])
-        if self._synclines and not self._diversions and multiline:
-            result = syncline(span[1], self._curfile)
+        if self._linenums and not self._diversions and multiline:
+            result = linenumdir(span[1], self._curfile)
         return result
 
 
     def _get_comment(self, span):
-        if self._synclines and not self._diversions:
-            return syncline(span[1], self._curfile)
+        if self._linenums and not self._diversions:
+            return linenumdir(span[1], self._curfile)
         else:
             return ''
 
 
     def _get_muted_content(self, spans, content):
         self._render(content)
-        if self._synclines and not self._diversions:
-            return syncline(spans[-1][1], self._curfile)
+        if self._linenums and not self._diversions:
+            return linenumdir(spans[-1][1], self._curfile)
         else:
             return ''
 
@@ -1247,8 +1251,8 @@ class Renderer:
         result = ''
         self._curfile = fname
         self._evaluator.updateenv(_FILE_=fname)
-        if self._synclines and not self._diversions:
-            result = syncline(span[1], self._curfile)
+        if self._linenums and not self._diversions:
+            result = linenumdir(span[1], self._curfile)
         return result
 
 
@@ -1258,85 +1262,109 @@ class Renderer:
 
 
     def _postprocess_eval_lines(self, output, eval_inds, eval_pos):
-        lastproc = -1
+        ilastproc = -1
         for ieval, ind in enumerate(eval_inds):
             span, fname = eval_pos[ieval]
-            if ind <= lastproc:
+            if ind <= ilastproc:
                 continue
-
-            # find last eol before expr. evaluation
-            iprev = ind - 1
-            while iprev >= 0:
-                eolprev = output[iprev].rfind('\n')
-                if eolprev != -1:
-                    break
-                iprev -= 1
-            else:
-                iprev = 0
-                eolprev = -1
-
-            # find first eol after expr. evaluation
-            inext = ind + 1
-            while inext < len(output):
-                eolnext = output[inext].find('\n')
-                if eolnext != -1:
-                    break
-                inext += 1
-            else:
-                inext = len(output) - 1
-                eolnext = len(output[-1]) - 1
-
-            # Create full line containing the evaluated expression
-            curline_parts = []
-            if iprev != ind:
-                curline_parts = [output[iprev][eolprev + 1:]]
-                output[iprev] = output[iprev][:eolprev + 1]
-            curline_parts.extend(output[iprev + 1:ind])
-            curline_parts.extend(output[ind])
-            curline_parts.extend(output[ind + 1:inext])
-            if inext != ind:
-                curline_parts.append(output[inext][:eolnext + 1])
-                output[inext] = output[inext][eolnext + 1:]
-            curline = ''.join(curline_parts)
+            iprev, eolprev = self._find_last_eol(output, ind)
+            inext, eolnext = self._find_next_eol(output, ind)
+            curline = self._glue_line(output, ind, iprev, eolprev, inext,
+                                      eolnext)
             output[iprev + 1:inext] = [''] * (inext - iprev - 1)
-
-            # Split lines and add synclines if needed
-            lines = self._splitlines(curline)
-            # if curline ended with '\n', last element of lines is ''
-            nrlines = len(lines) if lines[-1] else len(lines) - 1
-            if self._synclines and (nrlines > 1 or span[0] != span[1]):
-                oldlines = lines
-                syncl = syncline(span[0], fname)
-                lines = [oldlines[0] + '\n']
-                for line in oldlines[1:-1]:
-                    lines.append(syncl)
-                    lines.append(line + '\n')
-                if oldlines[-1]:
-                    # Line did not end on '\n' -> it was last line of input
-                    # -> no syncline is needed.
-                    lines.append(oldlines[-1])
-                elif span[1] > span[0] + 1:
-                    # Syncline needed, if expression evaluation goes
-                    # over multiple lines. Otherwise the syncline inserted
-                    # before the last line of the evaluation (pointing to
-                    # the line of the directive) ensures correct line numbering
-                    # for the following content.
-                    lines.append(syncline(span[1], fname))
-                output[ind] = ''.join(lines)
-            else:
-                output[ind] = '\n'.join(lines)
-            lastproc = inext
+            output[ind] = self._postprocess_eval_line(curline, fname, span)
+            ilastproc = inext
 
 
-    def _splitlines(self, txt):
-        lines = txt.split('\n')
-        result = []
-        for line in lines:
-            if _COMMENTLINE_REGEXP.match(line) is None:
-                result += self._linefolder(line)
-            else:
-                result.append(line)
-        return result
+    @staticmethod
+    def _find_last_eol(output, ind):
+        'Find last newline before current position.'
+        iprev = ind - 1
+        while iprev >= 0:
+            eolprev = output[iprev].rfind('\n')
+            if eolprev != -1:
+                break
+            iprev -= 1
+        else:
+            iprev = 0
+            eolprev = -1
+        return iprev, eolprev
+
+
+    @staticmethod
+    def _find_next_eol(output, ind):
+        'Find last newline before current position.'
+        # find first eol after expr. evaluation
+        inext = ind + 1
+        while inext < len(output):
+            eolnext = output[inext].find('\n')
+            if eolnext != -1:
+                break
+            inext += 1
+        else:
+            inext = len(output) - 1
+            eolnext = len(output[-1]) - 1
+        return inext, eolnext
+
+
+    @staticmethod
+    def _glue_line(output, ind, iprev, eolprev, inext, eolnext):
+        'Create line from parts between specified boundaries.'
+        curline_parts = []
+        if iprev != ind:
+            curline_parts = [output[iprev][eolprev + 1:]]
+            output[iprev] = output[iprev][:eolprev + 1]
+        curline_parts.extend(output[iprev + 1:ind])
+        curline_parts.extend(output[ind])
+        curline_parts.extend(output[ind + 1:inext])
+        if inext != ind:
+            curline_parts.append(output[inext][:eolnext + 1])
+            output[inext] = output[inext][eolnext + 1:]
+        return ''.join(curline_parts)
+
+
+    def _postprocess_eval_line(self, evalline, fname, span):
+        lines = evalline.split('\n')
+        # If line ended on '\n', last element is ''. We remove it and
+        # add the trailing newline later manually.
+        trailing_newline = (lines[-1] == '')
+        if trailing_newline:
+            del lines[-1]
+        lnum = linenumdir(span[0], fname) if self._linenums else ''
+        clnum = lnum if self._contlinenums else ''
+        linenumsep = '\n' + lnum
+        clinenumsep = '\n' + clnum
+        foldedlines = [self._foldline(line) for line in lines]
+        outlines = [clinenumsep.join(lines) for lines in foldedlines]
+        result = linenumsep.join(outlines)
+        # Add missing trailing newline
+        if trailing_newline:
+            trailing = '\n'
+            if self._linenums:
+                # Last line was folded, but no linenums were generated for
+                # the continuation lines -> current line position is not
+                # in sync with the one calculated from the last line number
+                unsync = (
+                    len(foldedlines) and len(foldedlines[-1]) > 1
+                    and not self._contlinenums)
+                # Eval directive in source consists of more than one line
+                multiline = span[1] - span[0] > 1
+                if unsync or multiline:
+                    # For inline eval directives span[0] == span[1]
+                    # -> next line is span[0] + 1 and not span[1] as for
+                    # line eval directives
+                    nextline = max(span[1], span[0] + 1)
+                    trailing += linenumdir(nextline, fname)
+        else:
+            trailing = ''
+        return result + trailing
+
+
+    def _foldline(self, line):
+        if _COMMENTLINE_REGEXP.match(line) is None:
+            return self._linefolder(line)
+        else:
+            return [line]
 
 
 class Evaluator:
@@ -1669,8 +1697,8 @@ class Processor:
         return ''.join(output)
 
 
-def syncline(linenr, fname):
-    '''Returns a syncline directive.
+def linenumdir(linenr, fname):
+    '''Returns a line numbering directive.
 
     Args:
         linenr (int): Line nr (starting with 0).
@@ -1855,8 +1883,11 @@ class Fypp:
         suffix = '' if fixed_format else '&'
         linefolder = LineFolder(linelength, indentation, folding, prefix,
                                 suffix)
-        renderer = Renderer(evaluator, synclines=self._args.synclines,
-                            linefolder=linefolder)
+        linenums = self._args.line_numbering
+        contlinenums = (self._args.line_numbering_mode != 'nocontlines')
+        renderer = Renderer(
+            evaluator, linenums=linenums, contlinenums=contlinenums,
+            linefolder=linefolder)
         self._preprocessor = Processor(parser, builder, renderer)
 
 
@@ -1901,9 +1932,16 @@ class Fypp:
         msg = 'add directory to the search paths for include files'
         parser.add_argument('-I', '--include', action='append', dest='includes',
                             metavar='INCDIR', help=msg)
-        msg = 'include CPP style sync-lines in the output'
-        parser.add_argument('-s', '--synclines', action='store_true',
+        msg = 'put line numbering directives to the output'
+        parser.add_argument('-n', '--line-numbering', action='store_true',
                             default=False, help=msg)
+        msg = 'line numbering mode, \'full\' (default): line numbering '\
+              'directives generated whenever source and output lines are out '\
+              'of sync, \'nocontlines\': line numbering directives omitted '\
+              'for continuation lines'
+        parser.add_argument('-N', '--line-numbering-mode', metavar='MODE',
+                            choices=['full', 'nocontlines'], default='full',
+                            help=msg)
         msg = 'maximal line length (default: 132), lines modified by the '\
               'preprocessor are folded if becoming longer'
         parser.add_argument('-l', '--line-length', type=int, default=132,
