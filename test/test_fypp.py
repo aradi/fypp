@@ -347,6 +347,21 @@ SIMPLE_TESTS = [
      '2Done\n',
     ),
     #
+    ('setvar_function', [],
+     '$:setvar("x", 2)\n${x}$\nDone\n',
+     "\n2\nDone\n",
+    ),
+    #
+    ('getvar_existing_value', [_defvar('VAR', '\"VAL\"')],
+     '$:getvar("VAR", "DEFAULT")\n',
+     'VAL\n',
+    ),
+    #
+    ('getvar_default_value', [],
+     '$:getvar("VAR", "DEFAULT")\n',
+     'DEFAULT\n',
+    ),
+    #
     ('mute', [],
      'A\n#:mute\nB\n#:setvar VAR 2\n#:endmute\nVAR=${VAR}$\n',
      'A\nVAR=2\n'
@@ -385,6 +400,11 @@ SIMPLE_TESTS = [
     ('multi_escape', [],
      r'$\\\{1 + 1}\\$',
      r'$\\{1 + 1}\$'
+    ),
+    #
+    ('escape_direct_call', [],
+     '@\\:assertTrue x > y\n',
+     '@:assertTrue x > y\n'
     ),
     #
     ('fold_lines', [_linelen(10), _indentation(2), _folding('simple')],

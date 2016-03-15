@@ -2,12 +2,13 @@
 Fypp — Python powered Fortran metaprogramming
 =============================================
 
-Fypp is a Python powered Fortran preprocessor. It extends Fortran with
-condititional compiling and template metaprogramming capabilities. Instead of
-introducing its own expression syntax, it uses Python expressions in its
-preprocessor directives, offering the consistency and flexibility of Python when
-formulating metaprogramming tasks. It puts strong emphasis on robustness and on
-neat integration into Fortran developing toolchains.
+Fypp is a Python powered preprocessor. It can be used for any programming
+languages but its primary aim is to offer a Fortran preprocessor, which helps to
+extend Fortran with condititional compiling and template metaprogramming
+capabilities. Instead of introducing its own expression syntax, it uses Python
+expressions in its preprocessor directives, offering the consistency and
+versatility of Python when formulating metaprogramming tasks. It puts strong
+emphasis on robustness and on neat integration into developing toolchains.
 
 The project is `hosted on bitbucket <http://bitbucket.org/aradi/fypp>`_.
 
@@ -57,7 +58,7 @@ Main features
       use serial
     #:endif
 
-* Iterated output (e.g. for Fortran templates)::
+* Iterated output (e.g. for generating Fortran templates)::
 
     interface myfunc
     #:for dtype in [ 'real', 'dreal', 'complex', 'dcomplex' ]
@@ -163,7 +164,6 @@ or after copying it from the `bin` folder to any location listed in your `PATH`
 environment variable, by just issuing ::
 
   fypp
-
 
 
 Running

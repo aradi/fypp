@@ -48,14 +48,16 @@ using following classes:
 * `Processor`_: Connects `Parser`, `Builder`, `Renderer` and `Evaluator` with
   each other and returns for a given input the preprocessed output.
 
-* `Fypp`_: Command line preprocessor. Drives `Processor` according to the
-  command line arguments.
+* `Fypp`_: Command line preprocessor. Initializes and drives
+  `Processor` according to the command line arguments.
 
 If any expected error occurs during processing, `FyppError`_ is raised.
 
 Additional to the ones above, following class is used for fine tuning:
 
-* `LineFolder`_: Folds overlong lines by using Fortran continuation lines.
+* `FortranLineFolder`_: Folds overlong lines by using Fortran continuation
+  lines.
+
 '''
 
 from __future__ import print_function
@@ -177,7 +179,7 @@ class Parser:
 
     Args:
         includedirs (list): List of directories, in which include files should
-            be searched for, when they are not found in the default location.
+            be searched for, when they are not found at the default location.
     '''
 
     def __init__(self, includedirs=None):
