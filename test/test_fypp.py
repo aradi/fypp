@@ -1068,8 +1068,9 @@ def test_output_method(args, inp, out):
 
     def test_output(self):
         '''Tests whether Fypp result matches expected output.'''
-
-        tool = fypp.Fypp(args)
+        options = fypp.FyppOptions()
+        argparser = fypp.get_option_parser()
+        tool = fypp.Fypp(argparser.parse_args(args, namespace=options))
         result = tool.process_text(inp)
         self.assertEqual(out, result)
     return test_output
@@ -1092,8 +1093,10 @@ def test_exception_method(args, inp, exc, fname, span):
     def test_exception(self):
         '''Tests whether Fypp throws the correct exception.'''
 
+        options = fypp.FyppOptions()
+        argparser = fypp.get_option_parser()
         with self.assertRaises(exc) as ctx:
-            tool = fypp.Fypp(args)
+            tool = fypp.Fypp(argparser.parse_args(args, namespace=options))
             _ = tool.process_text(inp)
         raised = ctx.exception
         if fname is None:

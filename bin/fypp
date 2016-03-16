@@ -43,13 +43,18 @@ using following classes:
 * `Renderer`_: Renders a tree built by the builder.
 
 * `Evaluator`_: Evaluates Python expressions in a designated environment. It is
-  used by the Renderer when rendering eval directives.
+  used by `Renderer`_ when rendering eval directives.
 
-* `Processor`_: Connects `Parser`, `Builder`, `Renderer` and `Evaluator` with
-  each other and returns for a given input the preprocessed output.
+* `Processor`_: Connects `Parser`_, `Builder`_, `Renderer`_ and `Evaluator`_
+  with each other and returns for a given input the preprocessed output.
 
-* `Fypp`_: Command line preprocessor. Initializes and drives
-  `Processor` according to the command line arguments.
+* `Fypp`_: The actual Fypp preprocessor. It initializes and drives
+  `Processor`_.
+
+* `FyppOptions`_: Contains customizable settings controling the behaviour of
+  `Fypp`_. Alternatively, the function `get_option_parser()`_ can be used to
+  obtain an argument parser, which can create settings based on command line
+  arguments.
 
 If any expected error occurs during processing, `FyppError`_ is raised.
 
@@ -1838,90 +1843,118 @@ def _shiftinds(inds, shift):
 # Command line tool
 ################################################################################
 
-_FYPP_DESC = '''Preprocess Fortran source files with Fypp directives.'''
-
-
 class Fypp:
 
-    '''Represents the Fypp command line tool.
+    '''Fypp preprocessor.
 
-    You can invoke it like::
+    You can invoke it like ::
 
         tool = Fypp()
-        tool.process_cmdline_files()
+        tool.process_file('file.in', 'file.out')
 
-    to parse the command line arguments (in ``sys.argv``) and run Fypp using
-    the input/output files and options as specified there.
+    to initialize Fypp with default options, process `file.in` and write the
+    result to `file.out`. If the input should be read from a string, the
+    ``process_text()`` method can be used::
 
-    The command line arguments can also be passed directly as a list::
+        tool = Fypp()
+        output = tool.process_text('#:if DEBUG > 0\\nprint *, "DEBUG"\\n#:endif\\n')
 
-        tool = Fypp(['-DDEBUG=0', 'input.F90', 'output.F90'])
-        tool.process_cmdline_files()
+    If you want to fine tune Fypps behaviour, pass a customized `FyppOptions`_
+    instance at initialization::
 
-    If the input should be read from a string and the result of the
-    preprocessing should be also returned as a string (instead of
-    using input/output files), the ``process_text()`` method can be
-    used::
+        options = FyppOptions()
+        options.fixed_format = True
+        tool = Fypp(options)
 
-        tool = Fypp(['-DDEBUG=0'])
-        result = tool.process_text('#:if DEBUG > 0\\nprint *, "DEBUG"\\n#:endif\\n')
+    Alternatively, you can use the command line parser
+    ``argparse.ArgumentParser`` to set options for Fypp. The function
+    ``get_option_parser()`` returns you a default argument parser. You can then
+    use its ``parse_args()`` method to obtain settings by reading the command
+    line arguments::
+
+        options = FyppOptions()
+        argparser = get_option_parser()
+        options = argparser.parse_args(namespace=options)
+        tool = fypp.Fypp(options)
+
+    The command line arguments can also be passed directly as a list when
+    calling ``parse_args()``::
+
+        options = FyppOptions()
+        args = ['-DDEBUG=0', 'input.F90', 'output.F90']
+        argparser = get_option_parser()
+        options = argparser.parse_args(args=args, namespace=options)
+        tool = fypp.Fypp(options)
 
 
     Args:
-        cmdline_args (list of str, optional): Command line arguments. If None
-            (default), the arguments are read from sys.argv using Argparser.
+        options (object): Object containing the settings for Fypp. You typically
+            would pass a customized `FyppOptions`_ instance or a ``Namespace``
+            object as returned by an argument parser. If not present, the
+            default settings in `FyppOptions`_ are used.
 
     '''
 
-    def __init__(self, cmdline_args=None):
-        self._argparser = self._get_cmdline_parser()
-        self._args = self._argparser.parse_args(cmdline_args)
+    def __init__(self, options=None):
+        if options is None:
+            options = FyppOptions()
         inieval = Evaluator(restricted=False)
-        if self._args.modules:
-            self._import_modules(self._args.modules, inieval)
-        if self._args.inifiles:
-            self._exec_inifiles(self._args.inifiles, inieval)
+        if options.modules:
+            self._import_modules(options.modules, inieval)
+        if options.inifiles:
+            self._exec_inifiles(options.inifiles, inieval)
         evaluator = Evaluator(env=inieval.env, restricted=True)
-        if self._args.defines:
-            self._apply_definitions(self._args.defines, evaluator)
-        parser = Parser(self._args.includes)
+        if options.defines:
+            self._apply_definitions(options.defines, evaluator)
+        parser = Parser(options.includes)
         builder = Builder()
 
-        fixed_format = self._args.fixed_format
-        if self._args.linefolding:
-            folding = 'brute' if fixed_format else self._args.folding_mode
-            linelength = 72 if fixed_format else self._args.line_length
-            indentation = 5 if fixed_format else self._args.indentation
+        fixed_format = options.fixed_format
+        linefolding = not options.no_folding
+        if linefolding:
+            folding = 'brute' if fixed_format else options.folding_mode
+            linelength = 72 if fixed_format else options.line_length
+            indentation = 5 if fixed_format else options.indentation
             prefix = '&'
             suffix = '' if fixed_format else '&'
             linefolder = FortranLineFolder(linelength, indentation, folding,
                                            prefix, suffix)
         else:
             linefolder = DummyLineFolder()
-        linenums = self._args.line_numbering
-        contlinenums = (self._args.line_numbering_mode != 'nocontlines')
+        linenums = options.line_numbering
+        contlinenums = (options.line_numbering_mode != 'nocontlines')
         renderer = Renderer(
             evaluator, linenums=linenums, contlinenums=contlinenums,
             linefolder=linefolder)
         self._preprocessor = Processor(parser, builder, renderer)
 
 
-    def process_cmdline_files(self, env=None):
-        '''Processes the input file and write result to the output file which
-        were specified as the command line arguments.
+    def process_file(self, infile, outfile=None, env=None):
+        '''Processes input file and writes result to output file.
 
         Args:
-            env (dict): Additional definitions for the evaluator.
+            infile (str): Name of the file to read and process. If its value is
+                '-', input is read from stdin.
+            outfile (str, optional): Name of the file to write the result to.
+                If its value is '-', result is written to stdout. If not
+                present, result will be returned as string.
+            env (dict, optional): Additional definitions for the evaluator.
+
+        Returns:
+            str: Result of processed input, if no outfile was specified.
         '''
-        infile = STDIN if self._args.infile == '-' else self._args.infile
+        infile = STDIN if infile == '-' else infile
         output = self._preprocessor.process_file(infile, env)
-        if self._args.outfile == '-':
-            outfile = sys.stdout
+        if outfile is None:
+            return output
         else:
-            outfile = open(self._args.outfile, 'w')
-        outfile.write(output)
-        if outfile != sys.stdout:
-            outfile.close()
+            if outfile == '-':
+                outfile = sys.stdout
+            else:
+                outfile = open(outfile, 'w')
+            outfile.write(output)
+            if outfile != sys.stdout:
+                outfile.close()
 
 
     def process_text(self, txt, env=None):
@@ -1929,69 +1962,12 @@ class Fypp:
 
         Args:
             txt (str): String to process.
+            env (dict, optional): Additional definitions for the evaluator.
 
         Returns:
             str: Processed content.
         '''
         return self._preprocessor.process_text(txt, env)
-
-
-    @staticmethod
-    def _get_cmdline_parser():
-        parser = ArgumentParser(description=_FYPP_DESC)
-        msg = 'define variable, value is interpreted as ' \
-              'Python expression (e.g \'-DDEBUG=1\' sets DEBUG to the ' \
-              'integer 1) or set to None if ommitted'
-        parser.add_argument('-D', '--define', action='append', dest='defines',
-                            metavar='VAR[=VALUE]', help=msg)
-        msg = 'add directory to the search paths for include files'
-        parser.add_argument('-I', '--include', action='append', dest='includes',
-                            metavar='INCDIR', help=msg)
-        msg = 'put line numbering directives to the output'
-        parser.add_argument('-n', '--line-numbering', action='store_true',
-                            default=False, help=msg)
-        msg = 'line numbering mode, \'full\' (default): line numbering '\
-              'directives generated whenever source and output lines are out '\
-              'of sync, \'nocontlines\': line numbering directives omitted '\
-              'for continuation lines'
-        parser.add_argument('-N', '--line-numbering-mode', metavar='MODE',
-                            choices=['full', 'nocontlines'], default='full',
-                            help=msg)
-        msg = 'maximal line length (default: 132), lines modified by the '\
-              'preprocessor are folded if becoming longer'
-        parser.add_argument('-l', '--line-length', type=int, default=132,
-                            metavar='LEN', help=msg)
-        msg = 'line folding mode, \'smart\' (default): indentation context '\
-              'and whitespace aware, \'simple\': indentation context aware, '\
-              '\'brute\': mechnical folding'
-        parser.add_argument('-f', '--folding-mode', metavar='MODE',
-                            choices=['smart', 'simple', 'brute'],
-                            default='smart', help=msg)
-        msg = 'suppress line folding'
-        parser.add_argument('-F', '--no-folding', action='store_false',
-                            dest='linefolding', default=True, help=msg)
-        msg = 'indentation to use for continuation lines (default 4)'
-        parser.add_argument('--indentation', type=int, metavar='IND',
-                            default=4, help=msg)
-        msg = 'import python module before starting the processing'
-        parser.add_argument('-m', '--module', action='append', dest='modules',
-                            metavar='MOD', help=msg)
-        msg = 'execute python initialization script before starting processing'
-        parser.add_argument('-i', '--ini-file', action='append',
-                            dest='inifiles', metavar='INI', help=msg)
-        msg = 'produce fixed format output (any settings for options '\
-              '--line-length, --folding-method and --indentation are ignored)'
-        parser.add_argument('--fixed-format', action='store_true',
-                            default=False, help=msg)
-        versionstr = '%(prog)s ' + VERSION
-        parser.add_argument('-v', '--version', action='version',
-                            version=versionstr)
-        msg = "input file to be processed (default: '-', stdin)"
-        parser.add_argument('infile', nargs='?', default='-', help=msg)
-        msg = "output file where processed content will be written (default: " \
-              "'-', stdout)"
-        parser.add_argument('outfile', nargs='?', default='-', help=msg)
-        return parser
 
 
     @staticmethod
@@ -2041,11 +2017,122 @@ class Fypp:
                 raise FyppError(msg)
 
 
+class FyppOptions:
+
+    '''Container for Fypp options with default values.
+
+    Attributes:
+        defines (list of str): List of variable definitions in the form of
+            'VARNAME=VALUE'. Default: []
+        includes (list of str): List of paths to search when looking for include
+            files. Default: []
+        line_numbering (bool): Whether line numbering directives should appear
+            in the output. Default: False
+        line_numbering_mode (str): Line numbering mode 'full' or 'nocontlines'.
+            Default: 'full'.
+        line_length (int): Length of output lines. Default: 132.
+        folding_mode (str): Folding mode 'smart', 'simple' or 'brute'. Default:
+            'smart'.
+        no_folding (bool): Whether folding should be suppresed. Default: False.
+        indentation (int): Indentation in continuation lines. Default: 4.
+        modules (list of str): Modules to import at initialization. Default: [].
+        inifiles (list of str): Python files to execute at initialization.
+            Default: []
+        fixed_format (bool): Whether input file is in fixed format.
+            Default: False.
+    '''
+
+    def __init__(self):
+        self.defines = []
+        self.includes = []
+        self.line_numbering = False
+        self.line_numbering_mode = 'full'
+        self.line_length = 132
+        self.folding_mode = 'smart'
+        self.no_folding = False
+        self.indentation = 4
+        self.modules = []
+        self.inifiles = []
+        self.fixed_format = False
+
+
+def get_option_parser():
+    '''Returns an option parser for the Fypp command line tool.
+
+    Returns:
+        ArgumentParser: Parser which can create a namespace object with
+        Fypp settings based on command line arguments.
+    '''
+    fypp_name = 'fypp'
+    fypp_desc = 'Preprocess source files with Fypp directives.'
+    parser = ArgumentParser(prog=fypp_name, description=fypp_desc)
+    msg = 'define variable, value is interpreted as ' \
+          'Python expression (e.g \'-DDEBUG=1\' sets DEBUG to the ' \
+          'integer 1) or set to None if ommitted'
+    parser.add_argument('-D', '--define', action='append', dest='defines',
+                        metavar='VAR[=VALUE]', help=msg)
+    msg = 'add directory to the search paths for include files'
+    parser.add_argument('-I', '--include', action='append', dest='includes',
+                        metavar='INCDIR', help=msg)
+    msg = 'put line numbering directives to the output'
+    parser.add_argument('-n', '--line-numbering', action='store_true',
+                        default=False, help=msg)
+    msg = 'line numbering mode, \'full\' (default): line numbering '\
+          'directives generated whenever source and output lines are out '\
+          'of sync, \'nocontlines\': line numbering directives omitted '\
+          'for continuation lines'
+    parser.add_argument('-N', '--line-numbering-mode', metavar='MODE',
+                        choices=['full', 'nocontlines'], default='full',
+                        help=msg)
+    msg = 'maximal line length (default: 132), lines modified by the '\
+          'preprocessor are folded if becoming longer'
+    parser.add_argument('-l', '--line-length', type=int, default=132,
+                        metavar='LEN', help=msg)
+    msg = 'line folding mode, \'smart\' (default): indentation context '\
+          'and whitespace aware, \'simple\': indentation context aware, '\
+          '\'brute\': mechnical folding'
+    parser.add_argument('-f', '--folding-mode', metavar='MODE',
+                        choices=['smart', 'simple', 'brute'],
+                        default='smart', help=msg)
+    msg = 'suppress line folding'
+    parser.add_argument('-F', '--no-folding', action='store_true',
+                        dest='no_folding', default=False, help=msg)
+    msg = 'indentation to use for continuation lines (default 4)'
+    parser.add_argument('--indentation', type=int, metavar='IND',
+                        default=4, help=msg)
+    msg = 'import python module before starting the processing'
+    parser.add_argument('-m', '--module', action='append', dest='modules',
+                        metavar='MOD', help=msg)
+    msg = 'execute python initialization script before starting processing'
+    parser.add_argument('-i', '--ini-file', action='append',
+                        dest='inifiles', metavar='INI', help=msg)
+    msg = 'produce fixed format output (any settings for options '\
+          '--line-length, --folding-method and --indentation are ignored)'
+    parser.add_argument('--fixed-format', action='store_true',
+                        default=False, help=msg)
+    versionstr = '%(prog)s ' + VERSION
+    parser.add_argument('-v', '--version', action='version',
+                        version=versionstr)
+    return parser
+
+
+def _add_io_arguments(parser):
+    msg = "input file to be processed (default: '-', stdin)"
+    parser.add_argument('infile', nargs='?', default='-', help=msg)
+    msg = "output file where processed content will be written (default: " \
+          "'-', stdout)"
+    parser.add_argument('outfile', nargs='?', default='-', help=msg)
+
+
 def run_fypp():
     '''Run the Fypp command line tool.'''
+    options = FyppOptions()
+    argparser = get_option_parser()
+    _add_io_arguments(argparser)
+    args = argparser.parse_args(namespace=options)
     try:
-        tool = Fypp()
-        tool.process_cmdline_files()
+        tool = Fypp(args)
+        tool.process_file(args.infile, args.outfile)
     except FyppError as exc:
         sys.stderr.write(str(exc))
         sys.stderr.write('\n')

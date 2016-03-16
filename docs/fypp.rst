@@ -977,6 +977,33 @@ fypp module
 .. automodule:: fypp
 
 
+Fypp
+====
+
+.. autoclass:: Fypp
+   :members:
+
+
+FyppOptions
+===========
+
+.. autoclass:: FyppOptions
+   :members:
+
+
+get_option_parser()
+===================
+
+.. autofunction:: get_option_parser()
+
+
+FyppError
+=========
+
+.. autoclass:: FyppError
+   :members:
+
+
 Parser
 ======
 
@@ -1009,20 +1036,6 @@ Processor
 =========
 
 .. autoclass:: Processor
-   :members:
-
-
-Fypp
-====
-
-.. autoclass:: Fypp
-   :members:
-
-
-FyppError
-=========
-
-.. autoclass:: FyppError
    :members:
 
 
