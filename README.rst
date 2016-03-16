@@ -122,7 +122,8 @@ above.
 Automatic install
 -----------------
 
-You can use Pythons installer `pip` to install the last stable release of Fypp
+You can use Pythons command line installer ``pip`` to download the stable
+release of Fypp from `PyPI <http://pypi.python.org/pypi/fypp>`_ and install it
 on your system::
 
   pip install fypp
