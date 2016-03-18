@@ -730,6 +730,16 @@ INCLUDE_TESTS = [
       + 'FYPP2\n'
       + _linenum(1, 'include/subfolder/include_fypp2.inc') + _linenum(1))
     ),
+    #
+    ('muted_include', [_incdir('include')],
+     'START\n#:mute\n#:include \'fypp1.inc\'\n#:endmute\nDONE\n',
+     'START\nDONE\n'
+    ),
+    #
+    ('muted_include_linenum', [_LINENUM_FLAG, _incdir('include')],
+     'START\n#:mute\n#:include \'fypp1.inc\'\n#:endmute\nDONE\n',
+     _linenum(0) + 'START\n' + _linenum(4) + 'DONE\n'
+    ),
 ]
 
 EXCEPTION_TESTS = [

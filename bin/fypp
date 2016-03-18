@@ -146,7 +146,6 @@ class FyppError(Exception):
         span (tuple of int): Beginning and end line of the region where error
             occured or None if not available.
 
-
     Attributes:
         msg (str): Error message.
         fname (str or None): File name or None if not available.
@@ -188,11 +187,17 @@ class Parser:
     '''
 
     def __init__(self, includedirs=None):
+
+        # Directories to search for include files
         if includedirs is None:
             self._includedirs = []
         else:
             self._includedirs = includedirs
+
+        # Name of current file
         self._curfile = None
+
+        # Directory of current file
         self._curdir = None
 
 
@@ -202,26 +207,26 @@ class Parser:
         Args:
             fobj (str or file): Name of a file or a file like object.
         '''
-        closefile = False
         if isinstance(fobj, str):
             if fobj == STDIN:
-                inpfile = sys.stdin
-                self._curfile = fobj
-                self._curdir = os.getcwd()
+                self._includefile(None, sys.stdin, STDIN, os.getcwd())
             else:
-                inpfile = open(fobj, 'r')
-                closefile = True
-                self._curfile = fobj
-                self._curdir = os.path.dirname(fobj)
+                with open(fobj, 'r') as inp:
+                    self._includefile(None, inp, fobj, os.path.dirname(fobj))
         else:
-            inpfile = fobj
-            self._curfile = FILEOBJ
-            self._curdir = os.getcwd()
-        self.handle_open_file((0, 0), self._curfile)
-        self._parse(inpfile.read())
-        self.handle_close_file(self._curfile)
-        if closefile:
-            inpfile.close()
+            self._includefile(None, fobj, FILEOBJ, os.getcwd())
+
+
+    def _includefile(self, span, fobj, fname, curdir):
+        oldfile = self._curfile
+        olddir = self._curdir
+        self._curfile = fname
+        self._curdir = curdir
+        self.handle_include(span, fname)
+        self._parse(fobj.read())
+        self.handle_endinclude(span, fname)
+        self._curfile = oldfile
+        self._curdir = olddir
 
 
     def parse(self, txt):
@@ -232,32 +237,35 @@ class Parser:
         '''
         self._curfile = STRING
         self._curdir = os.getcwd()
-        self.handle_open_file((0, 0), self._curfile)
+        self.handle_include(None, self._curfile)
         self._parse(txt)
-        self.handle_close_file(self._curfile)
+        self.handle_endinclude(None, self._curfile)
 
 
-    def handle_open_file(self, span, fname):
-        '''Called when parser starts to parse a new file.
+    def handle_include(self, span, fname):
+        '''Called when parser starts to process a new file.
 
         It is a dummy methond and should be overriden for actual use.
 
         Args:
-            span (tuple of int): Start and end line of the directive.
+            span (tuple of int): Start and end line of the include directive
+                or None if called the first time for the main input.
             fname (str): Name of the file.
         '''
-        self._log_event('open file', span, filename=fname)
+        self._log_event('include', span, filename=fname)
 
 
-    def handle_close_file(self, fname):
+    def handle_endinclude(self, span, fname):
         '''Called when parser finished processing a file.
 
         It is a dummy method and should be overriden for actual use.
 
         Args:
+            span (tuple of int): Start and end line of the include directive
+                or None if called the first time for the main input.
             fname (str): Name of the file.
         '''
-        self._log_event('close file', filename=fname)
+        self._log_event('endinclude', span, filename=fname)
 
 
     def handle_setvar(self, span, name, expr):
@@ -634,10 +642,8 @@ class Parser:
         else:
             msg = "include file '{}' not found".format(fname)
             raise FyppError(msg, self._curfile, span)
-        oldfile = self._curfile
-        self.parsefile(fpath)
-        self._curfile = oldfile
-        self.handle_open_file(span, self._curfile)
+        with open(fpath, 'r') as fobj:
+            self._includefile(span, fobj, fpath, os.path.dirname(fpath))
 
 
     def _process_mute(self, span):
@@ -678,57 +684,83 @@ class Builder:
     '''
 
     def __init__(self):
+        # The tree, which should be built.
         self._tree = []
-        self._path = []
-        self._open_files = []
+
+        # List of all open constructs
         self._open_blocks = []
-        # Nr. of open blocks before current file was opened
+
+        # Nodes to which the open blocks have to be appended when closed
+        self._path = []
+
+        # Nr. of open blocks when file was opened. Used for checking whether all
+        # blocks have been closed, when file processing finishes.
         self._nr_prev_blocks = []
+
+        # Current node, to which content should be added
         self._curnode = self._tree
+
+        # Current file
         self._curfile = None
 
 
     def reset(self):
         '''Resets the builder so that it starts to build a new tree.'''
         self._tree = []
-        self._path = []
-        self._open_files = []
         self._open_blocks = []
+        self._path = []
         self._nr_prev_blocks = []
         self._curnode = self._tree
         self._curfile = None
 
 
-    def handle_open_file(self, span, fname):
+    def handle_include(self, span, fname):
         '''Should be called to signalize change to new file.
 
         Args:
-            span (tuple of int): Start and end line of the directive.
+            span (tuple of int): Start and end line of the include directive
+                or None if called the first time for the main input.
             fname (str): Name of the file.
         '''
         self._curfile = fname
-        self._curnode.append(('include', span, fname))
-        self._open_files.append(fname)
+        self._path.append(self._curnode)
+        self._curnode = []
+        self._open_blocks.append(('include', [span], fname, None))
         self._nr_prev_blocks.append(len(self._open_blocks))
 
 
-    def handle_close_file(self, fname):
+    def handle_endinclude(self, span, fname):
         '''Should be called when processing of a file finished.
 
         Args:
+            span (tuple of int): Start and end line of the include directive
+                or None if called the first time for the main input.
             fname (str): Name of the file.
         '''
-        oldfname = self._open_files.pop(-1)
-        if fname != oldfname:
-            msg = 'internal error: mismatching file name in close_file event'\
-                  " (expected: '{}', got '{}')".format(oldfname, fname)
-            raise FyppError(msg, fname)
-        if len(self._open_blocks) > self._nr_prev_blocks[-1]:
+        nprev_blocks = self._nr_prev_blocks.pop(-1)
+        if len(self._open_blocks) > nprev_blocks:
             directive, spans = self._open_blocks[-1][0:2]
             msg = '{} directive in line {} still unclosed when reaching end '\
                   'of file'.format(directive, spans[0][0] + 1)
             raise FyppError(msg, self._curfile)
-        del self._nr_prev_blocks[-1]
+        block = self._open_blocks.pop(-1)
+        directive, spans = block[0:2]
+        if directive != 'include':
+            msg = 'internal error: last open block is not \'include\' when '\
+                  'closing file \'{}\''.format(fname)
+            raise FyppError(msg)
+        if span != spans[0]:
+            msg = 'internal error: span for include and endinclude differ ('\
+                  '{} vs {}'.format(span, spans[0])
+            raise FyppError(msg)
+        oldfname, _ = block[2:4]
+        if fname != oldfname:
+            msg = 'internal error: mismatching file name in close_file event'\
+                  " (expected: '{}', got '{}')".format(oldfname, fname)
+            raise FyppError(msg, fname)
+        block = directive, spans, fname, self._curnode
+        self._curnode = self._path.pop(-1)
+        self._curnode.append(block)
 
 
     def handle_if(self, span, cond):
@@ -1023,13 +1055,24 @@ class Renderer:
 
     def __init__(self, evaluator=None, linenums=False, contlinenums=False,
                  linefolder=None):
+        # Evaluator to use for Python expressions
         self._evaluator = Evaluator() if evaluator is None else evaluator
         self._evaluator.updateenv(_DATE_=time.strftime('%Y-%m-%d'),
                                   _TIME_=time.strftime('%H:%M:%S'))
+
+        # Name of current file being processed
         self._curfile = None
+
+        # Number of diversions, when > 0 we are within a macro call
         self._diversions = 0
+
+        # Whether line numbering directives should be emitted
         self._linenums = linenums
+
+        # Whether line numbering directives in continuation lines are needed.
         self._contlinenums = contlinenums
+
+        # Callable to be used for folding lines
         if linefolder is None:
             self._linefolder = lambda line: [line]
         else:
@@ -1093,8 +1136,10 @@ class Renderer:
                 eval_pos += peval
                 output += out
             elif cmd == 'include':
-                result = self._register_file(*node[1:3])
-                output.append(result)
+                out, ieval, peval = self._get_included_content(*node[1:4])
+                eval_inds += _shiftinds(ieval, len(output))
+                eval_pos += peval
+                output += out
             elif cmd == 'comment':
                 output.append(self._get_comment(*node[1:2]))
             elif cmd == 'mute':
@@ -1198,6 +1243,23 @@ class Renderer:
         return out, ieval, peval
 
 
+    def _get_included_content(self, spans, fname, content):
+        out = []
+        oldfile = self._curfile
+        self._curfile = fname
+        self._evaluator.updateenv(_FILE_=self._curfile)
+        if self._linenums and not self._diversions:
+            out += linenumdir(0, self._curfile)
+        outcont, ieval, peval = self._render(content)
+        ieval = _shiftinds(ieval, len(out))
+        out += outcont
+        self._curfile = oldfile
+        self._evaluator.updateenv(_FILE_=self._curfile)
+        if self._linenums and not self._diversions and spans[0] is not None:
+            out += linenumdir(spans[0][1], self._curfile)
+        return out, ieval, peval
+
+
     def _define_macro(self, spans, name, args, content):
         result = ''
         try:
@@ -1252,15 +1314,6 @@ class Renderer:
         if self._diversions < 0:
             msg = "Internal error: undivert without matching divert"
             raise FyppError(msg, self._curfile)
-
-
-    def _register_file(self, span, fname):
-        result = ''
-        self._curfile = fname
-        self._evaluator.updateenv(_FILE_=fname)
-        if self._linenums and not self._diversions:
-            result = linenumdir(span[1], self._curfile)
-        return result
 
 
     def _update_linenr(self, linenr):
@@ -1461,8 +1514,12 @@ class Evaluator:
     }
 
     def __init__(self, env=None, restricted=True):
+        # Definitions (environment) to use when evaluating expressions
         self._env = env.copy() if env is not None else {}
+
+        # Stack for environments to implement nested scopes
         self._envstack = []
+
         if restricted:
             builtindict = {}
             builtindict.update(self.RESTRICTED_BUILTINS)
@@ -1472,6 +1529,8 @@ class Evaluator:
         builtindict['defined'] = self._func_defined
         builtindict['setvar'] = self._func_setvar
         builtindict['getvar'] = self._func_getvar
+
+        # Permitted builtins when evaluating expressions
         self._builtins = {'__builtins__': builtindict}
 
 
@@ -1648,8 +1707,8 @@ class Processor:
         else:
             self._renderer = renderer
 
-        self._parser.handle_open_file = self._builder.handle_open_file
-        self._parser.handle_close_file = self._builder.handle_close_file
+        self._parser.handle_include = self._builder.handle_include
+        self._parser.handle_endinclude = self._builder.handle_endinclude
         self._parser.handle_if = self._builder.handle_if
         self._parser.handle_else = self._builder.handle_else
         self._parser.handle_elif = self._builder.handle_elif
