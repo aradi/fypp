@@ -35,8 +35,8 @@ This document describes Fypp Version 1.0.
 Features
 ========
 
-Below you find a summary over Fypps main features. Each of them is described in
-more detail in individual sections further down.
+Below you find a summary over Fypps main features. Each of them is described
+more in detail in the individual sections further down.
 
 * Definition and evaluation of preprocessor variables::
 
@@ -51,10 +51,12 @@ more detail in individual sections further down.
   Fortran standard)::
 
     #:def assertTrue(cond)
+    #:if DEBUG > 0
     if (.not. ${cond}$) then
       print *, "Assert failed in file ${_FILE_}$, line ${_LINE_}$"
       error stop
     end if
+    #:endif
     #:enddef
 
     ! Invoked via direct call (needs no quotation)
@@ -136,28 +138,27 @@ Getting started
 Installing
 ==========
 
-Fypp needs a working Python interpreter, either version 2.7 or version 3.2 or
-above.
+Fypp needs a Python interpreter of version 2.7, 3.2 or above.
 
 Automatic install
 -----------------
 
-You can use Pythons command line installer ``pip`` to download the stable
-release of Fypp from `PyPI <http://pypi.python.org/pypi/fypp>`_ and install it
-on your system::
+Use Pythons command line installer ``pip`` in order to download the stable
+release from the `Fypp page on PyPI <http://pypi.python.org/pypi/fypp>`_ and
+install it on your system::
 
   pip install fypp
 
-This installs the command line tool ``fypp`` as well as the Python module
-``fypp``. Latter you can import if you want to access the functionality of Fypp
-directly from within your Python scripts.
+This installs both, the command line tool ``fypp`` and the Python module
+``fypp.py``. Latter you can import if you want to access the functionality of
+Fypp directly from within your Python scripts.
 
 
 Manual install
 --------------
 
-Alternatively, you can download the source code from the `Fypp project website
-<http://bitbucket.org/aradi/fypp>`_ ::
+For a manual install, you can download the source code from the `Fypp project
+website <http://bitbucket.org/aradi/fypp>`_ ::
 
   git clone https://aradi@bitbucket.org/aradi/fypp.git
 
@@ -186,6 +187,8 @@ environment variable, by just issuing ::
 
   fypp
 
+The python module ``fypp.py`` can be found in ``FYP_SOURCE_FOLDER/src``.
+
 
 Testing
 =======
@@ -194,7 +197,7 @@ You can test Fypp on your system by running ::
 
   ./test/runtests.sh
 
-in its source tree. This will execute various unit tests to check whether Fypp
+in the source tree. This will execute various unit tests to check whether Fypp
 works as expected. If you want to run the tests with a specific Python
 interpreter, you can specify it as argument to the script::
 
@@ -259,12 +262,12 @@ an inline form:
 
 
 The line form must always start at the beginning of a line (preceded by optional
-whitespace characters only) and it goes until the end of the line. The inline
-form can appear anywhere, but if the construct consists of several directives
+whitespace characters only) and it ends at the end of the line. The inline form
+can appear anywhere, but if the construct consists of several directives
 (e.g. ``#{if ...}#`` and ``#{endif}#``), all of them must appear on the same
-line. While both forms can be used at the same time, for a particular construct
-they must be consistent, e.g. a directive opened as line directive can not be
-closed with an inline directive and vica versa.
+line. While both forms can be used at the same time, they must be consistent for
+a particular construct, e.g. a directive opened as line directive can not be
+closed by an inline directive and vica versa.
 
 Whitespaces in preprocessor commands are ignored if they appear after the
 opening colon or curly brace or before the closing curly brace. So the following
@@ -282,8 +285,8 @@ examples are pairwise equivalent::
   ${time.strftime('%Y-%m-%d')}$
   ${ time.strftime('%Y-%m-%d') }$
 
-Starting whitespaces before line directives are also ignored, enabling you to
-choose any indentation strategy you like for the directives::
+Starting whitespaces before line directives are ignored, enabling you to choose
+any indentation strategy you like for the directives::
 
   program test
     :
@@ -332,14 +335,15 @@ to other preprocessor languages ::
 it enables consistent expressions with (hopefully) least surprises (once you
 know, how to formulate the expression in Python, you exactly know, how to write
 it for Fypp). Also, note, that variable names, macros etc. are in Python (and
-therefore als for Fypp) case sensitive.
+therefore also for Fypp) case sensitive.
 
-If you access a variable in an expression, it must have been defined (either via
-command line options or via preprocessor directives) before. For example ::
+When you access a variable in an expression, it must have been already defined
+before, either via command line options or via preprocessor directives. For
+example the directive ::
 
   #:if DEBUG > 0
 
-can only be evaluated, if the variable `DEBUG` had been already defined. 
+can only be evaluated, if the variable `DEBUG` had been already defined before.
 
 Python expressions are evaluted in an isolated Python environment, which
 contains a restricted set of Python built-in functions and a few predefined
@@ -350,8 +354,8 @@ for safety reasons, no modules can be loaded once the preprocessing has started.
 Initializing the environment
 ----------------------------
 
-If a Python module is needed during the preprocessing, it can be imported via
-the command line option (``-m``) before the preprocessing starts::
+If a Python module is required for the preprocessing, it can be imported before
+the preprocessing starts via the command line option (``-m``)::
 
   fypp -m time
 
@@ -372,23 +376,23 @@ Initial values for preprocessor variables can be set via the command line option
 The assigned value for a given variable is evaluated in Python. If no value is
 provided, `None` is assigned.
 
-When complex initialization is needed (e.g. user defined Python functions are
-needed during preprocessing), initialization scripts can be specified via the
-command line option ``-i``::
+When complex initialization is needed (e.g. user defined Python functions should
+be defined), initialization scripts can be specified via the command line option
+``-i``::
 
   fypp -i ini1.py -i ini2.py
 
 The preprocessor executes the content of each initialization script in the
 isolated environment via Pythons `exec()` command before processing any
 input. If modules had been also specified via the ``-m`` option, they are
-imported before the initialization scripts are executed.
+imported before the execution of the initialization scripts.
 
 
 Predefined variables and functions
 ----------------------------------
 
 The isolated Python environment for the expression evaluation contains following
-predefined read-only variables:
+predefined (read-only) variables:
 
 * ``_LINE_``: number of current line
 
@@ -535,30 +539,33 @@ single and double precision reals::
   end function sin2_${rkind}$
   #:endfor
 
-The `for` directive expects a loop variable and an iterable expression,
+The `for` directive expects a Python loop variable expression and an iterable
 separated by the ``in`` keyword. The code within the `for` directive is outputed
 for every iteration with the current value of the loop variable, which can be
 inserted using eval directives. If the iterable consists of iterables
 (e.g. tuples), usual indexing can be used to access their components, or a
 variable tuple to unpack them directly in the loop header::
 
-  #:setvar kinds_names [ ('sp', 'real'), ('dp', 'dreal') ]
-
+  #:setvar kinds ['sp', 'dp']
+  #:setvar names ['real', 'dreal']
+  #! create kinds_names as [('sp', 'real'), ('dp', 'dreal')]
+  #:setvar kinds_names list(zip(kinds, names))
+  
   #! Acces by indexing
   interface sin2
   #:for kind_name in kinds_names
     module procedure sin2_${kind_name[1]}$
   #:endfor
   end interface sin2
-
+  
   #! Unpacking in the loop header
   #:for kind, name in kinds_names
   function sin2_${name}$(xx) result(res)
     real(${kind}$), intent(in) :: xx
     real(${kind}$) :: res
-
+  
     res = sin(xx) * sin(xx)
-
+  
   end function sin2_${name}$
   #:endfor
 
@@ -714,6 +721,8 @@ to code being hard to read, it should be usually avoided::
   ! This form is more readable
   print *, ${choose_code('a(:)', 'size(a)')}$
 
+If the arguments need no further processing, the direct call directive can be
+also used as an alternative to the line form (see next section).
 
 
 Direct call directive
@@ -812,7 +821,7 @@ Comment directive
 
 Comment lines can be added by using the ``#!`` preprocessor directive. The
 comment line (including the newlines at their end) will be ignored by the
-prepropessor and not appear in the ouput::
+prepropessor and will not appear in the ouput::
 
     #! This will not show up in the output
 
@@ -869,15 +878,14 @@ can be selected by the ``-f`` option with following possibilities:
 The ``-F`` option can be used to turn off line folding.
 
 
-.. warning:: Fypp is not aware of the Fortran semantics represented by the lines
-             it folds.
+.. warning:: Fypp is not aware of the Fortran semantics of the lines it folds.
 
-Fypp applies the line folding rather mechanically (only considering the the
-position of the whitespace characters). Lines containing eval directives and
-lines within macro definitions should, therefore, not contain any Fortran style
-comments (started by ``!``) *within* the line, as folding within the comment
-would result in invalid Fortran code. For comments within such lines, Fypps
-comment directive (``#!``) can be used instead::
+Fypp applies the line folding mechanically (only considering the position of the
+whitespace characters). Lines containing eval directives and lines within macro
+definitions should, therefore, not contain any Fortran style comments (started
+by ``!``) *within* the line, as folding within the comment would result in
+invalid Fortran code. For comments within such lines, Fypps comment directive
+(``#!``) can be used instead::
 
   #:def macro()
   print *, "DO NOT DO THIS!"  ! Warning: Line may be folded within the comment
@@ -901,10 +909,9 @@ documentation or OpenMP directives)::
 Escaping
 ========
 
-If you want to prevent Fypp to interprete something as control or eval
-directive, put a backslash (``\``) between the first and second delimiter
-character. In case of inline directives, do it for the opening and the
-closing delimiter as well::
+If you want to prevent Fypp to interprete something as a directive, put a
+backslash (``\``) between the first and second delimiter character. In case of
+inline directives, do it for both, the opening and the closing delimiter::
 
   $\: 1 + 2
   #\{if 1 > 2}\#
@@ -954,7 +961,7 @@ according error message.
 The line numbering directives can be fine tuned with the ``-N`` option, which
 accepts following mode arguments:
 
-* ``full`` (default): Line numbering directives are emitted whenever lines are
+* ``full``: Line numbering directives are emitted whenever lines are
   removed from the original source file or extra lines are added to it.
 
 * ``nocontlines``: Same as full, but line numbering directives are ommitted
