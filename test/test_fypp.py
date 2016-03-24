@@ -377,6 +377,11 @@ SIMPLE_TESTS = [
      fypp.STRING
     ),
     #
+    ('builtin_var_line_in_lineeval', [],
+     '$:_LINE_\n',
+     '1\n'
+    ),
+    #
     ('escaped_control_inline', [],
      r'A#\{if False}\#B#\{endif}\#',
      'A#{if False}#B#{endif}#'

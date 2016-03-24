@@ -1156,7 +1156,7 @@ class Renderer:
 
 
     def _get_eval(self, span, expr):
-        self._update_linenr(span[1])
+        self._update_linenr(span[0])
         try:
             result = self._evaluator.evaluate(expr)
         except Exception as exc:
