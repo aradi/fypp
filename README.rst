@@ -34,10 +34,12 @@ Main features
   Fortran standard)::
 
     #:def assertTrue(cond)
+    #:if DEBUG > 0
     if (.not. ${cond}$) then
       print *, "Assert failed in file ${_FILE_}$, line ${_LINE_}$"
       error stop
     end if
+    #:endif
     #:enddef
 
     ! Invoked via direct call (needs no quotation)
@@ -110,33 +112,32 @@ Main features
     #:mute
     #:include "macrodefs.fypp"
     #:endmute
-    
 
 
 Installing
 ==========
 
-Fypp needs a working Python interpreter, either version 2.7 or version 3.2 or
-above.
+Fypp needs a Python interpreter of version 2.7, 3.2 or above.
 
 Automatic install
 -----------------
 
-You can use Pythons installer `pip` to install the last stable release of Fypp
-on your system::
+Use Pythons command line installer ``pip`` in order to download the stable
+release from the `Fypp page on PyPI <http://pypi.python.org/pypi/fypp>`_ and
+install it on your system::
 
   pip install fypp
 
-This installs the command line tool ``fypp`` as well as the Python module
-``fypp``. Latter you can import if you want to access the functionality of Fypp
-directly from within your Python scripts.
+This installs both, the command line tool ``fypp`` and the Python module
+``fypp.py``. Latter you can import if you want to access the functionality of
+Fypp directly from within your Python scripts.
 
 
 Manual install
 --------------
 
-Alternatively, you can download the source code from the `Fypp project website
-<http://bitbucket.org/aradi/fypp>`_ ::
+For a manual install, you can download the source code from the `Fypp project
+website <http://bitbucket.org/aradi/fypp>`_ ::
 
   git clone https://aradi@bitbucket.org/aradi/fypp.git
 
@@ -165,6 +166,8 @@ environment variable, by just issuing ::
 
   fypp
 
+The python module ``fypp.py`` can be found in ``FYP_SOURCE_FOLDER/src``.
+
 
 Running
 =======
@@ -172,9 +175,9 @@ Running
 The Fypp command line tool reads a file, preprocesses it and writes it to
 another file, so you would typically invoke it like::
 
-  fypp source.fypp source.f90
+  fypp source.F90 source.f90
 
-which would process `source.fypp` and write the result to `source.f90`.  If
+which would process `source.F90` and write the result to `source.f90`.  If
 input and output files are not specified, information is read from stdin and
 written to stdout.
 

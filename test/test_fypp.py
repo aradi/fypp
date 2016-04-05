@@ -377,6 +377,11 @@ SIMPLE_TESTS = [
      fypp.STRING
     ),
     #
+    ('builtin_var_line_in_lineeval', [],
+     '$:_LINE_\n',
+     '1\n'
+    ),
+    #
     ('escaped_control_inline', [],
      r'A#\{if False}\#B#\{endif}\#',
      'A#{if False}#B#{endif}#'
@@ -729,6 +734,16 @@ INCLUDE_TESTS = [
       + _linenum(0, 'include/subfolder/fypp2.inc')
       + 'FYPP2\n'
       + _linenum(1, 'include/subfolder/include_fypp2.inc') + _linenum(1))
+    ),
+    #
+    ('muted_include', [_incdir('include')],
+     'START\n#:mute\n#:include \'fypp1.inc\'\n#:endmute\nDONE\n',
+     'START\nDONE\n'
+    ),
+    #
+    ('muted_include_linenum', [_LINENUM_FLAG, _incdir('include')],
+     'START\n#:mute\n#:include \'fypp1.inc\'\n#:endmute\nDONE\n',
+     _linenum(0) + 'START\n' + _linenum(4) + 'DONE\n'
     ),
 ]
 
