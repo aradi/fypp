@@ -43,19 +43,26 @@ using following classes:
 * `Renderer`_: Renders a tree built by the builder.
 
 * `Evaluator`_: Evaluates Python expressions in a designated environment. It is
-  used by the Renderer when rendering eval directives.
+  used by `Renderer`_ when rendering eval directives.
 
-* `Processor`_: Connects `Parser`, `Builder`, `Renderer` and `Evaluator` with
-  each other and returns for a given input the preprocessed output.
+* `Processor`_: Connects `Parser`_, `Builder`_, `Renderer`_ and `Evaluator`_
+  with each other and returns for a given input the preprocessed output.
 
-* `Fypp`_: Command line preprocessor. Drives `Processor` according to the
-  command line arguments.
+* `Fypp`_: The actual Fypp preprocessor. It initializes and drives
+  `Processor`_.
+
+* `FyppOptions`_: Contains customizable settings controling the behaviour of
+  `Fypp`_. Alternatively, the function `get_option_parser()`_ can be used to
+  obtain an argument parser, which can create settings based on command line
+  arguments.
 
 If any expected error occurs during processing, `FyppError`_ is raised.
 
 Additional to the ones above, following class is used for fine tuning:
 
-* `LineFolder`_: Folds overlong lines by using Fortran continuation lines.
+* `FortranLineFolder`_: Folds overlong lines by using Fortran continuation
+  lines.
+
 '''
 
 from __future__ import print_function
@@ -67,11 +74,12 @@ else:
 import types
 import re
 import os
+import errno
 import time
 from argparse import ArgumentParser
 
 
-VERSION = '0.12'
+VERSION = '1.0'
 
 STDIN = '<stdin>'
 
@@ -139,7 +147,6 @@ class FyppError(Exception):
         span (tuple of int): Beginning and end line of the region where error
             occured or None if not available.
 
-
     Attributes:
         msg (str): Error message.
         fname (str or None): File name or None if not available.
@@ -177,15 +184,21 @@ class Parser:
 
     Args:
         includedirs (list): List of directories, in which include files should
-            be searched for, when they are not found in the default location.
+            be searched for, when they are not found at the default location.
     '''
 
     def __init__(self, includedirs=None):
+
+        # Directories to search for include files
         if includedirs is None:
             self._includedirs = []
         else:
             self._includedirs = includedirs
+
+        # Name of current file
         self._curfile = None
+
+        # Directory of current file
         self._curdir = None
 
 
@@ -195,26 +208,27 @@ class Parser:
         Args:
             fobj (str or file): Name of a file or a file like object.
         '''
-        closefile = False
         if isinstance(fobj, str):
             if fobj == STDIN:
-                inpfile = sys.stdin
-                self._curfile = fobj
-                self._curdir = os.getcwd()
+                self._includefile(None, sys.stdin, STDIN, os.getcwd())
             else:
-                inpfile = open(fobj, 'r')
-                closefile = True
-                self._curfile = fobj
-                self._curdir = os.path.dirname(fobj)
+                inpfp = _open_input_file(fobj)
+                self._includefile(None, inpfp, fobj, os.path.dirname(fobj))
+                inpfp.close()
         else:
-            inpfile = fobj
-            self._curfile = FILEOBJ
-            self._curdir = os.getcwd()
-        self.handle_open_file((0, 0), self._curfile)
-        self._parse(inpfile.read())
-        self.handle_close_file(self._curfile)
-        if closefile:
-            inpfile.close()
+            self._includefile(None, fobj, FILEOBJ, os.getcwd())
+
+
+    def _includefile(self, span, fobj, fname, curdir):
+        oldfile = self._curfile
+        olddir = self._curdir
+        self._curfile = fname
+        self._curdir = curdir
+        self.handle_include(span, fname)
+        self._parse(fobj.read())
+        self.handle_endinclude(span, fname)
+        self._curfile = oldfile
+        self._curdir = olddir
 
 
     def parse(self, txt):
@@ -225,32 +239,35 @@ class Parser:
         '''
         self._curfile = STRING
         self._curdir = os.getcwd()
-        self.handle_open_file((0, 0), self._curfile)
+        self.handle_include(None, self._curfile)
         self._parse(txt)
-        self.handle_close_file(self._curfile)
+        self.handle_endinclude(None, self._curfile)
 
 
-    def handle_open_file(self, span, fname):
-        '''Called when parser starts to parse a new file.
+    def handle_include(self, span, fname):
+        '''Called when parser starts to process a new file.
 
         It is a dummy methond and should be overriden for actual use.
 
         Args:
-            span (tuple of int): Start and end line of the directive.
+            span (tuple of int): Start and end line of the include directive
+                or None if called the first time for the main input.
             fname (str): Name of the file.
         '''
-        self._log_event('open file', span, filename=fname)
+        self._log_event('include', span, filename=fname)
 
 
-    def handle_close_file(self, fname):
+    def handle_endinclude(self, span, fname):
         '''Called when parser finished processing a file.
 
         It is a dummy method and should be overriden for actual use.
 
         Args:
+            span (tuple of int): Start and end line of the include directive
+                or None if called the first time for the main input.
             fname (str): Name of the file.
         '''
-        self._log_event('close file', filename=fname)
+        self._log_event('endinclude', span, filename=fname)
 
 
     def handle_setvar(self, span, name, expr):
@@ -627,10 +644,9 @@ class Parser:
         else:
             msg = "include file '{}' not found".format(fname)
             raise FyppError(msg, self._curfile, span)
-        oldfile = self._curfile
-        self.parsefile(fpath)
-        self._curfile = oldfile
-        self.handle_open_file(span, self._curfile)
+        inpfp = _open_input_file(fpath)
+        self._includefile(span, inpfp, fpath, os.path.dirname(fpath))
+        inpfp.close()
 
 
     def _process_mute(self, span):
@@ -671,57 +687,83 @@ class Builder:
     '''
 
     def __init__(self):
+        # The tree, which should be built.
         self._tree = []
-        self._path = []
-        self._open_files = []
+
+        # List of all open constructs
         self._open_blocks = []
-        # Nr. of open blocks before current file was opened
+
+        # Nodes to which the open blocks have to be appended when closed
+        self._path = []
+
+        # Nr. of open blocks when file was opened. Used for checking whether all
+        # blocks have been closed, when file processing finishes.
         self._nr_prev_blocks = []
+
+        # Current node, to which content should be added
         self._curnode = self._tree
+
+        # Current file
         self._curfile = None
 
 
     def reset(self):
         '''Resets the builder so that it starts to build a new tree.'''
         self._tree = []
-        self._path = []
-        self._open_files = []
         self._open_blocks = []
+        self._path = []
         self._nr_prev_blocks = []
         self._curnode = self._tree
         self._curfile = None
 
 
-    def handle_open_file(self, span, fname):
+    def handle_include(self, span, fname):
         '''Should be called to signalize change to new file.
 
         Args:
-            span (tuple of int): Start and end line of the directive.
+            span (tuple of int): Start and end line of the include directive
+                or None if called the first time for the main input.
             fname (str): Name of the file.
         '''
         self._curfile = fname
-        self._curnode.append(('include', span, fname))
-        self._open_files.append(fname)
+        self._path.append(self._curnode)
+        self._curnode = []
+        self._open_blocks.append(('include', [span], fname, None))
         self._nr_prev_blocks.append(len(self._open_blocks))
 
 
-    def handle_close_file(self, fname):
+    def handle_endinclude(self, span, fname):
         '''Should be called when processing of a file finished.
 
         Args:
+            span (tuple of int): Start and end line of the include directive
+                or None if called the first time for the main input.
             fname (str): Name of the file.
         '''
-        oldfname = self._open_files.pop(-1)
-        if fname != oldfname:
-            msg = 'internal error: mismatching file name in close_file event'\
-                  " (expected: '{}', got '{}')".format(oldfname, fname)
-            raise FyppError(msg, fname)
-        if len(self._open_blocks) > self._nr_prev_blocks[-1]:
+        nprev_blocks = self._nr_prev_blocks.pop(-1)
+        if len(self._open_blocks) > nprev_blocks:
             directive, spans = self._open_blocks[-1][0:2]
             msg = '{} directive in line {} still unclosed when reaching end '\
                   'of file'.format(directive, spans[0][0] + 1)
             raise FyppError(msg, self._curfile)
-        del self._nr_prev_blocks[-1]
+        block = self._open_blocks.pop(-1)
+        directive, spans = block[0:2]
+        if directive != 'include':
+            msg = 'internal error: last open block is not \'include\' when '\
+                  'closing file \'{}\''.format(fname)
+            raise FyppError(msg)
+        if span != spans[0]:
+            msg = 'internal error: span for include and endinclude differ ('\
+                  '{} vs {}'.format(span, spans[0])
+            raise FyppError(msg)
+        oldfname, _ = block[2:4]
+        if fname != oldfname:
+            msg = 'internal error: mismatching file name in close_file event'\
+                  " (expected: '{}', got '{}')".format(oldfname, fname)
+            raise FyppError(msg, fname)
+        block = directive, spans, fname, self._curnode
+        self._curnode = self._path.pop(-1)
+        self._curnode.append(block)
 
 
     def handle_if(self, span, cond):
@@ -923,7 +965,7 @@ class Builder:
         '''Should be called to signalize a comment directive.
 
         The content of the comment is not needed by the builder, but it needs
-        the span of the comment to generate proper synclines if needed.
+        the span of the comment to generate proper line numbers if needed.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -1007,18 +1049,33 @@ class Renderer:
     Args:
         evaluator (Evaluator, optional): Evaluator to use when rendering eval
             directives. If None (default), Evaluator() is used.
-        synclines (bool, optional): Whether synclines should be generated,
+        linenums (bool, optional): Whether linenums should be generated,
             defaults to False.
+        contlinenums (bool, optional): Whether linenums for continuation
+            should be generated, defaults to False.
         linefolder (callable): Callable to use when folding a line.
     '''
 
-    def __init__(self, evaluator=None, synclines=False, linefolder=None):
+    def __init__(self, evaluator=None, linenums=False, contlinenums=False,
+                 linefolder=None):
+        # Evaluator to use for Python expressions
         self._evaluator = Evaluator() if evaluator is None else evaluator
         self._evaluator.updateenv(_DATE_=time.strftime('%Y-%m-%d'),
                                   _TIME_=time.strftime('%H:%M:%S'))
+
+        # Name of current file being processed
         self._curfile = None
+
+        # Number of diversions, when > 0 we are within a macro call
         self._diversions = 0
-        self._synclines = synclines
+
+        # Whether line numbering directives should be emitted
+        self._linenums = linenums
+
+        # Whether line numbering directives in continuation lines are needed.
+        self._contlinenums = contlinenums
+
+        # Callable to be used for folding lines
         if linefolder is None:
             self._linefolder = lambda line: [line]
         else:
@@ -1082,8 +1139,10 @@ class Renderer:
                 eval_pos += peval
                 output += out
             elif cmd == 'include':
-                result = self._register_file(*node[1:3])
-                output.append(result)
+                out, ieval, peval = self._get_included_content(*node[1:4])
+                eval_inds += _shiftinds(ieval, len(output))
+                eval_pos += peval
+                output += out
             elif cmd == 'comment':
                 output.append(self._get_comment(*node[1:2]))
             elif cmd == 'mute':
@@ -1097,7 +1156,7 @@ class Renderer:
 
 
     def _get_eval(self, span, expr):
-        self._update_linenr(span[1])
+        self._update_linenr(span[0])
         try:
             result = self._evaluator.evaluate(expr)
         except Exception as exc:
@@ -1130,15 +1189,15 @@ class Renderer:
                     condition, exc)
                 raise FyppError(msg, self._curfile, span)
             if cond:
-                if self._synclines and not self._diversions and multiline:
-                    out.append(syncline(span[1], self._curfile))
+                if self._linenums and not self._diversions and multiline:
+                    out.append(linenumdir(span[1], self._curfile))
                 outcont, ievalcont, pevalcont = self._render(content)
                 ieval += _shiftinds(ievalcont, len(out))
                 peval += pevalcont
                 out += outcont
                 break
-        if self._synclines and not self._diversions and multiline:
-            out.append(syncline(spans[-1][1], self._curfile))
+        if self._linenums and not self._diversions and multiline:
+            out.append(linenumdir(spans[-1][1], self._curfile))
         return out, ieval, peval
 
 
@@ -1160,14 +1219,14 @@ class Renderer:
             else:
                 loopscope = {varname: value
                              for varname, value in zip(loopvars, var)}
-            if self._synclines and not self._diversions and multiline:
-                out.append(syncline(spans[0][1], self._curfile))
+            if self._linenums and not self._diversions and multiline:
+                out.append(linenumdir(spans[0][1], self._curfile))
             outcont, ievalcont, pevalcont = self._render(content, loopscope)
             ieval += _shiftinds(ievalcont, len(out))
             peval += pevalcont
             out += outcont
-        if self._synclines and not self._diversions and multiline:
-            out.append(syncline(spans[1][1], self._curfile))
+        if self._linenums and not self._diversions and multiline:
+            out.append(linenumdir(spans[1][1], self._curfile))
         return out, ieval, peval
 
 
@@ -1187,6 +1246,23 @@ class Renderer:
         return out, ieval, peval
 
 
+    def _get_included_content(self, spans, fname, content):
+        out = []
+        oldfile = self._curfile
+        self._curfile = fname
+        self._evaluator.updateenv(_FILE_=self._curfile)
+        if self._linenums and not self._diversions:
+            out += linenumdir(0, self._curfile)
+        outcont, ieval, peval = self._render(content)
+        ieval = _shiftinds(ieval, len(out))
+        out += outcont
+        self._curfile = oldfile
+        self._evaluator.updateenv(_FILE_=self._curfile)
+        if self._linenums and not self._diversions and spans[0] is not None:
+            out += linenumdir(spans[0][1], self._curfile)
+        return out, ieval, peval
+
+
     def _define_macro(self, spans, name, args, content):
         result = ''
         try:
@@ -1197,8 +1273,8 @@ class Renderer:
             msg = "exception occured when defining macro '{}'\n{}"\
                 .format(name, exc)
             raise FyppError(msg, self._curfile, spans[0])
-        if self._synclines and not self._diversions:
-            result = syncline(spans[1][1], self._curfile)
+        if self._linenums and not self._diversions:
+            result = linenumdir(spans[1][1], self._curfile)
         return result
 
 
@@ -1212,22 +1288,22 @@ class Renderer:
                 .format(name, valstr, exc)
             raise FyppError(msg, self._curfile, span)
         multiline = (span[0] != span[1])
-        if self._synclines and not self._diversions and multiline:
-            result = syncline(span[1], self._curfile)
+        if self._linenums and not self._diversions and multiline:
+            result = linenumdir(span[1], self._curfile)
         return result
 
 
     def _get_comment(self, span):
-        if self._synclines and not self._diversions:
-            return syncline(span[1], self._curfile)
+        if self._linenums and not self._diversions:
+            return linenumdir(span[1], self._curfile)
         else:
             return ''
 
 
     def _get_muted_content(self, spans, content):
         self._render(content)
-        if self._synclines and not self._diversions:
-            return syncline(spans[-1][1], self._curfile)
+        if self._linenums and not self._diversions:
+            return linenumdir(spans[-1][1], self._curfile)
         else:
             return ''
 
@@ -1243,100 +1319,115 @@ class Renderer:
             raise FyppError(msg, self._curfile)
 
 
-    def _register_file(self, span, fname):
-        result = ''
-        self._curfile = fname
-        self._evaluator.updateenv(_FILE_=fname)
-        if self._synclines and not self._diversions:
-            result = syncline(span[1], self._curfile)
-        return result
-
-
     def _update_linenr(self, linenr):
         if not self._diversions:
             self._evaluator.updateenv(_LINE_=linenr + 1)
 
 
     def _postprocess_eval_lines(self, output, eval_inds, eval_pos):
-        lastproc = -1
+        ilastproc = -1
         for ieval, ind in enumerate(eval_inds):
             span, fname = eval_pos[ieval]
-            if ind <= lastproc:
+            if ind <= ilastproc:
                 continue
-
-            # find last eol before expr. evaluation
-            iprev = ind - 1
-            while iprev >= 0:
-                eolprev = output[iprev].rfind('\n')
-                if eolprev != -1:
-                    break
-                iprev -= 1
-            else:
-                iprev = 0
-                eolprev = -1
-
-            # find first eol after expr. evaluation
-            inext = ind + 1
-            while inext < len(output):
-                eolnext = output[inext].find('\n')
-                if eolnext != -1:
-                    break
-                inext += 1
-            else:
-                inext = len(output) - 1
-                eolnext = len(output[-1]) - 1
-
-            # Create full line containing the evaluated expression
-            curline_parts = []
-            if iprev != ind:
-                curline_parts = [output[iprev][eolprev + 1:]]
-                output[iprev] = output[iprev][:eolprev + 1]
-            curline_parts.extend(output[iprev + 1:ind])
-            curline_parts.extend(output[ind])
-            curline_parts.extend(output[ind + 1:inext])
-            if inext != ind:
-                curline_parts.append(output[inext][:eolnext + 1])
-                output[inext] = output[inext][eolnext + 1:]
-            curline = ''.join(curline_parts)
+            iprev, eolprev = self._find_last_eol(output, ind)
+            inext, eolnext = self._find_next_eol(output, ind)
+            curline = self._glue_line(output, ind, iprev, eolprev, inext,
+                                      eolnext)
             output[iprev + 1:inext] = [''] * (inext - iprev - 1)
-
-            # Split lines and add synclines if needed
-            lines = self._splitlines(curline)
-            # if curline ended with '\n', last element of lines is ''
-            nrlines = len(lines) if lines[-1] else len(lines) - 1
-            if self._synclines and (nrlines > 1 or span[0] != span[1]):
-                oldlines = lines
-                syncl = syncline(span[0], fname)
-                lines = [oldlines[0] + '\n']
-                for line in oldlines[1:-1]:
-                    lines.append(syncl)
-                    lines.append(line + '\n')
-                if oldlines[-1]:
-                    # Line did not end on '\n' -> it was last line of input
-                    # -> no syncline is needed.
-                    lines.append(oldlines[-1])
-                elif span[1] > span[0] + 1:
-                    # Syncline needed, if expression evaluation goes
-                    # over multiple lines. Otherwise the syncline inserted
-                    # before the last line of the evaluation (pointing to
-                    # the line of the directive) ensures correct line numbering
-                    # for the following content.
-                    lines.append(syncline(span[1], fname))
-                output[ind] = ''.join(lines)
-            else:
-                output[ind] = '\n'.join(lines)
-            lastproc = inext
+            output[ind] = self._postprocess_eval_line(curline, fname, span)
+            ilastproc = inext
 
 
-    def _splitlines(self, txt):
-        lines = txt.split('\n')
-        result = []
-        for line in lines:
-            if _COMMENTLINE_REGEXP.match(line) is None:
-                result += self._linefolder(line)
-            else:
-                result.append(line)
-        return result
+    @staticmethod
+    def _find_last_eol(output, ind):
+        'Find last newline before current position.'
+        iprev = ind - 1
+        while iprev >= 0:
+            eolprev = output[iprev].rfind('\n')
+            if eolprev != -1:
+                break
+            iprev -= 1
+        else:
+            iprev = 0
+            eolprev = -1
+        return iprev, eolprev
+
+
+    @staticmethod
+    def _find_next_eol(output, ind):
+        'Find last newline before current position.'
+        # find first eol after expr. evaluation
+        inext = ind + 1
+        while inext < len(output):
+            eolnext = output[inext].find('\n')
+            if eolnext != -1:
+                break
+            inext += 1
+        else:
+            inext = len(output) - 1
+            eolnext = len(output[-1]) - 1
+        return inext, eolnext
+
+
+    @staticmethod
+    def _glue_line(output, ind, iprev, eolprev, inext, eolnext):
+        'Create line from parts between specified boundaries.'
+        curline_parts = []
+        if iprev != ind:
+            curline_parts = [output[iprev][eolprev + 1:]]
+            output[iprev] = output[iprev][:eolprev + 1]
+        curline_parts.extend(output[iprev + 1:ind])
+        curline_parts.extend(output[ind])
+        curline_parts.extend(output[ind + 1:inext])
+        if inext != ind:
+            curline_parts.append(output[inext][:eolnext + 1])
+            output[inext] = output[inext][eolnext + 1:]
+        return ''.join(curline_parts)
+
+
+    def _postprocess_eval_line(self, evalline, fname, span):
+        lines = evalline.split('\n')
+        # If line ended on '\n', last element is ''. We remove it and
+        # add the trailing newline later manually.
+        trailing_newline = (lines[-1] == '')
+        if trailing_newline:
+            del lines[-1]
+        lnum = linenumdir(span[0], fname) if self._linenums else ''
+        clnum = lnum if self._contlinenums else ''
+        linenumsep = '\n' + lnum
+        clinenumsep = '\n' + clnum
+        foldedlines = [self._foldline(line) for line in lines]
+        outlines = [clinenumsep.join(lines) for lines in foldedlines]
+        result = linenumsep.join(outlines)
+        # Add missing trailing newline
+        if trailing_newline:
+            trailing = '\n'
+            if self._linenums:
+                # Last line was folded, but no linenums were generated for
+                # the continuation lines -> current line position is not
+                # in sync with the one calculated from the last line number
+                unsync = (
+                    len(foldedlines) and len(foldedlines[-1]) > 1
+                    and not self._contlinenums)
+                # Eval directive in source consists of more than one line
+                multiline = span[1] - span[0] > 1
+                if unsync or multiline:
+                    # For inline eval directives span[0] == span[1]
+                    # -> next line is span[0] + 1 and not span[1] as for
+                    # line eval directives
+                    nextline = max(span[1], span[0] + 1)
+                    trailing += linenumdir(nextline, fname)
+        else:
+            trailing = ''
+        return result + trailing
+
+
+    def _foldline(self, line):
+        if _COMMENTLINE_REGEXP.match(line) is None:
+            return self._linefolder(line)
+        else:
+            return [line]
 
 
 class Evaluator:
@@ -1426,8 +1517,12 @@ class Evaluator:
     }
 
     def __init__(self, env=None, restricted=True):
+        # Definitions (environment) to use when evaluating expressions
         self._env = env.copy() if env is not None else {}
+
+        # Stack for environments to implement nested scopes
         self._envstack = []
+
         if restricted:
             builtindict = {}
             builtindict.update(self.RESTRICTED_BUILTINS)
@@ -1437,6 +1532,8 @@ class Evaluator:
         builtindict['defined'] = self._func_defined
         builtindict['setvar'] = self._func_setvar
         builtindict['getvar'] = self._func_getvar
+
+        # Permitted builtins when evaluating expressions
         self._builtins = {'__builtins__': builtindict}
 
 
@@ -1613,8 +1710,8 @@ class Processor:
         else:
             self._renderer = renderer
 
-        self._parser.handle_open_file = self._builder.handle_open_file
-        self._parser.handle_close_file = self._builder.handle_close_file
+        self._parser.handle_include = self._builder.handle_include
+        self._parser.handle_endinclude = self._builder.handle_endinclude
         self._parser.handle_if = self._builder.handle_if
         self._parser.handle_else = self._builder.handle_else
         self._parser.handle_elif = self._builder.handle_elif
@@ -1669,8 +1766,8 @@ class Processor:
         return ''.join(output)
 
 
-def syncline(linenr, fname):
-    '''Returns a syncline directive.
+def linenumdir(linenr, fname):
+    '''Returns a line numbering directive.
 
     Args:
         linenr (int): Line nr (starting with 0).
@@ -1679,8 +1776,224 @@ def syncline(linenr, fname):
     return '# {} "{}"\n'.format(linenr + 1, fname)
 
 
+class Fypp:
 
-class LineFolder:
+    '''Fypp preprocessor.
+
+    You can invoke it like ::
+
+        tool = Fypp()
+        tool.process_file('file.in', 'file.out')
+
+    to initialize Fypp with default options, process `file.in` and write the
+    result to `file.out`. If the input should be read from a string, the
+    ``process_text()`` method can be used::
+
+        tool = Fypp()
+        output = tool.process_text('#:if DEBUG > 0\\nprint *, "DEBUG"\\n#:endif\\n')
+
+    If you want to fine tune Fypps behaviour, pass a customized `FyppOptions`_
+    instance at initialization::
+
+        options = FyppOptions()
+        options.fixed_format = True
+        tool = Fypp(options)
+
+    Alternatively, you can use the command line parser
+    ``argparse.ArgumentParser`` to set options for Fypp. The function
+    ``get_option_parser()`` returns you a default argument parser. You can then
+    use its ``parse_args()`` method to obtain settings by reading the command
+    line arguments::
+
+        options = FyppOptions()
+        argparser = get_option_parser()
+        options = argparser.parse_args(namespace=options)
+        tool = fypp.Fypp(options)
+
+    The command line arguments can also be passed directly as a list when
+    calling ``parse_args()``::
+
+        options = FyppOptions()
+        args = ['-DDEBUG=0', 'input.F90', 'output.F90']
+        argparser = get_option_parser()
+        options = argparser.parse_args(args=args, namespace=options)
+        tool = fypp.Fypp(options)
+
+
+    Args:
+        options (object): Object containing the settings for Fypp. You typically
+            would pass a customized `FyppOptions`_ instance or a ``Namespace``
+            object as returned by an argument parser. If not present, the
+            default settings in `FyppOptions`_ are used.
+
+    '''
+
+    def __init__(self, options=None):
+        if options is None:
+            options = FyppOptions()
+        inieval = Evaluator(restricted=False)
+        if options.modules:
+            self._import_modules(options.modules, inieval)
+        if options.inifiles:
+            self._exec_inifiles(options.inifiles, inieval)
+        evaluator = Evaluator(env=inieval.env, restricted=True)
+        if options.defines:
+            self._apply_definitions(options.defines, evaluator)
+        parser = Parser(options.includes)
+        builder = Builder()
+
+        fixed_format = options.fixed_format
+        linefolding = not options.no_folding
+        if linefolding:
+            folding = 'brute' if fixed_format else options.folding_mode
+            linelength = 72 if fixed_format else options.line_length
+            indentation = 5 if fixed_format else options.indentation
+            prefix = '&'
+            suffix = '' if fixed_format else '&'
+            linefolder = FortranLineFolder(linelength, indentation, folding,
+                                           prefix, suffix)
+        else:
+            linefolder = DummyLineFolder()
+        linenums = options.line_numbering
+        contlinenums = (options.line_numbering_mode != 'nocontlines')
+        self._create_parent_folder = options.create_parent_folder
+        renderer = Renderer(
+            evaluator, linenums=linenums, contlinenums=contlinenums,
+            linefolder=linefolder)
+        self._preprocessor = Processor(parser, builder, renderer)
+
+
+    def process_file(self, infile, outfile=None, env=None):
+        '''Processes input file and writes result to output file.
+
+        Args:
+            infile (str): Name of the file to read and process. If its value is
+                '-', input is read from stdin.
+            outfile (str, optional): Name of the file to write the result to.
+                If its value is '-', result is written to stdout. If not
+                present, result will be returned as string.
+            env (dict, optional): Additional definitions for the evaluator.
+
+        Returns:
+            str: Result of processed input, if no outfile was specified.
+        '''
+        infile = STDIN if infile == '-' else infile
+        output = self._preprocessor.process_file(infile, env)
+        if outfile is None:
+            return output
+        else:
+            if outfile == '-':
+                outfile = sys.stdout
+            else:
+                outfile = _open_output_file(outfile, self._create_parent_folder)
+            outfile.write(output)
+            if outfile != sys.stdout:
+                outfile.close()
+
+
+    def process_text(self, txt, env=None):
+        '''Processes a string.
+
+        Args:
+            txt (str): String to process.
+            env (dict, optional): Additional definitions for the evaluator.
+
+        Returns:
+            str: Processed content.
+        '''
+        return self._preprocessor.process_text(txt, env)
+
+
+    @staticmethod
+    def _apply_definitions(defines, evaluator):
+        for define in defines:
+            words = define.split('=', 2)
+            name = words[0]
+            value = None
+            if len(words) > 1:
+                try:
+                    value = evaluator.evaluate(words[1])
+                except Exception as exc:
+                    msg = "exception at evaluating '{}' in definition for " \
+                          "'{}'\n{}".format(words[1], name, exc)
+                    raise FyppError(msg)
+            evaluator.define(name, value)
+
+
+    @staticmethod
+    def _import_modules(modules, evaluator):
+        for module in modules:
+            try:
+                evaluator.execute('import ' + module)
+            except Exception as ex:
+                msg = "exception occured during import of module '{}'\n{}"\
+                      .format(module, ex)
+                raise FyppError(msg)
+
+
+    @staticmethod
+    def _exec_inifiles(inifiles, evaluator):
+        for inifile in inifiles:
+            try:
+                inifp = open(inifile, 'r')
+                source = inifp.read()
+                inifp.close()
+            except IOError as ex:
+                msg = "IO error occured at reading file '{}'\n{}"\
+                    .format(inifile, ex)
+                raise FyppError(msg)
+            try:
+                code = compile(source, inifile, 'exec', dont_inherit=-1)
+                evaluator.execute(code)
+            except Exception as ex:
+                msg = "exception occured when executing ini-file '{}'\n{}"\
+                      .format(inifile, ex)
+                raise FyppError(msg)
+
+
+class FyppOptions:
+
+    '''Container for Fypp options with default values.
+
+    Attributes:
+        defines (list of str): List of variable definitions in the form of
+            'VARNAME=VALUE'. Default: []
+        includes (list of str): List of paths to search when looking for include
+            files. Default: []
+        line_numbering (bool): Whether line numbering directives should appear
+            in the output. Default: False
+        line_numbering_mode (str): Line numbering mode 'full' or 'nocontlines'.
+            Default: 'full'.
+        line_length (int): Length of output lines. Default: 132.
+        folding_mode (str): Folding mode 'smart', 'simple' or 'brute'. Default:
+            'smart'.
+        no_folding (bool): Whether folding should be suppresed. Default: False.
+        indentation (int): Indentation in continuation lines. Default: 4.
+        modules (list of str): Modules to import at initialization. Default: [].
+        inifiles (list of str): Python files to execute at initialization.
+            Default: []
+        fixed_format (bool): Whether input file is in fixed format.
+            Default: False.
+        create_parent_folder (bool): Whether the parent folder for the output
+            file should be created if it does not exist. Default: False.
+    '''
+
+    def __init__(self):
+        self.defines = []
+        self.includes = []
+        self.line_numbering = False
+        self.line_numbering_mode = 'full'
+        self.line_length = 132
+        self.folding_mode = 'smart'
+        self.no_folding = False
+        self.indentation = 4
+        self.modules = []
+        self.inifiles = []
+        self.fixed_format = False
+        self.create_parent_folder = False
+
+
+class FortranLineFolder:
 
     '''Implements line folding with Fortran continuation lines.
 
@@ -1689,7 +2002,6 @@ class LineFolder:
         indent (int, optional): Indentation for continuation lines (default: 4).
         method (str, optional): Folding method with following options:
 
-            * ``none``: no folding,
             * ``brute``: folding with maximal length of continuation lines,
             * ``simple``: indents with respect of indentation of first line,
             * ``smart``: like ``simple``, but tries to fold at whitespaces.
@@ -1713,7 +2025,7 @@ class LineFolder:
         self._indent = indent
         self._prefix = ' ' * self._indent + prefix
         self._suffix = suffix
-        if method not in ['brute', 'smart', 'simple', 'none']:
+        if method not in ['brute', 'smart', 'simple']:
             raise FyppError('invalid folding type')
         if method == 'brute':
             self._inherit_indent = False
@@ -1724,9 +2036,6 @@ class LineFolder:
         elif method == 'smart':
             self._inherit_indent = True
             self._fold_position_finder = self._get_smart_fold_pos
-        else:
-            # No folding occurs, line is returned unaltered
-            self._maxlen = -1
 
 
     def __call__(self, line):
@@ -1734,7 +2043,7 @@ class LineFolder:
 
         Can be directly called to return the list of folded lines::
 
-            linefolder = LineFolder(maxlen=10)
+            linefolder = FortranLineFolder(maxlen=10)
             linefolder('  print *, "some Fortran line"')
 
         Args:
@@ -1790,210 +2099,137 @@ class LineFolder:
             return end
 
 
-def _shiftinds(inds, shift):
-    return [ind + shift for ind in inds]
+class DummyLineFolder:
 
+    '''Implements a dummy line folder returning the line unaltered.'''
 
-################################################################################
-# Command line tool
-################################################################################
-
-_FYPP_DESC = '''Preprocess Fortran source files with Fypp directives.'''
-
-
-class Fypp:
-
-    '''Represents the Fypp command line tool.
-
-    You can invoke it like::
-
-        tool = Fypp()
-        tool.process_cmdline_files()
-
-    to parse the command line arguments (in ``sys.argv``) and run Fypp using
-    the input/output files and options as specified there.
-
-    The command line arguments can also be passed directly as a list::
-
-        tool = Fypp(['-DDEBUG=0', 'input.F90', 'output.F90'])
-        tool.process_cmdline_files()
-
-    If the input should be read from a string and the result of the
-    preprocessing should be also returned as a string (instead of
-    using input/output files), the ``process_text()`` method can be
-    used::
-
-        tool = Fypp(['-DDEBUG=0'])
-        result = tool.process_text('#:if DEBUG > 0\\nprint *, "DEBUG"\\n#:endif\\n')
-
-
-    Args:
-        cmdline_args (list of str, optional): Command line arguments. If None
-            (default), the arguments are read from sys.argv using Argparser.
-
-    '''
-
-    def __init__(self, cmdline_args=None):
-        self._argparser = self._get_cmdline_parser()
-        self._args = self._argparser.parse_args(cmdline_args)
-        inieval = Evaluator(restricted=False)
-        if self._args.modules:
-            self._import_modules(self._args.modules, inieval)
-        if self._args.inifiles:
-            self._exec_inifiles(self._args.inifiles, inieval)
-        evaluator = Evaluator(env=inieval.env, restricted=True)
-        if self._args.defines:
-            self._apply_definitions(self._args.defines, evaluator)
-        parser = Parser(self._args.includes)
-        builder = Builder()
-
-        fixed_format = self._args.fixed_format
-        folding = 'brute' if fixed_format else self._args.folding_method
-        linelength = 72 if fixed_format else self._args.line_length
-        indentation = 5 if fixed_format else self._args.indentation
-        prefix = '&'
-        suffix = '' if fixed_format else '&'
-        linefolder = LineFolder(linelength, indentation, folding, prefix,
-                                suffix)
-        renderer = Renderer(evaluator, synclines=self._args.synclines,
-                            linefolder=linefolder)
-        self._preprocessor = Processor(parser, builder, renderer)
-
-
-    def process_cmdline_files(self, env=None):
-        '''Processes the input file and write result to the output file which
-        were specified as the command line arguments.
-
-        Args:
-            env (dict): Additional definitions for the evaluator.
-        '''
-        infile = STDIN if self._args.infile == '-' else self._args.infile
-        output = self._preprocessor.process_file(infile, env)
-        if self._args.outfile == '-':
-            outfile = sys.stdout
-        else:
-            outfile = open(self._args.outfile, 'w')
-        outfile.write(output)
-        if outfile != sys.stdout:
-            outfile.close()
-
-
-    def process_text(self, txt, env=None):
-        '''Processes a string.
-
-        Args:
-            txt (str): String to process.
+    def __call__(self, line):
+        '''Returns the entire line without any folding.
 
         Returns:
-            str: Processed content.
+            list of str: Components of folded line. They should be
+                assembled via ``\\n.join()`` to obtain the string
+                representation.
         '''
-        return self._preprocessor.process_text(txt, env)
+        return [line]
 
 
-    @staticmethod
-    def _get_cmdline_parser():
-        parser = ArgumentParser(description=_FYPP_DESC)
-        msg = 'define variable, value is interpreted as ' \
-              'Python expression (e.g \'-DDEBUG=1\' sets DEBUG to the ' \
-              'integer 1) or set to None if ommitted'
-        parser.add_argument('-D', '--define', action='append', dest='defines',
-                            metavar='VAR[=VALUE]', help=msg)
-        msg = 'add directory to the search paths for include files'
-        parser.add_argument('-I', '--include', action='append', dest='includes',
-                            metavar='INCDIR', help=msg)
-        msg = 'include CPP style sync-lines in the output'
-        parser.add_argument('-s', '--synclines', action='store_true',
-                            default=False, help=msg)
-        msg = 'maximal line length (default: 132), lines modified by the '\
-              'preprocessor are folded if becoming longer'
-        parser.add_argument('-l', '--line-length', type=int, default=132,
-                            metavar='LEN', help=msg)
-        msg = 'folding method, \'smart\' (default): indentation context and '\
-              'whitespace aware, \'simple\': indentation context aware, '\
-              '\'brute\' : mechnical folding, none\': no folding'
-        parser.add_argument('-f', '--folding-method', metavar='METHOD',
-                            choices=['smart', 'simple', 'brute', 'none'],
-                            default='smart', help=msg)
-        msg = 'indentation to use for continuation lines (default 4)'
-        parser.add_argument('--indentation', type=int, metavar='IND',
-                            default=4, help=msg)
-        msg = 'import python module before starting the processing'
-        parser.add_argument('-m', '--module', action='append', dest='modules',
-                            metavar='MOD', help=msg)
-        msg = 'execute python initialization script before starting processing'
-        parser.add_argument('-i', '--ini-file', action='append',
-                            dest='inifiles', metavar='INI', help=msg)
-        msg = 'produce fixed format output (any settings for options '\
-              '--line-length, --folding-method and --indentation are ignored)'
-        parser.add_argument('--fixed-format', action='store_true',
-                            default=False, help=msg)
-        versionstr = '%(prog)s ' + VERSION
-        parser.add_argument('-v', '--version', action='version',
-                            version=versionstr)
-        msg = "input file to be processed (default: '-', stdin)"
-        parser.add_argument('infile', nargs='?', default='-', help=msg)
-        msg = "output file where processed content will be written (default: " \
-              "'-', stdout)"
-        parser.add_argument('outfile', nargs='?', default='-', help=msg)
-        return parser
+def get_option_parser():
+    '''Returns an option parser for the Fypp command line tool.
+
+    Returns:
+        ArgumentParser: Parser which can create a namespace object with
+        Fypp settings based on command line arguments.
+    '''
+    fypp_name = 'fypp'
+    fypp_desc = 'Preprocess source files with Fypp directives.'
+    parser = ArgumentParser(prog=fypp_name, description=fypp_desc)
+    msg = 'define variable, value is interpreted as ' \
+          'Python expression (e.g \'-DDEBUG=1\' sets DEBUG to the ' \
+          'integer 1) or set to None if ommitted'
+    parser.add_argument('-D', '--define', action='append', dest='defines',
+                        metavar='VAR[=VALUE]', help=msg)
+    msg = 'add directory to the search paths for include files'
+    parser.add_argument('-I', '--include', action='append', dest='includes',
+                        metavar='INCDIR', help=msg)
+    msg = 'put line numbering directives to the output'
+    parser.add_argument('-n', '--line-numbering', action='store_true',
+                        default=False, help=msg)
+    msg = 'line numbering mode, \'full\' (default): line numbering '\
+          'directives generated whenever source and output lines are out '\
+          'of sync, \'nocontlines\': line numbering directives omitted '\
+          'for continuation lines'
+    parser.add_argument('-N', '--line-numbering-mode', metavar='MODE',
+                        choices=['full', 'nocontlines'], default='full',
+                        help=msg)
+    msg = 'maximal line length (default: 132), lines modified by the '\
+          'preprocessor are folded if becoming longer'
+    parser.add_argument('-l', '--line-length', type=int, default=132,
+                        metavar='LEN', help=msg)
+    msg = 'line folding mode, \'smart\' (default): indentation context '\
+          'and whitespace aware, \'simple\': indentation context aware, '\
+          '\'brute\': mechnical folding'
+    parser.add_argument('-f', '--folding-mode', metavar='MODE',
+                        choices=['smart', 'simple', 'brute'],
+                        default='smart', help=msg)
+    msg = 'suppress line folding'
+    parser.add_argument('-F', '--no-folding', action='store_true',
+                        dest='no_folding', default=False, help=msg)
+    msg = 'indentation to use for continuation lines (default 4)'
+    parser.add_argument('--indentation', type=int, metavar='IND',
+                        default=4, help=msg)
+    msg = 'import python module before starting the processing'
+    parser.add_argument('-m', '--module', action='append', dest='modules',
+                        metavar='MOD', help=msg)
+    msg = 'execute python initialization script before starting processing'
+    parser.add_argument('-i', '--ini-file', action='append',
+                        dest='inifiles', metavar='INI', help=msg)
+    msg = 'produce fixed format output (any settings for options '\
+          '--line-length, --folding-method and --indentation are ignored)'
+    parser.add_argument('--fixed-format', action='store_true',
+                        default=False, help=msg)
+    msg = 'create parent folders of the output file if they do not exist'
+    parser.add_argument('-p', '--create-parents', action='store_true',
+                        default=False, dest='create_parent_folder', help=msg)
+    versionstr = '%(prog)s ' + VERSION
+    parser.add_argument('-v', '--version', action='version',
+                        version=versionstr)
+    return parser
 
 
-    @staticmethod
-    def _apply_definitions(defines, evaluator):
-        for define in defines:
-            words = define.split('=', 2)
-            name = words[0]
-            value = None
-            if len(words) > 1:
-                try:
-                    value = evaluator.evaluate(words[1])
-                except Exception as exc:
-                    msg = "exception at evaluating '{}' in definition for " \
-                          "'{}'\n{}".format(words[1], name, exc)
-                    raise FyppError(msg)
-            evaluator.define(name, value)
-
-
-    @staticmethod
-    def _import_modules(modules, evaluator):
-        for module in modules:
-            try:
-                evaluator.execute('import ' + module)
-            except Exception as ex:
-                msg = "exception occured during import of module '{}'\n{}"\
-                      .format(module, ex)
-                raise FyppError(msg)
-
-
-    @staticmethod
-    def _exec_inifiles(inifiles, evaluator):
-        for inifile in inifiles:
-            try:
-                inifp = open(inifile, 'r')
-                source = inifp.read()
-                inifp.close()
-            except IOError as ex:
-                msg = "IO error occured at reading file '{}'\n{}"\
-                    .format(inifile, ex)
-                raise FyppError(msg)
-            try:
-                code = compile(source, inifile, 'exec', dont_inherit=-1)
-                evaluator.execute(code)
-            except Exception as ex:
-                msg = "exception occured when executing ini-file '{}'\n{}"\
-                      .format(inifile, ex)
-                raise FyppError(msg)
+def _add_io_arguments(parser):
+    msg = "input file to be processed (default: '-', stdin)"
+    parser.add_argument('infile', nargs='?', default='-', help=msg)
+    msg = "output file where processed content will be written (default: " \
+          "'-', stdout)"
+    parser.add_argument('outfile', nargs='?', default='-', help=msg)
 
 
 def run_fypp():
     '''Run the Fypp command line tool.'''
+    options = FyppOptions()
+    argparser = get_option_parser()
+    _add_io_arguments(argparser)
+    args = argparser.parse_args(namespace=options)
     try:
-        tool = Fypp()
-        tool.process_cmdline_files()
+        tool = Fypp(args)
+        tool.process_file(args.infile, args.outfile)
     except FyppError as exc:
         sys.stderr.write(str(exc))
         sys.stderr.write('\n')
         sys.exit(1)
+
+
+def _shiftinds(inds, shift):
+    return [ind + shift for ind in inds]
+
+
+def _open_input_file(inpfile):
+    try:
+        inpfp = open(inpfile, 'r')
+    except IOError as ex:
+        msg = "Failed to open file '{}' for read\n{}".format(inpfile, ex)
+        raise FyppError(msg)
+    return inpfp
+
+
+def _open_output_file(outfile, create_parents=False):
+    if create_parents:
+        parentdir = os.path.abspath(os.path.dirname(outfile))
+        if not os.path.exists(parentdir):
+            try:
+                os.makedirs(parentdir)
+            except OSError as ex:
+                if ex.errno != errno.EEXIST:
+                    msg = "Folder '{}' can not be created\n{}"\
+                        .format(parentdir, ex)
+                    raise FyppError(msg)
+    try:
+        outfp = open(outfile, 'w')
+    except IOError as ex:
+        msg = "Failed to open file '{}' for write\n{}".format(outfile, ex)
+        raise FyppError(msg)
+    return outfp
 
 
 if __name__ == '__main__':

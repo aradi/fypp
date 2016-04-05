@@ -3,14 +3,10 @@
 import unittest
 import fypp
 
-def _strsyncl(linenr, fname=None):
+def _linenum(linenr, fname=None):
     if fname is None:
         fname = fypp.STRING
-    return fypp.syncline(linenr, fname)
-
-def _filesyncl(fname, linenr):
-    return fypp.syncline(linenr, fname)
-
+    return fypp.linenumdir(linenr, fname)
 
 def _defvar(var, val):
     return '-D{}={}'.format(var, val)
@@ -27,9 +23,14 @@ def _indentation(ind):
 def _folding(fold):
     return '-f{}'.format(fold)
 
-_SYNCL_FLAG = '-s'
+def _linenumbering(nummode):
+    return '-N{}'.format(nummode)
+
+_LINENUM_FLAG = '-n'
 
 _FIXED_FORMAT_FLAG = '--fixed-format'
+
+_NO_FOLDING_FLAG = '-F'
 
 
 SIMPLE_TESTS = [
@@ -322,7 +323,7 @@ SIMPLE_TESTS = [
     #
     ('direct_call_2_args_escape', [],
      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-     '@:mymacro """L1""" @\@ L2 @@ L3\n',
+     '@:mymacro """L1""" @\\@ L2 @@ L3\n',
      '|"""L1""" @@ L2|L3|\n',
     ),
     #
@@ -346,6 +347,21 @@ SIMPLE_TESTS = [
      '2Done\n',
     ),
     #
+    ('setvar_function', [],
+     '$:setvar("x", 2)\n${x}$\nDone\n',
+     "\n2\nDone\n",
+    ),
+    #
+    ('getvar_existing_value', [_defvar('VAR', '\"VAL\"')],
+     '$:getvar("VAR", "DEFAULT")\n',
+     'VAL\n',
+    ),
+    #
+    ('getvar_default_value', [],
+     '$:getvar("VAR", "DEFAULT")\n',
+     'DEFAULT\n',
+    ),
+    #
     ('mute', [],
      'A\n#:mute\nB\n#:setvar VAR 2\n#:endmute\nVAR=${VAR}$\n',
      'A\nVAR=2\n'
@@ -359,6 +375,11 @@ SIMPLE_TESTS = [
     ('builtin_var_file', [],
      '${_FILE_}$',
      fypp.STRING
+    ),
+    #
+    ('builtin_var_line_in_lineeval', [],
+     '$:_LINE_\n',
+     '1\n'
     ),
     #
     ('escaped_control_inline', [],
@@ -386,6 +407,11 @@ SIMPLE_TESTS = [
      r'$\\{1 + 1}\$'
     ),
     #
+    ('escape_direct_call', [],
+     '@\\:assertTrue x > y\n',
+     '@:assertTrue x > y\n'
+    ),
+    #
     ('fold_lines', [_linelen(10), _indentation(2), _folding('simple')],
      'This line is not folded\nThis line ${1 + 1}$ is folded\n',
      'This line is not folded\nThis line&\n  & 2 is &\n  &folded\n'
@@ -398,7 +424,7 @@ SIMPLE_TESTS = [
      ' ! Should be not folded\nShould be&\n  & folded\n'
     ),
     #
-    ('no_folding', [_linelen(15), _indentation(4), _folding('none')],
+    ('no_folding', [_linelen(15), _indentation(4), _NO_FOLDING_FLAG],
      '  ${3}$456 89 123456 8',
      '  3456 89 123456 8',
     ),
@@ -427,232 +453,241 @@ SIMPLE_TESTS = [
     ),
 ]
 
-SYNCLINE_TESTS = [
-    # This test (but only this) must be changed, if syncline format changes.
-    ('explicit_str_syncline_test', [_SYNCL_FLAG],
+LINENUM_TESTS = [
+    # This test (but only this) must be changed, if linenum directive changes.
+    ('explicit_str_linenum_test', [_LINENUM_FLAG],
      '',
      '# 1 "<string>"\n',
     ),
     #
-    ('trivial', [_SYNCL_FLAG],
+    ('trivial', [_LINENUM_FLAG],
      'Test\n',
-     _strsyncl(0) + 'Test\n'
+     _linenum(0) + 'Test\n'
     ),
     #
-    ('if_true', [_SYNCL_FLAG],
+    ('if_true', [_LINENUM_FLAG],
      '#:if 1 < 2\nTrue\n#:endif\nDone\n',
-     _strsyncl(0) + _strsyncl(1) + 'True\n' + _strsyncl(3) + 'Done\n'
+     _linenum(0) + _linenum(1) + 'True\n' + _linenum(3) + 'Done\n'
     ),
     #
-    ('if_false', [_SYNCL_FLAG],
+    ('if_false', [_LINENUM_FLAG],
      '#:if 1 > 2\nTrue\n#:endif\nDone\n',
-     _strsyncl(0) + _strsyncl(3) + 'Done\n'
+     _linenum(0) + _linenum(3) + 'Done\n'
     ),
     #
-    ('if_else_true', [_SYNCL_FLAG],
+    ('if_else_true', [_LINENUM_FLAG],
      '#:if 1 < 2\nTrue\n#:else\nFalse\n#:endif\nDone\n',
-     _strsyncl(0) + _strsyncl(1) + 'True\n' + _strsyncl(5) + 'Done\n'
+     _linenum(0) + _linenum(1) + 'True\n' + _linenum(5) + 'Done\n'
     ),
     #
-    ('if_else_false', [_SYNCL_FLAG],
+    ('if_else_false', [_LINENUM_FLAG],
      '#:if 1 > 2\nTrue\n#:else\nFalse\n#:endif\nDone\n',
-     _strsyncl(0) + _strsyncl(3) + 'False\n' + _strsyncl(5) + 'Done\n'
+     _linenum(0) + _linenum(3) + 'False\n' + _linenum(5) + 'Done\n'
     ),
-    ('if_elif_true1', [_SYNCL_FLAG],
+    ('if_elif_true1', [_LINENUM_FLAG],
      '#:if 1 == 1\nTrue1\n#:elif 1 == 2\nTrue2\n#:endif\nDone\n',
-     _strsyncl(0) + _strsyncl(1) + 'True1\n' + _strsyncl(5) + 'Done\n'
+     _linenum(0) + _linenum(1) + 'True1\n' + _linenum(5) + 'Done\n'
     ),
     #
-    ('if_elif_true2', [_SYNCL_FLAG],
+    ('if_elif_true2', [_LINENUM_FLAG],
      '#:if 2 == 1\nTrue1\n#:elif 2 == 2\nTrue2\n#:endif\nDone\n',
-     _strsyncl(0) + _strsyncl(3) + 'True2\n' + _strsyncl(5) + 'Done\n'
+     _linenum(0) + _linenum(3) + 'True2\n' + _linenum(5) + 'Done\n'
     ),
     #
-    ('if_elif_false', [_SYNCL_FLAG],
+    ('if_elif_false', [_LINENUM_FLAG],
      '#:if 0 == 1\nTrue1\n#:elif 0 == 2\nTrue2\n#:endif\nDone\n',
-     _strsyncl(0) + _strsyncl(5) + 'Done\n'
+     _linenum(0) + _linenum(5) + 'Done\n'
     ),
     #
-    ('if_elif_else_true1', [_SYNCL_FLAG],
+    ('if_elif_else_true1', [_LINENUM_FLAG],
      '#:if 1 == 1\nTrue1\n#:elif 1 == 2\nTrue2\n'
      '#:else\nFalse\n#:endif\nDone\n',
-     _strsyncl(0) + _strsyncl(1) + 'True1\n' + _strsyncl(7) + 'Done\n'
+     _linenum(0) + _linenum(1) + 'True1\n' + _linenum(7) + 'Done\n'
     ),
     #
-    ('if_elif_else_true2', [_SYNCL_FLAG],
+    ('if_elif_else_true2', [_LINENUM_FLAG],
      '#:if 2 == 1\nTrue1\n#:elif 2 == 2\nTrue2\n'
      '#:else\nFalse\n#:endif\nDone\n',
-     _strsyncl(0) + _strsyncl(3) + 'True2\n' + _strsyncl(7) + 'Done\n'
+     _linenum(0) + _linenum(3) + 'True2\n' + _linenum(7) + 'Done\n'
     ),
     #
-    ('if_elif_else_false', [_SYNCL_FLAG],
+    ('if_elif_else_false', [_LINENUM_FLAG],
      '#:if 0 == 1\nTrue1\n#:elif 0 == 2\nTrue2\n'
      '#:else\nFalse\n#:endif\nDone\n',
-     _strsyncl(0) + _strsyncl(5) + 'False\n' + _strsyncl(7) + 'Done\n'
+     _linenum(0) + _linenum(5) + 'False\n' + _linenum(7) + 'Done\n'
     ),
     #
-    ('inline_if_true', [_SYNCL_FLAG],
+    ('inline_if_true', [_LINENUM_FLAG],
      '#{if 1 < 2}#True#{endif}#Done\n',
-     _strsyncl(0) + 'TrueDone\n'
+     _linenum(0) + 'TrueDone\n'
     ),
     #
-    ('inline_if_false', [_SYNCL_FLAG],
+    ('inline_if_false', [_LINENUM_FLAG],
      '#{if 1 > 2}#True#{endif}#Done\n',
-     _strsyncl(0) + 'Done\n'
+     _linenum(0) + 'Done\n'
     ),
     #
-    ('inline_if_else_true', [_SYNCL_FLAG],
+    ('inline_if_else_true', [_LINENUM_FLAG],
      '#{if 1 < 2}#True#{else}#False#{endif}#Done\n',
-     _strsyncl(0) + 'TrueDone\n'
+     _linenum(0) + 'TrueDone\n'
     ),
     #
-    ('inline_if_else_false', [_SYNCL_FLAG],
+    ('inline_if_else_false', [_LINENUM_FLAG],
      '#{if 1 > 2}#True#{else}#False#{endif}#Done\n',
-     _strsyncl(0) + 'FalseDone\n'
+     _linenum(0) + 'FalseDone\n'
     ),
-    ('inline_if_elif_true1', [_SYNCL_FLAG],
+    ('inline_if_elif_true1', [_LINENUM_FLAG],
      '#{if 1 == 1}#True1#{elif 1 == 2}#True2#{endif}#Done\n',
-     _strsyncl(0) + 'True1Done\n'
+     _linenum(0) + 'True1Done\n'
     ),
     #
-    ('inline_if_elif_true2', [_SYNCL_FLAG],
+    ('inline_if_elif_true2', [_LINENUM_FLAG],
      '#{if 2 == 1}#True1#{elif 2 == 2}#True2#{endif}#Done\n',
-     _strsyncl(0) + 'True2Done\n'
+     _linenum(0) + 'True2Done\n'
     ),
     #
-    ('inline_if_elif_false', [_SYNCL_FLAG],
+    ('inline_if_elif_false', [_LINENUM_FLAG],
      '#{if 0 == 1}#True1#{elif 0 == 2}#True2#{endif}#Done\n',
-     _strsyncl(0) + 'Done\n'
+     _linenum(0) + 'Done\n'
     ),
     #
-    ('inline_if_elif_else_true1', [_SYNCL_FLAG],
+    ('inline_if_elif_else_true1', [_LINENUM_FLAG],
      '#{if 1 == 1}#True1#{elif 1 == 2}#True2#{else}#False#{endif}#Done\n',
-     _strsyncl(0) + 'True1Done\n'
+     _linenum(0) + 'True1Done\n'
     ),
     #
-    ('inline_if_elif_else_true2', [_SYNCL_FLAG],
+    ('inline_if_elif_else_true2', [_LINENUM_FLAG],
      '#{if 2 == 1}#True1#{elif 2 == 2}#True2#{else}#False#{endif}#Done\n',
-     _strsyncl(0) + 'True2Done\n'
+     _linenum(0) + 'True2Done\n'
     ),
     #
-    ('inline_if_elif_else_false', [_SYNCL_FLAG],
+    ('inline_if_elif_else_false', [_LINENUM_FLAG],
      '#{if 0 == 1}#True1#{elif 0 == 2}#True2#{else}#False#{endif}#Done\n',
-     _strsyncl(0) + 'FalseDone\n'
+     _linenum(0) + 'FalseDone\n'
     ),
     #
-    ('linesub_oneline', [_SYNCL_FLAG],
+    ('linesub_oneline', [_LINENUM_FLAG],
      'A\n$: 1 + 1\nB\n',
-     _strsyncl(0) + 'A\n2\nB\n'
+     _linenum(0) + 'A\n2\nB\n'
     ),
     #
-    ('linesub_contlines', [_SYNCL_FLAG, _defvar('TESTVAR', 1)],
+    ('linesub_contlines', [_LINENUM_FLAG, _defvar('TESTVAR', 1)],
      '$: TESTVAR & \n  & + 1\nDone\n',
-     _strsyncl(0) + '2\n' + _strsyncl(2) + 'Done\n'
+     _linenum(0) + '2\n' + _linenum(2) + 'Done\n'
     ),
     #
-    ('linesub_contlines2', [_SYNCL_FLAG, _defvar('TESTVAR', 1)],
+    ('linesub_contlines2', [_LINENUM_FLAG, _defvar('TESTVAR', 1)],
      '$: TEST& \n  &VAR & \n  & + 1\nDone\n',
-     _strsyncl(0) + '2\n' + _strsyncl(3) + 'Done\n'
+     _linenum(0) + '2\n' + _linenum(3) + 'Done\n'
     ),
     #
-    ('exprsub_single_line', [_SYNCL_FLAG, _defvar('TESTVAR', 1)],
+    ('exprsub_single_line', [_LINENUM_FLAG, _defvar('TESTVAR', 1)],
      'A${TESTVAR}$B${TESTVAR + 1}$C',
-     _strsyncl(0) + 'A1B2C'
+     _linenum(0) + 'A1B2C'
     ),
     #
-    ('exprsub_multi_line', [_SYNCL_FLAG],
+    ('exprsub_multi_line', [_LINENUM_FLAG],
      '${"line1\\nline2"}$\nDone\n',
-     _strsyncl(0) + 'line1\n' + _strsyncl(0) + 'line2\nDone\n'
+     _linenum(0) + 'line1\n' + _linenum(0) + 'line2\nDone\n'
     ),
     #
-    ('macrosubs', [_SYNCL_FLAG],
+    ('macrosubs', [_LINENUM_FLAG],
      '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n${macro(1)}$',
-     _strsyncl(0) + _strsyncl(3) + 'MACRO|1|'
+     _linenum(0) + _linenum(3) + 'MACRO|1|'
     ),
     #
-    ('recursive_macrosubs', [_SYNCL_FLAG],
+    ('recursive_macrosubs', [_LINENUM_FLAG],
      '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n${macro(macro(1))}$',
-     _strsyncl(0) + _strsyncl(3) + 'MACRO|MACRO|1||'
+     _linenum(0) + _linenum(3) + 'MACRO|MACRO|1||'
     ),
     #
-    ('macrosubs_multiline', [_SYNCL_FLAG],
+    ('macrosubs_multiline', [_LINENUM_FLAG],
      '#:def macro(c)\nMACRO1|${c}$|\nMACRO2|${c}$|\n#:enddef\n${macro(\'A\')}$'
      '\n',
-     _strsyncl(0) + _strsyncl(4) + 'MACRO1|A|\n' + _strsyncl(4) + 'MACRO2|A|\n'
+     _linenum(0) + _linenum(4) + 'MACRO1|A|\n' + _linenum(4) + 'MACRO2|A|\n'
     ),
     #
-    ('recursive_macrosubs_multiline', [_SYNCL_FLAG],
+    ('recursive_macrosubs_multiline', [_LINENUM_FLAG],
      '#:def f(c)\nLINE1|${c}$|\nLINE2|${c}$|\n#:enddef\n$: f(f("A"))\n',
-     (_strsyncl(0) + _strsyncl(4) + 'LINE1|LINE1|A|\n' + _strsyncl(4)
-      + 'LINE2|A||\n' + _strsyncl(4) + 'LINE2|LINE1|A|\n' + _strsyncl(4)
+     (_linenum(0) + _linenum(4) + 'LINE1|LINE1|A|\n' + _linenum(4)
+      + 'LINE2|A||\n' + _linenum(4) + 'LINE2|LINE1|A|\n' + _linenum(4)
       + 'LINE2|A||\n')
     ),
     #
-    ('multiline_macrocall', [_SYNCL_FLAG],
+    ('multiline_macrocall', [_LINENUM_FLAG],
      '#:def macro(c)\nMACRO|${c}$|\n#:enddef\n$: mac& \n  &ro(\'A\')\nDone\n',
-     _strsyncl(0) + _strsyncl(3) + 'MACRO|A|\n' + _strsyncl(5) + 'Done\n'
+     _linenum(0) + _linenum(3) + 'MACRO|A|\n' + _linenum(5) + 'Done\n'
     ),
     #
-    ('call_directive_2_args', [_SYNCL_FLAG],
+    ('call_directive_2_args', [_LINENUM_FLAG],
      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
      '#:call mymacro\nL1\nL2\n#:nextarg\nL3\n#:endcall\n',
-     _strsyncl(0) + _strsyncl(3) + '|L1\n' + _strsyncl(3) + 'L2|L3|\n'\
-     + _strsyncl(9),
+     _linenum(0) + _linenum(3) + '|L1\n' + _linenum(3) + 'L2|L3|\n'\
+     + _linenum(9),
     ),
     #
-    ('for', [_SYNCL_FLAG],
+    ('for', [_LINENUM_FLAG],
      '#:for i in (1, 2)\n${i}$\n#:endfor\nDone\n',
-     (_strsyncl(0) + _strsyncl(1) + '1\n' + _strsyncl(1) + '2\n'
-      + _strsyncl(3) + 'Done\n')
+     (_linenum(0) + _linenum(1) + '1\n' + _linenum(1) + '2\n'
+      + _linenum(3) + 'Done\n')
     ),
     #
-    ('inline_for', [_SYNCL_FLAG],
+    ('inline_for', [_LINENUM_FLAG],
      '#{for i in (1, 2)}#${i}$#{endfor}#Done\n',
-     _strsyncl(0) + '12Done\n'
+     _linenum(0) + '12Done\n'
     ),
     #
-    ('setvar', [_SYNCL_FLAG],
+    ('setvar', [_LINENUM_FLAG],
      '#:setvar x 2\n$: x\n',
-     _strsyncl(0) + _strsyncl(1) + '2\n',
+     _linenum(0) + _linenum(1) + '2\n',
     ),
     #
-    ('inline_setvar', [_SYNCL_FLAG],
+    ('inline_setvar', [_LINENUM_FLAG],
      '#{setvar x 2}#${x}$Done\n',
-     _strsyncl(0) + '2Done\n',
+     _linenum(0) + '2Done\n',
     ),
     #
-    ('comment_single', [_SYNCL_FLAG],
+    ('comment_single', [_LINENUM_FLAG],
      ' #! Comment here\nDone\n',
-     _strsyncl(0) + _strsyncl(1) + 'Done\n'
+     _linenum(0) + _linenum(1) + 'Done\n'
     ),
     #
-    ('comment_multiple', [_SYNCL_FLAG],
+    ('comment_multiple', [_LINENUM_FLAG],
      ' #! Comment1\n#! Comment2\nDone\n',
-     _strsyncl(0) + _strsyncl(2) + 'Done\n',
+     _linenum(0) + _linenum(2) + 'Done\n',
     ),
     #
-    ('mute', [_SYNCL_FLAG],
+    ('mute', [_LINENUM_FLAG],
      'A\n#:mute\nB\n#:setvar VAR 2\n#:endmute\nVAR=${VAR}$\n',
-     _strsyncl(0) + 'A\n' + _strsyncl(5) + 'VAR=2\n'
+     _linenum(0) + 'A\n' + _linenum(5) + 'VAR=2\n'
     ),
     #
-    ('mute', [_SYNCL_FLAG],
-     'A\n#:mute\nB\n#:setvar VAR 2\n#:endmute\nVAR=${VAR}$\n',
-     _strsyncl(0) + 'A\n' + _strsyncl(5) + 'VAR=2\n'
-    ),
-    #
-    ('direct_call', [_SYNCL_FLAG],
+    ('direct_call', [_LINENUM_FLAG],
      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
      '@:mymacro a < b\n',
-     _strsyncl(0) + _strsyncl(3) + '|a < b|\n',
+     _linenum(0) + _linenum(3) + '|a < b|\n',
     ),
     #
-    ('direct_call_contline', [_SYNCL_FLAG],
+    ('direct_call_contline', [_LINENUM_FLAG],
      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
      '@:mymacro a &\n    &< b&\n    &\nDone\n',
-     _strsyncl(0) + _strsyncl(3) + '|a < b|\n' + _strsyncl(6) + 'Done\n',
+     _linenum(0) + _linenum(3) + '|a < b|\n' + _linenum(6) + 'Done\n',
     ),
-
+    #
+    ('smart_folding',
+     [_LINENUM_FLAG, _linelen(15), _indentation(4), _folding('smart')],
+     '  ${3}$456 89 123456 8\nDone\n',
+     _linenum(0) + '  3456 89&\n' + _linenum(0) + '      & 123456&\n' \
+     + _linenum(0) + '      & 8\n' + 'Done\n'
+    ),
+    #
+    ('smart_folding_nocontlines',
+     [_LINENUM_FLAG, _linenumbering('nocontlines'), _linelen(15),
+      _indentation(4), _folding('smart')],
+     '  ${3}$456 89 123456 8\nDone\n',
+     _linenum(0) + '  3456 89&\n' + '      & 123456&\n' \
+     + '      & 8\n' + _linenum(1) + 'Done\n'
+    ),
 ]
 
 INCLUDE_TESTS = [
@@ -677,28 +712,38 @@ INCLUDE_TESTS = [
      'FYPP2\n'
     ),
     #
-    ('search_include_syncl', [_SYNCL_FLAG, _incdir('include')],
+    ('search_include_linenum', [_LINENUM_FLAG, _incdir('include')],
      '#:include "fypp1.inc"\n$: incmacro(1)\n',
-     (_strsyncl(0) + _filesyncl('include/fypp1.inc', 0)
-      + 'INCL1\n' + _filesyncl('include/fypp1.inc', 4)
-      + 'INCL5\n' + _strsyncl(1) + 'INCMACRO(1)\n')
+     (_linenum(0) + _linenum(0, 'include/fypp1.inc')
+      + 'INCL1\n' + _linenum(4, 'include/fypp1.inc')
+      + 'INCL5\n' + _linenum(1) + 'INCMACRO(1)\n')
     ),
     #
-    ('nested_include_in_incpath_syncl', [_SYNCL_FLAG, _incdir('include')],
+    ('nested_include_in_incpath_linenum', [_LINENUM_FLAG, _incdir('include')],
      '#:include "subfolder/include_fypp1.inc"\n',
-     (_strsyncl(0) + _strsyncl(0, 'include/subfolder/include_fypp1.inc')
-      + _strsyncl(0, 'include/fypp1.inc') + 'INCL1\n' 
-      + _strsyncl(4, 'include/fypp1.inc') + 'INCL5\n'
-      + _strsyncl(1, 'include/subfolder/include_fypp1.inc')
-      + _strsyncl(1))
+     (_linenum(0) + _linenum(0, 'include/subfolder/include_fypp1.inc')
+      + _linenum(0, 'include/fypp1.inc') + 'INCL1\n'
+      + _linenum(4, 'include/fypp1.inc') + 'INCL5\n'
+      + _linenum(1, 'include/subfolder/include_fypp1.inc')
+      + _linenum(1))
     ),
     #
-    ('nested_include_in_folder_of_incfile', [_SYNCL_FLAG, _incdir('include')],
+    ('nested_include_in_folder_of_incfile', [_LINENUM_FLAG, _incdir('include')],
      '#:include "subfolder/include_fypp2.inc"\n',
-     (_strsyncl(0) + _strsyncl(0, 'include/subfolder/include_fypp2.inc')
-      + _strsyncl(0, 'include/subfolder/fypp2.inc')
+     (_linenum(0) + _linenum(0, 'include/subfolder/include_fypp2.inc')
+      + _linenum(0, 'include/subfolder/fypp2.inc')
       + 'FYPP2\n'
-      + _strsyncl(1, 'include/subfolder/include_fypp2.inc') + _strsyncl(1))
+      + _linenum(1, 'include/subfolder/include_fypp2.inc') + _linenum(1))
+    ),
+    #
+    ('muted_include', [_incdir('include')],
+     'START\n#:mute\n#:include \'fypp1.inc\'\n#:endmute\nDONE\n',
+     'START\nDONE\n'
+    ),
+    #
+    ('muted_include_linenum', [_LINENUM_FLAG, _incdir('include')],
+     'START\n#:mute\n#:include \'fypp1.inc\'\n#:endmute\nDONE\n',
+     _linenum(0) + 'START\n' + _linenum(4) + 'DONE\n'
     ),
 ]
 
@@ -1009,8 +1054,8 @@ class SimpleTest(unittest.TestCase):
     pass
 
 
-class SynclineTest(unittest.TestCase):
-    '''Container for tests with syncline output.'''
+class LineNumberingTest(unittest.TestCase):
+    '''Container for tests with line numbering directives.'''
     pass
 
 
@@ -1038,8 +1083,9 @@ def test_output_method(args, inp, out):
 
     def test_output(self):
         '''Tests whether Fypp result matches expected output.'''
-
-        tool = fypp.Fypp(args)
+        options = fypp.FyppOptions()
+        argparser = fypp.get_option_parser()
+        tool = fypp.Fypp(argparser.parse_args(args, namespace=options))
         result = tool.process_text(inp)
         self.assertEqual(out, result)
     return test_output
@@ -1062,8 +1108,10 @@ def test_exception_method(args, inp, exc, fname, span):
     def test_exception(self):
         '''Tests whether Fypp throws the correct exception.'''
 
+        options = fypp.FyppOptions()
+        argparser = fypp.get_option_parser()
         with self.assertRaises(exc) as ctx:
-            tool = fypp.Fypp(args)
+            tool = fypp.Fypp(argparser.parse_args(args, namespace=options))
             _ = tool.process_text(inp)
         raised = ctx.exception
         if fname is None:
@@ -1095,7 +1143,7 @@ def add_test_methods(tests, testcase, methodfactory):
 
 
 add_test_methods(SIMPLE_TESTS, SimpleTest, test_output_method)
-add_test_methods(SYNCLINE_TESTS, SynclineTest, test_output_method)
+add_test_methods(LINENUM_TESTS, LineNumberingTest, test_output_method)
 add_test_methods(INCLUDE_TESTS, IncludeTest, test_output_method)
 add_test_methods(EXCEPTION_TESTS, ExceptionTest, test_exception_method)
 

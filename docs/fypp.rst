@@ -4,38 +4,39 @@
 Introduction
 ************
 
-Fypp is a Python powered Fortran preprocessor. It extends Fortran with
-condititional compiling and template metaprogramming capabilities. Instead of
-introducing its own expression syntax, it uses Python expressions in its
-preprocessor directives, offering the consistency and flexibility of Python when
-formulating metaprogramming tasks. It puts strong emphasis on robustness and on
-neat integration into Fortran developing toolchains.
+Fypp is a Python powered preprocessor. It can be used for any programming
+languages but its primary aim is to offer a Fortran preprocessor, which helps to
+extend Fortran with condititional compiling and template metaprogramming
+capabilities. Instead of introducing its own expression syntax, it uses Python
+expressions in its preprocessor directives, offering the consistency and
+versatility of Python when formulating metaprogramming tasks. It puts strong
+emphasis on robustness and on neat integration into developing toolchains.
 
 Fypp was inspired by the `pyratemp
 <http://www.simple-is-better.org/template/pyratemp.html>`_ templating engine
 [#]_. Although it shares many concepts with pyratemp, it was written from
-scratch focusing on the special needs when preprocessing Fortran source
-files. Fypp natively supports the output of synchronization line directives,
-which are used by many compilers to generate compiler messages with correct line
-numbers. Unlike most cpp/fpp-like preprocessors, Fypp also supports iterations,
-multiline macros, continuation lines in preprocessor directives and automatic
-line folding. It generally tries to extend the modern Fortran language with some
-useful features without tempting you to use it for tasks, which could/should be
-done in Fortran itself.
+scratch focusing on the special needs when preprocessing source code. Fypp
+natively supports the output of line numbering directives, which are used by
+many compilers to generate compiler messages with correct line numbers. Unlike
+most cpp/fpp preprocessors or the coco preprocessor, Fypp also supports
+iterations, multiline macros, continuation lines in preprocessor directives and
+automatic line folding. It generally tries to extend the modern Fortran language
+with some useful features without tempting you to use it for tasks which
+could/should be done in Fortran itself.
 
 The project is `hosted on bitbucket <http://bitbucket.org/aradi/fypp>`_ with
 documentation available on `readthedocs.org
 <http://fypp.readthedocs.org>`_. Fypp is released under the *BSD 2-clause
 license*.
 
-This document describes Fypp Version 0.12.
+This document describes Fypp Version 1.0.
 
 
 Features
 ========
 
-Below you find a summary over Fypps main features. Each of them is described in
-more detail in individual sections further down.
+Below you find a summary over Fypps main features. Each of them is described
+more in detail in the individual sections further down.
 
 * Definition and evaluation of preprocessor variables::
 
@@ -50,10 +51,12 @@ more detail in individual sections further down.
   Fortran standard)::
 
     #:def assertTrue(cond)
+    #:if DEBUG > 0
     if (.not. ${cond}$) then
       print *, "Assert failed in file ${_FILE_}$, line ${_LINE_}$"
       error stop
     end if
+    #:endif
     #:enddef
 
     ! Invoked via direct call (needs no quotation)
@@ -74,7 +77,7 @@ more detail in individual sections further down.
       use serial
     #:endif
 
-* Iterated output (e.g. for Fortran templates)::
+* Iterated output (e.g. for generating Fortran templates)::
 
     interface myfunc
     #:for dtype in [ 'real', 'dreal', 'complex', 'dcomplex' ]
@@ -135,27 +138,27 @@ Getting started
 Installing
 ==========
 
-Fypp needs a working Python interpreter, either version 2.7 or version 3.2 or
-above.
+Fypp needs a Python interpreter of version 2.7, 3.2 or above.
 
 Automatic install
 -----------------
 
-You can use Pythons installer `pip` to install the last stable release of Fypp
-on your system::
+Use Pythons command line installer ``pip`` in order to download the stable
+release from the `Fypp page on PyPI <http://pypi.python.org/pypi/fypp>`_ and
+install it on your system::
 
   pip install fypp
 
-This installs the command line tool ``fypp`` as well as the Python module
-``fypp``. Latter you can import if you want to access the functionality of Fypp
-directly from within your Python scripts.
+This installs both, the command line tool ``fypp`` and the Python module
+``fypp.py``. Latter you can import if you want to access the functionality of
+Fypp directly from within your Python scripts.
 
 
 Manual install
 --------------
 
-Alternatively, you can download the source code from the `Fypp project website
-<http://bitbucket.org/aradi/fypp>`_ ::
+For a manual install, you can download the source code from the `Fypp project
+website <http://bitbucket.org/aradi/fypp>`_ ::
 
   git clone https://aradi@bitbucket.org/aradi/fypp.git
 
@@ -184,6 +187,8 @@ environment variable, by just issuing ::
 
   fypp
 
+The python module ``fypp.py`` can be found in ``FYP_SOURCE_FOLDER/src``.
+
 
 Testing
 =======
@@ -192,7 +197,7 @@ You can test Fypp on your system by running ::
 
   ./test/runtests.sh
 
-in its source tree. This will execute various unit tests to check whether Fypp
+in the source tree. This will execute various unit tests to check whether Fypp
 works as expected. If you want to run the tests with a specific Python
 interpreter, you can specify it as argument to the script::
 
@@ -205,9 +210,9 @@ Running
 The Fypp command line tool reads a file, preprocesses it and writes it to
 another file, so you would typically invoke it like::
 
-  fypp source.fypp source.f90
+  fypp source.F90 source.f90
 
-which would process `source.fypp` and write the result to `source.f90`.  If
+which would process `source.F90` and write the result to `source.f90`.  If
 input and output files are not specified, information is read from stdin and
 written to stdout.
 
@@ -233,7 +238,7 @@ an inline form:
    * Line form, starting with ``#:`` (hashmark colon)::
 
        #:if 1 > 2
-         Some fortran code
+         Some code
        #:endif
 
    * Inline form, enclosed between ``#{`` and ``}#``::
@@ -257,14 +262,14 @@ an inline form:
 
 
 The line form must always start at the beginning of a line (preceded by optional
-whitespace characters only) and it goes until the end of the line. The inline
-form can appear anywhere, but if the construct consists of several directives
+whitespace characters only) and it ends at the end of the line. The inline form
+can appear anywhere, but if the construct consists of several directives
 (e.g. ``#{if ...}#`` and ``#{endif}#``), all of them must appear on the same
-line. While both forms can be used at the same time, for a particular construct
-they must be consistent, e.g. a directive opened as line directive can not be
-closed with an inline directive and vica versa.
+line. While both forms can be used at the same time, they must be consistent for
+a particular construct, e.g. a directive opened as line directive can not be
+closed by an inline directive and vica versa.
 
-Whitespaces in preprocessor commands are ignored, if they appear after the
+Whitespaces in preprocessor commands are ignored if they appear after the
 opening colon or curly brace or before the closing curly brace. So the following
 examples are pairwise equivalent::
 
@@ -280,8 +285,8 @@ examples are pairwise equivalent::
   ${time.strftime('%Y-%m-%d')}$
   ${ time.strftime('%Y-%m-%d') }$
 
-Starting whitespaces before line directives are also ignored, enabling you to
-choose any indentation strategy you like for the directives::
+Starting whitespaces before line directives are ignored, enabling you to choose
+any indentation strategy you like for the directives::
 
   program test
     :
@@ -295,7 +300,7 @@ choose any indentation strategy you like for the directives::
     :
   end program test
 
-Preprocessor directives can be nested arbitrarily::
+Preprocessor directives can be arbitrarily nested::
 
   #:if DEBUG > 0
     #:if DO_LOGGING
@@ -324,32 +329,33 @@ be, therefore, syntactically and semantically correct Python
 expressions. Although, this may require some additional quotations as compared
 to other preprocessor languages ::
 
-  #:if defined('DEBUG')  #! defined() takes a Python string as argument
-  #:for dtype in [ 'real(dp)', 'integer', 'logical' ]  # dtype runs over strings  
+  #:if defined('DEBUG')  #! The Python function defined() expects a string argument
+  #:for dtype in [ 'real(dp)', 'integer', 'logical' ]  #! dtype runs over strings  
 
 it enables consistent expressions with (hopefully) least surprises (once you
 know, how to formulate the expression in Python, you exactly know, how to write
 it for Fypp). Also, note, that variable names, macros etc. are in Python (and
-therefore als for Fypp) case sensitive.
+therefore also for Fypp) case sensitive.
 
-If you access a variable in an expression, it must have been defined (either via
-command line options or via preprocessor directives) before. For example ::
+When you access a variable in an expression, it must have been already defined
+before, either via command line options or via preprocessor directives. For
+example the directive ::
 
   #:if DEBUG > 0
 
-can only be evaluated, if the variable `DEBUG` had been already defined. 
+can only be evaluated, if the variable `DEBUG` had been already defined before.
 
-Python expressions are evaluted in an isolated Python environment. It contains a
-restricted set of Python built-in functions and a few predefined variables and
-functions (see below). There are no modules loaded by default, and for safety
-reasons, no modules can be loaded once the preprocessing has started.
+Python expressions are evaluted in an isolated Python environment, which
+contains a restricted set of Python built-in functions and a few predefined
+variables and functions (see below). There are no modules loaded by default, and
+for safety reasons, no modules can be loaded once the preprocessing has started.
 
 
 Initializing the environment
 ----------------------------
 
-If a Python module is needed during the preprocessing, it can be imported via
-the command line option (``-m``) before the preprocessing starts::
+If a Python module is required for the preprocessing, it can be imported before
+the preprocessing starts via the command line option (``-m``)::
 
   fypp -m time
 
@@ -370,27 +376,27 @@ Initial values for preprocessor variables can be set via the command line option
 The assigned value for a given variable is evaluated in Python. If no value is
 provided, `None` is assigned.
 
-When complex initialization is needed (e.g. user defined Python functions are
-needed during preprocessing), initialization scripts can be specified via the
-command line option ``-i``::
+When complex initialization is needed (e.g. user defined Python functions should
+be defined), initialization scripts can be specified via the command line option
+``-i``::
 
   fypp -i ini1.py -i ini2.py
 
 The preprocessor executes the content of each initialization script in the
 isolated environment via Pythons `exec()` command before processing any
 input. If modules had been also specified via the ``-m`` option, they are
-imported before the initialization scripts are executed.
+imported before the execution of the initialization scripts.
 
 
 Predefined variables and functions
 ----------------------------------
 
 The isolated Python environment for the expression evaluation contains following
-predefined read-only variables:
+predefined (read-only) variables:
 
-* ``_LINE_``: number of the line where the eval directive was found
+* ``_LINE_``: number of current line
 
-* ``_FILE_``: name of the file in which the eval directive was found ::
+* ``_FILE_``: name of curernt file ::
 
     print *, "This is line nr. ${_LINE_}$ in file '${_FILE_}$'"
 
@@ -403,19 +409,19 @@ predefined read-only variables:
 Additionally following predefined functions are provided:
 
 * ``defined(VARNAME)``: Returns ``True`` if a variable with a given name has
-  been already defined. The variable name must be provided as string ::
+  been already defined. The variable name must be provided as string::
 
     #:if defined('WITH_MPI')
 
 * ``getvar(VARNAME, DEFAULTVALUE)``: Returns the value of a variable or a
   default value if the variable is not defined. The variable name must be
-  provided as string. ::
+  provided as string::
 
     #:if getvar('DEBUG', 0)
 
 * ``setvar(VARNAME, VALUE)``: Sets a variable to given value. It is identical to
   the ``#:setvar`` control directive. The variable name must be provided as
-  string ::
+  string::
 
     $:setvar('i', 12)
     print *, "VAR I: ${i}$"
@@ -424,9 +430,9 @@ Additionally following predefined functions are provided:
 Eval directive
 ==============
 
-A result of a Python expression can be inserted into the code by using the eval
+A result of a Python expression can be inserted into the code by using eval
 directives ``$:`` (line form) or ``${`` and ``}$`` (inline form). The expression
-is evaluated using Python's built-in function `eval()` . If it evaluates to
+is evaluated using Python's built-in function `eval()`. If it evaluates to
 `None`, no output is produced. Otherwise the result is converted to a string and
 written to the output. The eval directive has both, a line and an inline
 variant::
@@ -465,7 +471,7 @@ The `setvar` directive can be also used in the inline form::
 ==============
 
 Conditional output can be generated using the `if` directive. The condition must
-be a Python expression which can be converted to a Boolean. If the condition
+be a Python expression, which can be converted to a `bool`. If the condition
 evaluates to `True`, the enclosed code is written to the output, otherwise it is
 ignored.
 
@@ -533,30 +539,33 @@ single and double precision reals::
   end function sin2_${rkind}$
   #:endfor
 
-The `for` directive expects a loop variable and an iterable expression,
+The `for` directive expects a Python loop variable expression and an iterable
 separated by the ``in`` keyword. The code within the `for` directive is outputed
 for every iteration with the current value of the loop variable, which can be
 inserted using eval directives. If the iterable consists of iterables
-(e.g. tuples), usual indexing can be used to access the components, or a
+(e.g. tuples), usual indexing can be used to access their components, or a
 variable tuple to unpack them directly in the loop header::
 
-  #:setvar kinds_names [ ('sp', 'real'), ('dp', 'dreal') ]
-
+  #:setvar kinds ['sp', 'dp']
+  #:setvar names ['real', 'dreal']
+  #! create kinds_names as [('sp', 'real'), ('dp', 'dreal')]
+  #:setvar kinds_names list(zip(kinds, names))
+  
   #! Acces by indexing
   interface sin2
   #:for kind_name in kinds_names
     module procedure sin2_${kind_name[1]}$
   #:endfor
   end interface sin2
-
+  
   #! Unpacking in the loop header
   #:for kind, name in kinds_names
   function sin2_${name}$(xx) result(res)
     real(${kind}$), intent(in) :: xx
     real(${kind}$) :: res
-
+  
     res = sin(xx) * sin(xx)
-
+  
   end function sin2_${name}$
   #:endfor
 
@@ -571,11 +580,11 @@ The `for` directive can be used also in its inline form::
 ===============
 
 Parametrized macros can be defined with the `def` directive. This defines a
-regular Python callable which returns the rendered content of the macro body
+regular Python callable, which returns the rendered content of the macro body
 when called. The macro arguments are converted to local variables containing the
 actual arguments as values. The macro can be either called from within an
-eval-directive or via the `call` control directive or its abreviated form
-(direct call).
+eval-directive, via the `call` control directive or its abreviated form, the
+direct call.
 
 Given the macro definition ::
 
@@ -605,14 +614,13 @@ would all yield ::
     error stop
   end if
 
-if the variabl `DEBUG` had a value greater than zero or an empty string
+if the variable `DEBUG` had a value greater than zero or an empty string
 otherwise.
 
-When called from within an eval-directive, additional to the regular macro
-arguments, arbitrary optional parameters can be passed. Those optional
-parameters will be converted to local variables when the macro content is
-rendered. For example given the defintion of the ``assertTrue()`` macro from
-above, the call ::
+When called from within an eval-directive, arbitrary optional parameters can be
+passed additional to the regular macro arguments. The optional parameters are
+converted to local variables when the macro content is rendered. For example
+given the defintion of the ``assertTrue()`` macro from above, the call ::
 
   $:assertTrue('x > y', DEBUG=1)
 
@@ -662,7 +670,7 @@ The `def` directive can also be used in its short form::
 ================
 
 When a Python callable (e.g. regular Python function, macro) is called with
-string arguments only (e.g. Fortran code), it can be called using the `call`
+string arguments only (e.g. source code), it can be called using the `call`
 directive to avoid extra quoting of the arguments::
 
   #:def debug_code(code)
@@ -699,9 +707,9 @@ each other::
     print *, "No debugging"
   #:endcall
 
-The lines in the body of the `call` directive can contain directives
-themselves. However, any variables defined within the body of the `call`
-directive will be local variables, existing only during the evaluation of that
+The lines in the body of the `call` directive may contain directives
+themselves. However, any variable defined within the body of the `call`
+directive will be a local variable existing only during the evaluation of that
 branch of the directive (and not being available during the call itself).
 
 The `call` directive can also be used in its inline form. As this easily leads
@@ -713,6 +721,8 @@ to code being hard to read, it should be usually avoided::
   ! This form is more readable
   print *, ${choose_code('a(:)', 'size(a)')}$
 
+If the arguments need no further processing, the direct call directive can be
+also used as an alternative to the line form (see next section).
 
 
 Direct call directive
@@ -761,8 +771,8 @@ string to the callable.
 `include` directive
 ===================
 
-The `include` directive enables you to collect your preprocessor macro and
-variable definitions in a separate files and include them whenever needed. The
+The `include` directive allows you to collect your preprocessor macros and
+variable definitions in separate files and include them whenever needed. The
 include directive expects a quoted string with a file name::
 
   #:include 'mydefs.fypp'
@@ -779,7 +789,7 @@ The `include` directive does not have an inline form.
 
 Empty lines between Fypp definitions makes the code easier to read. However,
 being outside of Fypp-directives, those empty lines will be written unaltered to
-the output file. This can be especially disturbing, if various macro definition
+the output. This can be especially disturbing if various macro definition
 files are included, as the resulting output would eventually contian a lot of
 empty lines. With the `mute` directive, the output can be suspended. While
 everything is still processed as normal, no output is written for the code
@@ -811,7 +821,7 @@ Comment directive
 
 Comment lines can be added by using the ``#!`` preprocessor directive. The
 comment line (including the newlines at their end) will be ignored by the
-prepropessor and not appear in the ouput::
+prepropessor and will not appear in the ouput::
 
     #! This will not show up in the output
 
@@ -847,14 +857,12 @@ Line folding
 ============
 
 The Fortran standard only allows source lines up to 132 characters. In order to
-emit standard conforming code, Fypp folds all lines in the output, which it had
-manipulated before (all lines containing eval directives). Lines, which were
-just copied to the output, are left unaltered. The maximal line length can be
+emit standard conforming code, Fypp folds all lines in the output which it had
+manipulated before (all lines containing eval directives). Lines which were
+just copied to the output are left unaltered. The maximal line length can be
 chosen by the ``-l`` command line option. The indentation of the continuation
 lines can be tuned with the ``--indentation`` option, and the folding strategy
 can be selected by the ``-f`` option with following possibilities:
-
-* ``none``: Switches line folding off.
 
 * ``brute``: Continuation lines are indented relative to the beginning of
   the line, and each line is folded at the maximal line position.
@@ -867,25 +875,26 @@ can be selected by the ``-f`` option with following possibilities:
   becoming too short, it defaults to ``simple`` if no whitespace occurs in the
   last third of the line.
 
+The ``-F`` option can be used to turn off line folding.
 
-.. warning:: Fypp is not aware of the Fortran semantics represented by the lines
-             it folds.
 
-Fypp applies the line folding rather mechanically (only considering the the
-position of the whitespace characters). Lines containing eval directives and
-lines within macro definition should, therefore, not contain any Fortran style
-comments (started by ``!``) *within* the line, as folding within the comment
-would result in invalid Fortran code. For comments within such lines, Fypps
-comment directive (``#!``) can be used instead::
+.. warning:: Fypp is not aware of the Fortran semantics of the lines it folds.
+
+Fypp applies the line folding mechanically (only considering the position of the
+whitespace characters). Lines containing eval directives and lines within macro
+definitions should, therefore, not contain any Fortran style comments (started
+by ``!``) *within* the line, as folding within the comment would result in
+invalid Fortran code. For comments within such lines, Fypps comment directive
+(``#!``) can be used instead::
 
   #:def macro()
   print *, "DO NOT DO THIS!"  ! Warning: Line may be folded within the comment
   print *, "This is OK."  #! Preprocessor comment is safe as it will be stripped
 
-If the comment starts at the beginning of the line (preceeded by optional
-whitespace characters only), the folding is suppressed, though. This enables you
-to define macros, which emit non-negligible comment lines (e.g. containing
-source code documentation or OpenMP directives)::
+For comments starting at the beginning of the line (preceeded by optional
+whitespace characters only) the folding is suppressed, though. This enables you
+to define macros with non-negligible comment lines (e.g. with source code
+documentation or OpenMP directives)::
 
   #:def macro(DTYPE)
   !> This functions calculates something (version ${DTYPE}$)
@@ -900,17 +909,65 @@ source code documentation or OpenMP directives)::
 Escaping
 ========
 
-If you want to prevent Fypp to interprete something as control or eval
-directive, put a backslash (``\``) between the first and second delimiter
-character. In case of inline directives, do it for the opening and the
-closing delimiter as well::
+If you want to prevent Fypp to interprete something as a directive, put a
+backslash (``\``) between the first and second delimiter character. In case of
+inline directives, do it for both, the opening and the closing delimiter::
 
   $\: 1 + 2
   #\{if 1 > 2}\#
+  @\:myMacro arg1
 
 Fypp will not recognize the escaped strings as directives, but will remove the
 backslash between the delimiter characters in the output. If you put more than
 one backslash between the delimiters, only one will be removed.
+
+
+Line numbering directives
+=========================
+
+In order to support compilers in emitting messages with correct line numbers
+with respect to the original source file, Fypp can put line number directives
+(a.k.a. linemarkers) in its output. This can be enabled by using the command
+line option ``-n``. Given a file ``test.F90`` with the content ::
+
+  program test
+  #:if defined('MPI')
+  use mpi
+  #:else
+  use openmpi
+  #:endif
+  :
+  end program test
+
+the command ::
+
+  fypp -n -DMPI test.F90
+
+produces the output ::
+
+  # 1 "test.F90"
+  program test
+  # 3 "test.F90"
+    use mpi
+  # 7 "test.F90"
+  :
+  end program test
+
+If during compilation of this output an error occured in the line ``use mpi``
+(e.g. the mpi module can not be found), the compiler would know that this line
+corresponds to line number 3 in the original file ``test.F90`` and could emit an
+according error message.
+
+The line numbering directives can be fine tuned with the ``-N`` option, which
+accepts following mode arguments:
+
+* ``full``: Line numbering directives are emitted whenever lines are
+  removed from the original source file or extra lines are added to it.
+
+* ``nocontlines``: Same as full, but line numbering directives are ommitted
+  before continuation lines. (Some compilers, like the NAG Fortran compiler,
+  have difficulties with line numbering directives before continuation lines).
+
 
 *****************
 API documentation
@@ -926,6 +983,33 @@ fypp module
 ===========
 
 .. automodule:: fypp
+
+
+Fypp
+====
+
+.. autoclass:: Fypp
+   :members:
+
+
+FyppOptions
+===========
+
+.. autoclass:: FyppOptions
+   :members:
+
+
+get_option_parser()
+===================
+
+.. autofunction:: get_option_parser()
+
+
+FyppError
+=========
+
+.. autoclass:: FyppError
+   :members:
 
 
 Parser
@@ -963,24 +1047,10 @@ Processor
    :members:
 
 
-Fypp
-====
+FortranLineFolder
+=================
 
-.. autoclass:: Fypp
-   :members:
-
-
-FyppError
-=========
-
-.. autoclass:: FyppError
-   :members:
-
-
-LineFolder
-==========
-
-.. autoclass:: LineFolder
+.. autoclass:: FortranLineFolder
    :members:
    :special-members: __call__
 
