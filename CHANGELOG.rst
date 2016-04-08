@@ -3,11 +3,8 @@ Change Log
 ==========
 
 
-Development
-===========
-
-Released: not released yet
-
+Unreleased
+==========
 
 Added
 -----
@@ -17,9 +14,6 @@ Added
 
 1.0
 ===
-
-Released: 2016-04-05
-
 
 Added
 -----
@@ -46,9 +40,6 @@ Fixed
 0.12
 ====
 
-Released: 2016-03-11
-
-
 Added
 -----
 
@@ -63,9 +54,6 @@ Changed
 
 0.11
 ====
-
-Released: 2016-03-09
-
 
 Added
 -----
@@ -97,8 +85,6 @@ Fixed
 
 0.9
 ===
-
-Released: 2016-02-22
 
 Added
 -----
