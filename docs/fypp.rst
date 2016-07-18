@@ -969,6 +969,56 @@ accepts following mode arguments:
   have difficulties with line numbering directives before continuation lines).
 
 
+***********************************
+Integration into build environments
+***********************************
+
+Fypp can be integrated into build environments like any other preprocessor. If
+your build environment is Python-based, you may consider to access its
+functionality directly via its API instead of calling it as an external script
+(see the `API documentation`_).
+
+Make
+====
+
+In traditional make based system you can define an appropriate preprocessor
+rule in your ``Makefile``::
+
+  .F90.f90:
+          fypp $(FYPPFLAGS) $< $@
+
+or for GNU make::
+
+  .f90: %.F90
+          fypp $(FYPPFLAGS) $< $@
+
+
+Waf
+===          
+
+For the `waf` build system the Fypp source tree contains extension modules in
+the folder ``tools/waf``. They use Fypps Python API, therefore, the ``fypp``
+module must be accessable from Python. Using those waf modules, you can
+formulate a Fypp preprocessed Fortran build like the example below::
+
+  def options(opt):
+      opt.load('compiler_fc')
+      opt.load('fortran_fypp')
+  
+  def configure(conf):
+      conf.load('compiler_fc')
+      conf.load('fortran_fypp')
+  
+  def build(bld):
+      sources = bld.path.ant_glob('*.F90')
+      bld(
+          features='fypp fc fcprogram',
+          source=sources,
+          target='myprog'
+      )
+
+Check the documentation in the corresponding waf modules for further details.
+
 *****************
 API documentation
 *****************
