@@ -1059,6 +1059,278 @@ example)::
   ENDFOREACH(infileName)
 
 
+********
+Examples
+********
+
+Asserts and debug code
+======================
+
+In this example a simple "assert"-mechanism (as can be found in many programming
+languages) should be implemented, where run-time checks can be included or
+excluded depending on preprocessor variable definitions. Apart of single
+assert-like queries, we also want to include larger debug code pieces, which can
+be removed in the production code.
+
+First, we create an include file (``checks.fypp``) with the appropriate macros::
+
+  #:mute
+
+  #! Enable debug feature if the preprocessor variable DEBUG has been defined
+  #:setvar DEBUG defined('DEBUG')
+
+
+  #! Stops the code, if the condition passed to it is not fulfilled
+  #! Only included in debug mode.
+  #:def ensure(cond)
+    #:if DEBUG
+  if (.not. (${cond}$)) then
+    write(*,*) 'Run-time check failed'
+    write(*,*) 'Condition: ${cond}$'
+    write(*,*) 'File: ${_FILE_}$'
+    write(*,*) 'Line: ', ${_LINE_}$
+    stop
+  end if
+    #:endif
+  #:enddef
+
+
+  #! Includes code if in debug mode.
+  #:def debug_code(code)
+    #:if DEBUG
+  $:code
+    #:endif
+  #:enddef
+
+  #:endmute
+
+Remarks:
+
+* All macro defintions are within a ``#:mute`` -- ``#:endmute`` pair in order to
+  prevent the appearence of disturbing empty lines (the lines between the macro
+  definitions) in the file which includes ``checks.fypp``.
+
+* The preprocessor variable ``DEBUG`` will determine, whether the checks
+  and the debug code is left in the preprocessed code or not. 
+
+* As the name ``assert`` is a reserved Python keyword, we call our run-time
+  checker macro ``ensure`` instead. Additionally, we define a ``debug_code``
+  macro. The content of both, ``ensure`` and ``debug_code``, are only included
+  if the variable ``DEBUG`` has been defined.
+
+With the definitions above, we can use the functionality in any Fortran source
+after including ``checks.fypp``::
+
+  #:include 'checks.fypp'
+
+  module testmod
+    implicit none
+
+  contains
+
+    subroutine someFunction(ind)
+      integer, intent(in) :: ind
+
+      @:ensure ind > 0
+
+      ! Do something useful here
+      ! :
+
+    #:call debug_code
+      print *, 'We are in debug mode'
+      print *, 'The value of ind is', ind
+    #:endcall
+
+    end subroutine someFunction
+
+  end module testmod
+
+Now, the file ``testmod.F90`` can be preprocessed with Fypp. When the variable
+``DEBUG`` is not set::
+
+  fypp testmod.F90 testmod.f90
+
+the resulting routine will not contain the conditional code::
+    
+  subroutine someFunction(ind)
+    integer, intent(in) :: ind
+
+
+
+    ! Do something useful here
+    ! :
+
+
+
+  end subroutine someFunction
+
+On the other hand, if the ``DEBUG`` variable is set::
+
+  fypp -DDEBUG testmod.F90 testmod.f90
+
+the run-time checks and the debug code will be there::
+
+    subroutine someFunction(ind)
+      integer, intent(in) :: ind
+    
+  if (.not. (ind > 0)) then
+    write(*,*) 'Run-time check failed'
+    write(*,*) 'Condition: ind > 0'
+    write(*,*) 'File: testmod.F90'
+    write(*,*) 'Line:', 11
+    stop
+  end if
+  
+      ! Do something useful here
+      ! :
+  
+      print *, 'We are in debug mode'
+      print *, 'The value of ind is', ind
+  
+    end subroutine someFunction
+
+
+Generic programming
+===================
+
+The example below shows how to create a generic function ``maxRelError()``,
+which gives the maximal elementwise relative error for any pair of arrays with
+ranks from 0 (scalar) to 7 in single or double precision. First, we create two
+trivial Python functions (file ``fyppinit.py``) to enable a concise notation::
+
+  def ranksuffix(rank):
+      '''Returns a Fortran rank specification suffix.
+  
+      Args:
+          rank (int): Rank of the object (must be >= 0).
+      
+      Returns:
+          str: Rank specification suffix (e.g. (:)) or empty string for rank = 0.
+      '''
+      if rank == 0:
+          return ''
+      else:
+          return '(' + ','.join([':'] * rank) + ')'
+  
+  
+  def variants(name, prefixes=None, suffixes=None, separator=', '):
+      '''Returns all possible variants of a name.
+      
+      Args:
+          name (str): Name to return the variants of.
+          prefixes (list of str): Prefixes to use for building variants.
+          suffixes (list of str): Suffixes to use for building variants.
+          separator (str): Separator to use between variants.
+      
+      Returns:
+          str: All combinations of the form <prefix><name><suffix> separated
+              by the separator.
+      '''
+      if prefixes is None:
+          prefixes = ['']
+      if suffixes is None:
+          suffixes = ['']
+      variants = [prefix + name + suffix
+                  for prefix in prefixes for suffix in suffixes]
+      return separator.join(variants)
+
+We then create a Fortran module (file ``errorcalc.F90``) containing the
+interface ``maxRelError`` which maps to all the realizations with the different
+array ranks and precisions::
+
+  #:setvar PRECISIONS ['sp', 'dp']
+  #:setvar RANKS range(0, 8)
+  #:setvar SUFFIXES ['_{}_{}'.format(rank, prec)&
+    & for prec in PRECISIONS for rank in RANKS]
+
+  module errorcalc
+    implicit none
+
+    integer, parameter :: sp = kind(1.0)
+    integer, parameter :: dp = kind(1.0d0)
+
+    interface maxRelError
+      module procedure ${variants('maxRelError', suffixes=SUFFIXES)}$
+    end interface maxRelError
+
+  contains
+
+  #:for PREC in PRECISIONS
+    #:for RANK in RANKS
+  
+    function maxRelError_${RANK}$_${PREC}$(obtained, reference) result(res)
+      real(${PREC}$), intent(in) :: obtained${ranksuffix(RANK)}$
+      real(${PREC}$), intent(in) :: reference${ranksuffix(RANK)}$
+      real(${PREC}$) :: res
+    
+    #:if RANK == 0
+      res = abs((obtained - reference) / reference)
+    #:else
+      res = maxval(abs((obtained - reference) / reference))
+    #:endif
+    
+    end function maxRelError_${RANK}$_${PREC}$
+    
+    #:endfor
+  #:endfor
+
+  end module errorcalc
+
+Finally, we preprocess the Fortran source file ``errorcalc.F90`` with Fypp by
+using the initialization file ``fyppinit.py`` with the necessary Python function
+definitions::
+
+  fypp -i fyppinit.py errorcalc.F90 errorcalc.f90
+
+The resulting file ``errorcalc.f90`` will contain a module with the generic
+interface ``markRelError()``::
+
+  interface maxRelError
+    module procedure maxRelError_0_sp, maxRelError_1_sp, maxRelError_2_sp,&
+        & maxRelError_3_sp, maxRelError_4_sp, maxRelError_5_sp,&
+        & maxRelError_6_sp, maxRelError_7_sp, maxRelError_0_dp,&
+        & maxRelError_1_dp, maxRelError_2_dp, maxRelError_3_dp,&
+        & maxRelError_4_dp, maxRelError_5_dp, maxRelError_6_dp, maxRelError_7_dp
+  end interface maxRelError  
+
+The interface maps to the appropriate functions::
+
+   function maxRelError_0_sp(obtained, reference) result(res)
+    real(sp), intent(in) :: obtained
+    real(sp), intent(in) :: reference
+    real(sp) :: res
+
+    res = abs((obtained - reference) / reference)
+    
+  end function maxRelError_0_sp
+  
+  
+  function maxRelError_1_sp(obtained, reference) result(res)
+    real(sp), intent(in) :: obtained(:)
+    real(sp), intent(in) :: reference(:)
+    real(sp) :: res
+
+    res = maxval(abs((obtained - reference) / reference))
+
+  end function maxRelError_1_sp
+  
+  
+  function maxRelError_2_sp(obtained, reference) result(res)
+    real(sp), intent(in) :: obtained(:,:)
+    real(sp), intent(in) :: reference(:,:)
+    real(sp) :: res
+    
+    res = maxval(abs((obtained - reference) / reference))
+    
+  end function maxRelError_2_sp
+  
+  :
+
+The function ``maxRelError()`` can be, therefore, invoked with a pair of arrays
+with various ranks or with a pair of scalars, both in single and in double
+precision, as required.
+
+
 *****************
 API documentation
 *****************
