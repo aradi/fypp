@@ -1019,6 +1019,46 @@ formulate a Fypp preprocessed Fortran build like the example below::
 
 Check the documentation in the corresponding waf modules for further details.
 
+
+CMake
+=====
+
+One possible way of invoking the Fypp preprocessor within the CMake build
+framework is demonstrated below (thanks to Jacopo Chevallard for providing this
+example)::
+
+  ### Pre-process: .fpp -> .f90 via Fypp
+  
+  # Find all *.fpp files
+  FILE(GLOB fppFiles RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.fpp")
+  
+  # Pre-process
+  FOREACH(infileName ${fppFiles})
+  
+      # Generate output file name
+      STRING(REGEX REPLACE ".fpp\$" ".f90" outfileName "${infileName}")
+  
+      # Create the full path for the new file
+      SET(outfile "${CMAKE_CURRENT_BINARY_DIR}/${outfileName}")
+  
+      # Generate input file name
+      SET(infile "${CMAKE_CURRENT_SOURCE_DIR}/${infileName}")
+  
+      # Custom command to do the processing
+      ADD_CUSTOM_COMMAND(
+          OUTPUT "${outfile}"
+          COMMAND fypp "${infile}" "${outfile}"
+          MAIN_DEPENDENCY "${infile}"
+          VERBATIM
+          )
+  
+      # Finally add output file to a list
+      SET(outFiles ${outFiles} "${outfile}")
+  
+  ENDFOREACH(infileName)
+
+
 *****************
 API documentation
 *****************
