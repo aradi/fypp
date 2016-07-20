@@ -745,9 +745,8 @@ directive::
 
 The direct call directive starts with ``@:`` followed by the name of a Python
 callable. Everything between the callable name and the end of the line is
-treated as text and is passed as string argument to the callable. When the
-callable needs more than one argument, the arguments must be separated by the
-character sequence ``@@``::
+treated as argument to the callable. When the callable needs more than one
+argument, the arguments must be separated by the character sequence ``@@``::
 
   #:def assertEqual(lhs, rhs)
   if (lhs != rhs) then
@@ -763,9 +762,11 @@ The direct call directive can contain continuation lines::
   @:assertEqual size(coords, dim=2) &
       & @@ size(types)
 
-Note, that in contrast to the `call` directive, the text within the direct call
-directive is not parsed for any further directives, but is passed as plain
-string to the callable.
+The arguments are parsed for further directives, so the inline form of the
+eval and control directives can be used::
+
+  #:setvar MYSIZE 2
+  @:assertEqual size(coords, dim=2) @@ ${MYSIZE}$
 
 
 `include` directive

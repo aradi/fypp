@@ -88,7 +88,7 @@ FILEOBJ = '<fileobj>'
 STRING = '<string>'
 
 
-_DIRECTIVE_REGEXP = re.compile(r'''
+_LINE_DIRECTIVES_PATTERN = r'''
 # comment block
 (?P<comment>(?:^[ \t]*\#!.*\n)+)
 |
@@ -102,13 +102,22 @@ _DIRECTIVE_REGEXP = re.compile(r'''
 # direct call directive (with optional continuation lines)
 ^[ \t]*@:[ \t]*(?P<macro>\w+)[ \t]*
 (?P<macroparams>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
-|
+'''
+
+_INLINE_DIRECTIVES_PATTERN = r'''
 # inline control directive
 \#\{[ \t]*(?P<idirective>\w+)[ \t]*(?P<param>.*?)?[ \t]*\}\#
 |
 # inline eval directive
 \$\{[ \t]*(?P<iexpr>.*?)[ \t]*\}\$
-''', re.VERBOSE | re.MULTILINE)
+'''
+
+_INLINE_DIRECTIVES_REGEXP = re.compile(
+    _INLINE_DIRECTIVES_PATTERN, re.VERBOSE | re.MULTILINE)
+
+_ALL_DIRECTIVES_REGEXP = re.compile(
+    _LINE_DIRECTIVES_PATTERN + '|' + _INLINE_DIRECTIVES_PATTERN,
+    re.VERBOSE | re.MULTILINE)
 
 _DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>\w+)\(\s*(?P<args>(?:(?:\w+\s*,\s*)*(?:\w+)))?\s*\)$')
@@ -479,10 +488,13 @@ class Parser:
         print()
 
 
-    def _parse(self, txt):
+    def _parse(self, txt, linenr=0, linedirs=True):
         pos = 0
-        linenr = 0
-        for match in _DIRECTIVE_REGEXP.finditer(txt):
+        if linedirs:
+            regexp =  _ALL_DIRECTIVES_REGEXP
+        else:
+            regexp = _INLINE_DIRECTIVES_REGEXP
+        for match in regexp.finditer(txt):
             groups = match.groupdict()
             start, end = match.span()
             if start > pos:
@@ -490,21 +502,21 @@ class Parser:
                 self._process_text(txt[pos:start], (linenr, endlinenr))
                 linenr = endlinenr
             endlinenr = linenr + txt.count('\n', start, end)
-            if groups['ldirective'] is not None:
+            if linedirs and groups['ldirective'] is not None:
                 self._process_directive(
                     groups['ldirective'], groups['lparam'],
                     (linenr, endlinenr))
-            elif groups['lexpr'] is not None:
+            elif linedirs and groups['lexpr'] is not None:
                 self._process_lexpreval(groups['lexpr'], (linenr, endlinenr))
             elif groups['idirective'] is not None:
                 self._process_directive(groups['idirective'], groups['param'],
                                         (linenr, endlinenr))
             elif groups['iexpr'] is not None:
                 self._process_iexpreval(groups['iexpr'], (linenr, endlinenr))
-            elif groups['comment'] is not None:
+            elif linedirs and groups['comment'] is not None:
                 self.handle_comment((linenr, endlinenr))
-            elif groups['macro'] is not None:
-                self._process_macrocall(
+            elif linedirs and groups['macro'] is not None:
+                self._process_directcall(
                     groups['macro'], groups['macroparams'], (linenr, endlinenr))
             else:
                 msg = 'internal error: unknown matching pattern'
@@ -578,15 +590,16 @@ class Parser:
         self.handle_eval(span, expr)
 
 
-    def _process_macrocall(self, macroname, macroparams, span):
+    def _process_directcall(self, macroname, macroparams, span):
         macroparams = _CONTLINE_REGEXP.sub('', macroparams)
         self._process_call(macroname, span)
         args = [arg.strip() for arg in macroparams.split('@@')]
         if len(args):
-            self._process_text(args[0], span)
+            linenr = span[0]
+            self._parse(args[0], linenr=linenr, linedirs=False)
             for arg in args[1:]:
                 self.handle_nextarg(span)
-                self._process_text(arg, span)
+                self._parse(arg, linenr=linenr, linedirs=False)
         self.handle_endcall(span)
 
 

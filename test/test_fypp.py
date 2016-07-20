@@ -327,6 +327,30 @@ SIMPLE_TESTS = [
      '|"""L1""" @@ L2|L3|\n',
     ),
     #
+    ('direct_call_varsubs', [],
+     '#:def mymacro(val1)\n|${val1}$|\n#:enddef\n'\
+     '@:mymacro 2x2=${2*2}$\n',
+     '|2x2=4|\n',
+    ),
+    #
+    ('direct_call_if', [],
+     '#:def mymacro(val1)\n|${val1}$|\n#:enddef\n'\
+     '@:mymacro 2x2=#{if False}#${2*1}$#{else}#${2*2}$#{endif}#\n',
+     '|2x2=4|\n',
+    ),
+    #
+    ('direct_call_varsubs_2_args', [],
+     '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+     '@:mymacro ${2*1}$ @@ ${2*2}$\n',
+     '|2|4|\n',
+    ),
+    #
+    ('direct_call_varsubs_2_args_escape', [],
+     '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+     '@:mymacro ${2*1}$ @\\@ ${2*2}$ @@ ${2*3}$\n',
+     '|2 @@ 4|6|\n',
+    ),
+    #
     ('comment_single', [],
      ' #! Comment here\nDone\n',
      'Done\n',

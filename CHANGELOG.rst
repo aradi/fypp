@@ -11,6 +11,8 @@ Added
 
 * Change log file.
 
+* Allow inline eval and control directives in direct macro call arguments.
+
 
 1.0
 ===
