@@ -9,9 +9,11 @@ Unreleased
 Added
 -----
 
-* Change log file.
-
 * Allow inline eval and control directives in direct macro call arguments.
+
+* Examples and build system intergration chapters in user guide.
+
+* Change log file.
 
 
 1.0
