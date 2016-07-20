@@ -11,6 +11,8 @@ Added
 
 * Allow inline eval and control directives in direct macro call arguments.
 
+* Add waf integration modules.
+
 * Examples and build system intergration chapters in user guide.
 
 * Change log file.
