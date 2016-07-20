@@ -210,9 +210,9 @@ Running
 The Fypp command line tool reads a file, preprocesses it and writes it to
 another file, so you would typically invoke it like::
 
-  fypp source.F90 source.f90
+  fypp source.fpp source.f90
 
-which would process `source.F90` and write the result to `source.f90`.  If
+which would process `source.fpp` and write the result to `source.f90`.  If
 input and output files are not specified, information is read from stdin and
 written to stdout.
 
@@ -929,7 +929,7 @@ Line numbering directives
 In order to support compilers in emitting messages with correct line numbers
 with respect to the original source file, Fypp can put line number directives
 (a.k.a. linemarkers) in its output. This can be enabled by using the command
-line option ``-n``. Given a file ``test.F90`` with the content ::
+line option ``-n``. Given a file ``test.fpp`` with the content ::
 
   program test
   #:if defined('MPI')
@@ -942,21 +942,21 @@ line option ``-n``. Given a file ``test.F90`` with the content ::
 
 the command ::
 
-  fypp -n -DMPI test.F90
+  fypp -n -DMPI test.fpp
 
 produces the output ::
 
-  # 1 "test.F90"
+  # 1 "test.fpp"
   program test
-  # 3 "test.F90"
+  # 3 "test.fpp"
     use mpi
-  # 7 "test.F90"
+  # 7 "test.fpp"
   :
   end program test
 
 If during compilation of this output an error occured in the line ``use mpi``
 (e.g. the mpi module can not be found), the compiler would know that this line
-corresponds to line number 3 in the original file ``test.F90`` and could emit an
+corresponds to line number 3 in the original file ``test.fpp`` and could emit an
 according error message.
 
 The line numbering directives can be fine tuned with the ``-N`` option, which
@@ -1056,10 +1056,10 @@ after including ``checks.fypp``::
 
   end module testmod
 
-Now, the file ``testmod.F90`` can be preprocessed with Fypp. When the variable
+Now, the file ``testmod.fpp`` can be preprocessed with Fypp. When the variable
 ``DEBUG`` is not set::
 
-  fypp testmod.F90 testmod.f90
+  fypp testmod.fpp testmod.f90
 
 the resulting routine will not contain the conditional code::
     
@@ -1077,7 +1077,7 @@ the resulting routine will not contain the conditional code::
 
 On the other hand, if the ``DEBUG`` variable is set::
 
-  fypp -DDEBUG testmod.F90 testmod.f90
+  fypp -DDEBUG testmod.fpp testmod.f90
 
 the run-time checks and the debug code will be there::
 
@@ -1087,7 +1087,7 @@ the run-time checks and the debug code will be there::
   if (.not. (ind > 0)) then
     write(*,*) 'Run-time check failed'
     write(*,*) 'Condition: ind > 0'
-    write(*,*) 'File: testmod.F90'
+    write(*,*) 'File: testmod.fpp'
     write(*,*) 'Line:', 11
     stop
   end if
@@ -1145,7 +1145,7 @@ trivial Python functions (file ``fyppinit.py``) to enable a concise notation::
                   for prefix in prefixes for suffix in suffixes]
       return separator.join(variants)
 
-We then create a Fortran module (file ``errorcalc.F90``) containing the
+We then create a Fortran module (file ``errorcalc.fpp``) containing the
 interface ``maxRelError`` which maps to all the realizations with the different
 array ranks and precisions::
 
@@ -1187,11 +1187,11 @@ array ranks and precisions::
 
   end module errorcalc
 
-Finally, we preprocess the Fortran source file ``errorcalc.F90`` with Fypp by
+Finally, we preprocess the Fortran source file ``errorcalc.fpp`` with Fypp by
 using the initialization file ``fyppinit.py`` with the necessary Python function
 definitions::
 
-  fypp -i fyppinit.py errorcalc.F90 errorcalc.f90
+  fypp -i fyppinit.py errorcalc.fpp errorcalc.f90
 
 The resulting file ``errorcalc.f90`` will contain a module with the generic
 interface ``markRelError()``::
@@ -1257,12 +1257,12 @@ Make
 In traditional make based system you can define an appropriate preprocessor
 rule in your ``Makefile``::
 
-  .F90.f90:
+  .fpp.f90:
           fypp $(FYPPFLAGS) $< $@
 
 or for GNU make::
 
-  .f90: %.F90
+  .f90: %.fpp
           fypp $(FYPPFLAGS) $< $@
 
 
@@ -1283,7 +1283,7 @@ formulate a Fypp preprocessed Fortran build like the example below::
       conf.load('fortran_fypp')
   
   def build(bld):
-      sources = bld.path.ant_glob('*.F90')
+      sources = bld.path.ant_glob('*.fpp')
       bld(
           features='fypp fc fcprogram',
           source=sources,

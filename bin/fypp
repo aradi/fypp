@@ -1827,7 +1827,7 @@ class Fypp:
     calling ``parse_args()``::
 
         options = FyppOptions()
-        args = ['-DDEBUG=0', 'input.F90', 'output.F90']
+        args = ['-DDEBUG=0', 'input.fpp', 'output.f90']
         argparser = get_option_parser()
         options = argparser.parse_args(args=args, namespace=options)
         tool = fypp.Fypp(options)

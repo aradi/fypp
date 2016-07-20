@@ -6,7 +6,7 @@
 
 This module implements the general framework for the Fypp preprocessor, but does
 not bind it to any task generator. If you want to use it to preprocessor Fortran
-source files (.F90 -> .f90), use the fortran_fypp module instead. Otherwise, 
+source files (.fpp -> .f90), use the fypp_fortran module instead. Otherwise, 
 you can generate your own binding as ususal::
 
 	def build(bld):
