@@ -29,7 +29,7 @@ documentation available on `readthedocs.org
 <http://fypp.readthedocs.org>`_. Fypp is released under the *BSD 2-clause
 license*.
 
-This document describes Fypp Version 1.0.
+This document describes Fypp Version 1.1.
 
 
 Features
@@ -210,9 +210,9 @@ Running
 The Fypp command line tool reads a file, preprocesses it and writes it to
 another file, so you would typically invoke it like::
 
-  fypp source.F90 source.f90
+  fypp source.fpp source.f90
 
-which would process `source.F90` and write the result to `source.f90`.  If
+which would process `source.fpp` and write the result to `source.f90`.  If
 input and output files are not specified, information is read from stdin and
 written to stdout.
 
@@ -745,9 +745,8 @@ directive::
 
 The direct call directive starts with ``@:`` followed by the name of a Python
 callable. Everything between the callable name and the end of the line is
-treated as text and is passed as string argument to the callable. When the
-callable needs more than one argument, the arguments must be separated by the
-character sequence ``@@``::
+treated as argument to the callable. When the callable needs more than one
+argument, the arguments must be separated by the character sequence ``@@``::
 
   #:def assertEqual(lhs, rhs)
   if (lhs != rhs) then
@@ -763,9 +762,11 @@ The direct call directive can contain continuation lines::
   @:assertEqual size(coords, dim=2) &
       & @@ size(types)
 
-Note, that in contrast to the `call` directive, the text within the direct call
-directive is not parsed for any further directives, but is passed as plain
-string to the callable.
+The arguments are parsed for further directives, so the inline form of the
+eval and control directives can be used::
+
+  #:setvar MYSIZE 2
+  @:assertEqual size(coords, dim=2) @@ ${MYSIZE}$
 
 
 `include` directive
@@ -928,7 +929,7 @@ Line numbering directives
 In order to support compilers in emitting messages with correct line numbers
 with respect to the original source file, Fypp can put line number directives
 (a.k.a. linemarkers) in its output. This can be enabled by using the command
-line option ``-n``. Given a file ``test.F90`` with the content ::
+line option ``-n``. Given a file ``test.fpp`` with the content ::
 
   program test
   #:if defined('MPI')
@@ -941,21 +942,21 @@ line option ``-n``. Given a file ``test.F90`` with the content ::
 
 the command ::
 
-  fypp -n -DMPI test.F90
+  fypp -n -DMPI test.fpp
 
 produces the output ::
 
-  # 1 "test.F90"
+  # 1 "test.fpp"
   program test
-  # 3 "test.F90"
+  # 3 "test.fpp"
     use mpi
-  # 7 "test.F90"
+  # 7 "test.fpp"
   :
   end program test
 
 If during compilation of this output an error occured in the line ``use mpi``
 (e.g. the mpi module can not be found), the compiler would know that this line
-corresponds to line number 3 in the original file ``test.F90`` and could emit an
+corresponds to line number 3 in the original file ``test.fpp`` and could emit an
 according error message.
 
 The line numbering directives can be fine tuned with the ``-N`` option, which
@@ -967,6 +968,368 @@ accepts following mode arguments:
 * ``nocontlines``: Same as full, but line numbering directives are ommitted
   before continuation lines. (Some compilers, like the NAG Fortran compiler,
   have difficulties with line numbering directives before continuation lines).
+
+
+********
+Examples
+********
+
+Asserts and debug code
+======================
+
+In this example a simple "assert"-mechanism (as can be found in many programming
+languages) should be implemented, where run-time checks can be included or
+excluded depending on preprocessor variable definitions. Apart of single
+assert-like queries, we also want to include larger debug code pieces, which can
+be removed in the production code.
+
+First, we create an include file (``checks.fypp``) with the appropriate macros::
+
+  #:mute
+
+  #! Enable debug feature if the preprocessor variable DEBUG has been defined
+  #:setvar DEBUG defined('DEBUG')
+
+
+  #! Stops the code, if the condition passed to it is not fulfilled
+  #! Only included in debug mode.
+  #:def ensure(cond)
+    #:if DEBUG
+  if (.not. (${cond}$)) then
+    write(*,*) 'Run-time check failed'
+    write(*,*) 'Condition: ${cond}$'
+    write(*,*) 'File: ${_FILE_}$'
+    write(*,*) 'Line: ', ${_LINE_}$
+    stop
+  end if
+    #:endif
+  #:enddef
+
+
+  #! Includes code if in debug mode.
+  #:def debug_code(code)
+    #:if DEBUG
+  $:code
+    #:endif
+  #:enddef
+
+  #:endmute
+
+Remarks:
+
+* All macro defintions are within a ``#:mute`` -- ``#:endmute`` pair in order to
+  prevent the appearence of disturbing empty lines (the lines between the macro
+  definitions) in the file which includes ``checks.fypp``.
+
+* The preprocessor variable ``DEBUG`` will determine, whether the checks
+  and the debug code is left in the preprocessed code or not. 
+
+* As the name ``assert`` is a reserved Python keyword, we call our run-time
+  checker macro ``ensure`` instead. Additionally, we define a ``debug_code``
+  macro. The content of both, ``ensure`` and ``debug_code``, are only included
+  if the variable ``DEBUG`` has been defined.
+
+With the definitions above, we can use the functionality in any Fortran source
+after including ``checks.fypp``::
+
+  #:include 'checks.fypp'
+
+  module testmod
+    implicit none
+
+  contains
+
+    subroutine someFunction(ind)
+      integer, intent(in) :: ind
+
+      @:ensure ind > 0
+
+      ! Do something useful here
+      ! :
+
+    #:call debug_code
+      print *, 'We are in debug mode'
+      print *, 'The value of ind is', ind
+    #:endcall
+
+    end subroutine someFunction
+
+  end module testmod
+
+Now, the file ``testmod.fpp`` can be preprocessed with Fypp. When the variable
+``DEBUG`` is not set::
+
+  fypp testmod.fpp testmod.f90
+
+the resulting routine will not contain the conditional code::
+    
+  subroutine someFunction(ind)
+    integer, intent(in) :: ind
+
+
+
+    ! Do something useful here
+    ! :
+
+
+
+  end subroutine someFunction
+
+On the other hand, if the ``DEBUG`` variable is set::
+
+  fypp -DDEBUG testmod.fpp testmod.f90
+
+the run-time checks and the debug code will be there::
+
+    subroutine someFunction(ind)
+      integer, intent(in) :: ind
+    
+  if (.not. (ind > 0)) then
+    write(*,*) 'Run-time check failed'
+    write(*,*) 'Condition: ind > 0'
+    write(*,*) 'File: testmod.fpp'
+    write(*,*) 'Line:', 11
+    stop
+  end if
+  
+      ! Do something useful here
+      ! :
+  
+      print *, 'We are in debug mode'
+      print *, 'The value of ind is', ind
+  
+    end subroutine someFunction
+
+
+Generic programming
+===================
+
+The example below shows how to create a generic function ``maxRelError()``,
+which gives the maximal elementwise relative error for any pair of arrays with
+ranks from 0 (scalar) to 7 in single or double precision. First, we create two
+trivial Python functions (file ``fyppinit.py``) to enable a concise notation::
+
+  def ranksuffix(rank):
+      '''Returns a Fortran rank specification suffix.
+  
+      Args:
+          rank (int): Rank of the object (must be >= 0).
+      
+      Returns:
+          str: Rank specification suffix (e.g. (:)) or empty string for rank = 0.
+      '''
+      if rank == 0:
+          return ''
+      else:
+          return '(' + ','.join([':'] * rank) + ')'
+  
+  
+  def variants(name, prefixes=None, suffixes=None, separator=', '):
+      '''Returns all possible variants of a name.
+      
+      Args:
+          name (str): Name to return the variants of.
+          prefixes (list of str): Prefixes to use for building variants.
+          suffixes (list of str): Suffixes to use for building variants.
+          separator (str): Separator to use between variants.
+      
+      Returns:
+          str: All combinations of the form <prefix><name><suffix> separated
+              by the separator.
+      '''
+      if prefixes is None:
+          prefixes = ['']
+      if suffixes is None:
+          suffixes = ['']
+      variants = [prefix + name + suffix
+                  for prefix in prefixes for suffix in suffixes]
+      return separator.join(variants)
+
+We then create a Fortran module (file ``errorcalc.fpp``) containing the
+interface ``maxRelError`` which maps to all the realizations with the different
+array ranks and precisions::
+
+  #:setvar PRECISIONS ['sp', 'dp']
+  #:setvar RANKS range(0, 8)
+  #:setvar SUFFIXES ['_{}_{}'.format(rank, prec)&
+    & for prec in PRECISIONS for rank in RANKS]
+
+  module errorcalc
+    implicit none
+
+    integer, parameter :: sp = kind(1.0)
+    integer, parameter :: dp = kind(1.0d0)
+
+    interface maxRelError
+      module procedure ${variants('maxRelError', suffixes=SUFFIXES)}$
+    end interface maxRelError
+
+  contains
+
+  #:for PREC in PRECISIONS
+    #:for RANK in RANKS
+  
+    function maxRelError_${RANK}$_${PREC}$(obtained, reference) result(res)
+      real(${PREC}$), intent(in) :: obtained${ranksuffix(RANK)}$
+      real(${PREC}$), intent(in) :: reference${ranksuffix(RANK)}$
+      real(${PREC}$) :: res
+    
+    #:if RANK == 0
+      res = abs((obtained - reference) / reference)
+    #:else
+      res = maxval(abs((obtained - reference) / reference))
+    #:endif
+    
+    end function maxRelError_${RANK}$_${PREC}$
+    
+    #:endfor
+  #:endfor
+
+  end module errorcalc
+
+Finally, we preprocess the Fortran source file ``errorcalc.fpp`` with Fypp by
+using the initialization file ``fyppinit.py`` with the necessary Python function
+definitions::
+
+  fypp -i fyppinit.py errorcalc.fpp errorcalc.f90
+
+The resulting file ``errorcalc.f90`` will contain a module with the generic
+interface ``markRelError()``::
+
+  interface maxRelError
+    module procedure maxRelError_0_sp, maxRelError_1_sp, maxRelError_2_sp,&
+        & maxRelError_3_sp, maxRelError_4_sp, maxRelError_5_sp,&
+        & maxRelError_6_sp, maxRelError_7_sp, maxRelError_0_dp,&
+        & maxRelError_1_dp, maxRelError_2_dp, maxRelError_3_dp,&
+        & maxRelError_4_dp, maxRelError_5_dp, maxRelError_6_dp, maxRelError_7_dp
+  end interface maxRelError  
+
+The interface maps to the appropriate functions::
+
+   function maxRelError_0_sp(obtained, reference) result(res)
+    real(sp), intent(in) :: obtained
+    real(sp), intent(in) :: reference
+    real(sp) :: res
+
+    res = abs((obtained - reference) / reference)
+    
+  end function maxRelError_0_sp
+  
+  
+  function maxRelError_1_sp(obtained, reference) result(res)
+    real(sp), intent(in) :: obtained(:)
+    real(sp), intent(in) :: reference(:)
+    real(sp) :: res
+
+    res = maxval(abs((obtained - reference) / reference))
+
+  end function maxRelError_1_sp
+  
+  
+  function maxRelError_2_sp(obtained, reference) result(res)
+    real(sp), intent(in) :: obtained(:,:)
+    real(sp), intent(in) :: reference(:,:)
+    real(sp) :: res
+    
+    res = maxval(abs((obtained - reference) / reference))
+    
+  end function maxRelError_2_sp
+  
+  :
+
+The function ``maxRelError()`` can be, therefore, invoked with a pair of arrays
+with various ranks or with a pair of scalars, both in single and in double
+precision, as required.
+
+
+***********************************
+Integration into build environments
+***********************************
+
+Fypp can be integrated into build environments like any other preprocessor. If
+your build environment is Python-based, you may consider to access its
+functionality directly via its API instead of calling it as an external script
+(see the `API documentation`_).
+
+Make
+====
+
+In traditional make based system you can define an appropriate preprocessor
+rule in your ``Makefile``::
+
+  .fpp.f90:
+          fypp $(FYPPFLAGS) $< $@
+
+or for GNU make::
+
+  .f90: %.fpp
+          fypp $(FYPPFLAGS) $< $@
+
+
+Waf
+===          
+
+For the `waf` build system the Fypp source tree contains extension modules in
+the folder ``tools/waf``. They use Fypps Python API, therefore, the ``fypp``
+module must be accessable from Python. Using those waf modules, you can
+formulate a Fypp preprocessed Fortran build like the example below::
+
+  def options(opt):
+      opt.load('compiler_fc')
+      opt.load('fortran_fypp')
+  
+  def configure(conf):
+      conf.load('compiler_fc')
+      conf.load('fortran_fypp')
+  
+  def build(bld):
+      sources = bld.path.ant_glob('*.fpp')
+      bld(
+          features='fypp fc fcprogram',
+          source=sources,
+          target='myprog'
+      )
+
+Check the documentation in the corresponding waf modules for further details.
+
+
+CMake
+=====
+
+One possible way of invoking the Fypp preprocessor within the CMake build
+framework is demonstrated below (thanks to Jacopo Chevallard for providing this
+example)::
+
+  ### Pre-process: .fpp -> .f90 via Fypp
+  
+  # Find all *.fpp files
+  FILE(GLOB fppFiles RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.fpp")
+  
+  # Pre-process
+  FOREACH(infileName ${fppFiles})
+  
+      # Generate output file name
+      STRING(REGEX REPLACE ".fpp\$" ".f90" outfileName "${infileName}")
+  
+      # Create the full path for the new file
+      SET(outfile "${CMAKE_CURRENT_BINARY_DIR}/${outfileName}")
+  
+      # Generate input file name
+      SET(infile "${CMAKE_CURRENT_SOURCE_DIR}/${infileName}")
+  
+      # Custom command to do the processing
+      ADD_CUSTOM_COMMAND(
+          OUTPUT "${outfile}"
+          COMMAND fypp "${infile}" "${outfile}"
+          MAIN_DEPENDENCY "${infile}"
+          VERBATIM
+          )
+  
+      # Finally add output file to a list
+      SET(outFiles ${outFiles} "${outfile}")
+  
+  ENDFOREACH(infileName)
 
 
 *****************

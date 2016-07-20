@@ -47,3 +47,18 @@ for fname, regexp, repl in FILES_PATTERNS:
     fp = open(fname, 'w')
     fp.write(newtxt)
     fp.close()
+
+    
+# Replace version number in Change Log and adapt decoration below
+fname = os.path.join(rootdir, 'CHANGELOG.rst')
+print("Replacments in '{}': ".format(fname), end='')
+fp = open(fname, 'r')
+txt = fp.read()
+fp.close()
+decoration = '=' * len(version)
+newtxt, nsub = re.subn('^Unreleased\s*\n=+', version + '\n' + decoration, txt,
+                       flags=re.MULTILINE)
+print(nsub)
+fp = open(fname, 'w')
+fp.write(newtxt)
+fp.close()

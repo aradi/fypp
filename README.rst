@@ -175,9 +175,9 @@ Running
 The Fypp command line tool reads a file, preprocesses it and writes it to
 another file, so you would typically invoke it like::
 
-  fypp source.F90 source.f90
+  fypp source.fpp source.f90
 
-which would process `source.F90` and write the result to `source.f90`.  If
+which would process `source.fpp` and write the result to `source.f90`.  If
 input and output files are not specified, information is read from stdin and
 written to stdout.
 
