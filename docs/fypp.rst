@@ -970,96 +970,6 @@ accepts following mode arguments:
   have difficulties with line numbering directives before continuation lines).
 
 
-***********************************
-Integration into build environments
-***********************************
-
-Fypp can be integrated into build environments like any other preprocessor. If
-your build environment is Python-based, you may consider to access its
-functionality directly via its API instead of calling it as an external script
-(see the `API documentation`_).
-
-Make
-====
-
-In traditional make based system you can define an appropriate preprocessor
-rule in your ``Makefile``::
-
-  .F90.f90:
-          fypp $(FYPPFLAGS) $< $@
-
-or for GNU make::
-
-  .f90: %.F90
-          fypp $(FYPPFLAGS) $< $@
-
-
-Waf
-===          
-
-For the `waf` build system the Fypp source tree contains extension modules in
-the folder ``tools/waf``. They use Fypps Python API, therefore, the ``fypp``
-module must be accessable from Python. Using those waf modules, you can
-formulate a Fypp preprocessed Fortran build like the example below::
-
-  def options(opt):
-      opt.load('compiler_fc')
-      opt.load('fortran_fypp')
-  
-  def configure(conf):
-      conf.load('compiler_fc')
-      conf.load('fortran_fypp')
-  
-  def build(bld):
-      sources = bld.path.ant_glob('*.F90')
-      bld(
-          features='fypp fc fcprogram',
-          source=sources,
-          target='myprog'
-      )
-
-Check the documentation in the corresponding waf modules for further details.
-
-
-CMake
-=====
-
-One possible way of invoking the Fypp preprocessor within the CMake build
-framework is demonstrated below (thanks to Jacopo Chevallard for providing this
-example)::
-
-  ### Pre-process: .fpp -> .f90 via Fypp
-  
-  # Find all *.fpp files
-  FILE(GLOB fppFiles RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.fpp")
-  
-  # Pre-process
-  FOREACH(infileName ${fppFiles})
-  
-      # Generate output file name
-      STRING(REGEX REPLACE ".fpp\$" ".f90" outfileName "${infileName}")
-  
-      # Create the full path for the new file
-      SET(outfile "${CMAKE_CURRENT_BINARY_DIR}/${outfileName}")
-  
-      # Generate input file name
-      SET(infile "${CMAKE_CURRENT_SOURCE_DIR}/${infileName}")
-  
-      # Custom command to do the processing
-      ADD_CUSTOM_COMMAND(
-          OUTPUT "${outfile}"
-          COMMAND fypp "${infile}" "${outfile}"
-          MAIN_DEPENDENCY "${infile}"
-          VERBATIM
-          )
-  
-      # Finally add output file to a list
-      SET(outFiles ${outFiles} "${outfile}")
-  
-  ENDFOREACH(infileName)
-
-
 ********
 Examples
 ********
@@ -1330,6 +1240,96 @@ The interface maps to the appropriate functions::
 The function ``maxRelError()`` can be, therefore, invoked with a pair of arrays
 with various ranks or with a pair of scalars, both in single and in double
 precision, as required.
+
+
+***********************************
+Integration into build environments
+***********************************
+
+Fypp can be integrated into build environments like any other preprocessor. If
+your build environment is Python-based, you may consider to access its
+functionality directly via its API instead of calling it as an external script
+(see the `API documentation`_).
+
+Make
+====
+
+In traditional make based system you can define an appropriate preprocessor
+rule in your ``Makefile``::
+
+  .F90.f90:
+          fypp $(FYPPFLAGS) $< $@
+
+or for GNU make::
+
+  .f90: %.F90
+          fypp $(FYPPFLAGS) $< $@
+
+
+Waf
+===          
+
+For the `waf` build system the Fypp source tree contains extension modules in
+the folder ``tools/waf``. They use Fypps Python API, therefore, the ``fypp``
+module must be accessable from Python. Using those waf modules, you can
+formulate a Fypp preprocessed Fortran build like the example below::
+
+  def options(opt):
+      opt.load('compiler_fc')
+      opt.load('fortran_fypp')
+  
+  def configure(conf):
+      conf.load('compiler_fc')
+      conf.load('fortran_fypp')
+  
+  def build(bld):
+      sources = bld.path.ant_glob('*.F90')
+      bld(
+          features='fypp fc fcprogram',
+          source=sources,
+          target='myprog'
+      )
+
+Check the documentation in the corresponding waf modules for further details.
+
+
+CMake
+=====
+
+One possible way of invoking the Fypp preprocessor within the CMake build
+framework is demonstrated below (thanks to Jacopo Chevallard for providing this
+example)::
+
+  ### Pre-process: .fpp -> .f90 via Fypp
+  
+  # Find all *.fpp files
+  FILE(GLOB fppFiles RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.fpp")
+  
+  # Pre-process
+  FOREACH(infileName ${fppFiles})
+  
+      # Generate output file name
+      STRING(REGEX REPLACE ".fpp\$" ".f90" outfileName "${infileName}")
+  
+      # Create the full path for the new file
+      SET(outfile "${CMAKE_CURRENT_BINARY_DIR}/${outfileName}")
+  
+      # Generate input file name
+      SET(infile "${CMAKE_CURRENT_SOURCE_DIR}/${infileName}")
+  
+      # Custom command to do the processing
+      ADD_CUSTOM_COMMAND(
+          OUTPUT "${outfile}"
+          COMMAND fypp "${infile}" "${outfile}"
+          MAIN_DEPENDENCY "${infile}"
+          VERBATIM
+          )
+  
+      # Finally add output file to a list
+      SET(outFiles ${outFiles} "${outfile}")
+  
+  ENDFOREACH(infileName)
 
 
 *****************
