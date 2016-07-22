@@ -491,7 +491,7 @@ class Parser:
     def _parse(self, txt, linenr=0, linedirs=True):
         pos = 0
         if linedirs:
-            regexp =  _ALL_DIRECTIVES_REGEXP
+            regexp = _ALL_DIRECTIVES_REGEXP
         else:
             regexp = _INLINE_DIRECTIVES_REGEXP
         for match in regexp.finditer(txt):
@@ -1031,7 +1031,7 @@ class Builder:
 
 
     def _check_for_open_block(self, span, directive):
-        if not len(self._open_blocks) > self._nr_prev_blocks[-1]:
+        if len(self._open_blocks) <= self._nr_prev_blocks[-1]:
             msg = 'unexpected {} directive'.format(directive)
             raise FyppError(msg, self._curfile, span)
 
