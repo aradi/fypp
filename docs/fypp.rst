@@ -1241,6 +1241,36 @@ The function ``maxRelError()`` can be, therefore, invoked with a pair of arrays
 with various ranks or with a pair of scalars, both in single and in double
 precision, as required.
 
+If you prefer not to have preprocessor loops around long code blocks, the
+example above can be also written by defining a macro first and then calling
+the macro within the loop. The function definition would then look as follows::
+
+  contains
+  
+  #:def maxRelError_macro(RANK, PREC)
+    function maxRelError_${RANK}$_${PREC}$(obtained, reference) result(res)
+      real(${PREC}$), intent(in) :: obtained${ranksuffix(RANK)}$
+      real(${PREC}$), intent(in) :: reference${ranksuffix(RANK)}$
+      real(${PREC}$) :: res
+    
+    #:if RANK == 0
+      res = abs((obtained - reference) / reference)
+    #:else
+      res = maxval(abs((obtained - reference) / reference))
+    #:endif
+    
+    end function maxRelError_${RANK}$_${PREC}$
+  #:enddef
+    
+  #:for PREC in PRECISIONS
+    #:for RANK in RANKS
+      $:maxRelError_macro(RANK, PREC)
+    #:endfor
+  #:endfor
+
+  end module errorcalc
+
+
 
 ***********************************
 Integration into build environments
