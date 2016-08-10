@@ -389,7 +389,7 @@ imported before the execution of the initialization scripts.
 
 
 Predefined variables and functions
-----------------------------------
+==================================
 
 The isolated Python environment for the expression evaluation contains following
 predefined (read-only) variables:
