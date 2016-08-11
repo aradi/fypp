@@ -1106,8 +1106,8 @@ Generic programming
 
 The example below shows how to create a generic function ``maxRelError()``,
 which gives the maximal elementwise relative error for any pair of arrays with
-ranks from 0 (scalar) to 7 in single or double precision. First, we create two
-trivial Python functions (file ``fyppinit.py``) to enable a concise notation::
+ranks from 0 (scalar) to 7 in single or double precision. First, we create a
+trivial Python function (file ``fyppinit.py``) to enable a concise notation::
 
   def ranksuffix(rank):
       '''Returns a Fortran rank specification suffix.
@@ -1122,28 +1122,6 @@ trivial Python functions (file ``fyppinit.py``) to enable a concise notation::
           return ''
       else:
           return '(' + ','.join([':'] * rank) + ')'
-  
-  
-  def variants(name, prefixes=None, suffixes=None, separator=', '):
-      '''Returns all possible variants of a name.
-      
-      Args:
-          name (str): Name to return the variants of.
-          prefixes (list of str): Prefixes to use for building variants.
-          suffixes (list of str): Suffixes to use for building variants.
-          separator (str): Separator to use between variants.
-      
-      Returns:
-          str: All combinations of the form <prefix><name><suffix> separated
-              by the separator.
-      '''
-      if prefixes is None:
-          prefixes = ['']
-      if suffixes is None:
-          suffixes = ['']
-      variants = [prefix + name + suffix
-                  for prefix in prefixes for suffix in suffixes]
-      return separator.join(variants)
 
 We then create a Fortran module (file ``errorcalc.fpp``) containing the
 interface ``maxRelError`` which maps to all the realizations with the different
@@ -1151,8 +1129,6 @@ array ranks and precisions::
 
   #:setvar PRECISIONS ['sp', 'dp']
   #:setvar RANKS range(0, 8)
-  #:setvar SUFFIXES ['_{}_{}'.format(rank, prec)&
-    & for prec in PRECISIONS for rank in RANKS]
 
   module errorcalc
     implicit none
@@ -1161,7 +1137,11 @@ array ranks and precisions::
     integer, parameter :: dp = kind(1.0d0)
 
     interface maxRelError
-      module procedure ${variants('maxRelError', suffixes=SUFFIXES)}$
+    #:for PREC in PRECISIONS
+      #:for RANK in RANKS
+        module procedure maxRelError_${RANK}$_${PREC}$
+      #:endfor
+    #:endfor
     end interface maxRelError
 
   contains
