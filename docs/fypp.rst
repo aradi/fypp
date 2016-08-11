@@ -1177,12 +1177,23 @@ The resulting file ``errorcalc.f90`` will contain a module with the generic
 interface ``markRelError()``::
 
   interface maxRelError
-    module procedure maxRelError_0_sp, maxRelError_1_sp, maxRelError_2_sp,&
-        & maxRelError_3_sp, maxRelError_4_sp, maxRelError_5_sp,&
-        & maxRelError_6_sp, maxRelError_7_sp, maxRelError_0_dp,&
-        & maxRelError_1_dp, maxRelError_2_dp, maxRelError_3_dp,&
-        & maxRelError_4_dp, maxRelError_5_dp, maxRelError_6_dp, maxRelError_7_dp
-  end interface maxRelError  
+      module procedure maxRelError_0_sp
+      module procedure maxRelError_1_sp
+      module procedure maxRelError_2_sp
+      module procedure maxRelError_3_sp
+      module procedure maxRelError_4_sp
+      module procedure maxRelError_5_sp
+      module procedure maxRelError_6_sp
+      module procedure maxRelError_7_sp
+      module procedure maxRelError_0_dp
+      module procedure maxRelError_1_dp
+      module procedure maxRelError_2_dp
+      module procedure maxRelError_3_dp
+      module procedure maxRelError_4_dp
+      module procedure maxRelError_5_dp
+      module procedure maxRelError_6_dp
+      module procedure maxRelError_7_dp
+  end interface maxRelError
 
 The interface maps to the appropriate functions::
 
