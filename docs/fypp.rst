@@ -1247,7 +1247,7 @@ the macro within the loop. The function definition would then look as follows::
 
   contains
   
-  #:def maxRelError_macro(RANK, PREC)
+  #:def maxRelError_factory(RANK, PREC)
     function maxRelError_${RANK}$_${PREC}$(obtained, reference) result(res)
       real(${PREC}$), intent(in) :: obtained${ranksuffix(RANK)}$
       real(${PREC}$), intent(in) :: reference${ranksuffix(RANK)}$
@@ -1264,7 +1264,7 @@ the macro within the loop. The function definition would then look as follows::
     
   #:for PREC in PRECISIONS
     #:for RANK in RANKS
-      $:maxRelError_macro(RANK, PREC)
+      $:maxRelError_factory(RANK, PREC)
     #:endfor
   #:endfor
 
