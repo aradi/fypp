@@ -1174,7 +1174,7 @@ definitions::
   fypp -i fyppinit.py errorcalc.fpp errorcalc.f90
 
 The resulting file ``errorcalc.f90`` will contain a module with the generic
-interface ``markRelError()``::
+interface ``maxRelError()``::
 
   interface maxRelError
       module procedure maxRelError_0_sp
