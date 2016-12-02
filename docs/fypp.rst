@@ -1283,7 +1283,7 @@ rule in your ``Makefile``::
 
 or for GNU make::
 
-  .f90: %.fpp
+  %.f90: %.fpp
           fypp $(FYPPFLAGS) $< $@
 
 
