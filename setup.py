@@ -44,8 +44,6 @@ setup(
 
     keywords='fortran metaprogramming pre-processor',
 
-    #packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-
     package_dir={'': 'src'},
     py_modules=['fypp'],
 
