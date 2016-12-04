@@ -155,6 +155,10 @@ class FyppError(Exception):
         fname (str): File name. None (default) if file name is not available.
         span (tuple of int): Beginning and end line of the region where error
             occured or None if not available.
+        cause (Exception): Contains the exception, which triggered this 
+            exception or None, if this exception is not masking any underlying
+            one. (Emulates Python 3 exception chaining in a Python 2 compatible
+            way.)
 
     Attributes:
         msg (str): Error message.
@@ -163,13 +167,17 @@ class FyppError(Exception):
             where error occured or None if not available. Line numbers start
             from zero. For directives, which do not consume end of the line,
             start and end lines are identical.
+        cause (Exception): In case this exception is raised in an except block,
+            the original exception should be passed here. (Needed for Python 2
+            compatibility, as Python 3 would allow exception chaining.)
     '''
 
-    def __init__(self, msg, fname=None, span=None):
+    def __init__(self, msg, fname=None, span=None, cause=None):
         super(FyppError, self).__init__()
         self.msg = msg
         self.fname = fname
         self.span = span
+        self.cause = cause
 
 
     def __str__(self):
@@ -1174,7 +1182,7 @@ class Renderer:
             result = self._evaluator.evaluate(expr)
         except Exception as exc:
             msg = "exception occured when evaluating '{}'\n{}".format(expr, exc)
-            raise FyppError(msg, self._curfile, span)
+            raise FyppError(msg, self._curfile, span, exc)
         out = []
         ieval = []
         peval = []
@@ -1200,7 +1208,7 @@ class Renderer:
             except Exception as exc:
                 msg = "exception occured when evaluating '{}'\n{}".format(
                     condition, exc)
-                raise FyppError(msg, self._curfile, span)
+                raise FyppError(msg, self._curfile, span, exc)
             if cond:
                 if self._linenums and not self._diversions and multiline:
                     out.append(linenumdir(span[1], self._curfile))
@@ -1224,7 +1232,7 @@ class Renderer:
         except Exception as exc:
             msg = "exception occured when evaluating '{}'\n{}"\
                 .format(loopiter, exc)
-            raise FyppError(msg, self._curfile, spans[0])
+            raise FyppError(msg, self._curfile, spans[0], exc)
         multiline = (spans[0][0] != spans[-1][1])
         for var in iterobj:
             if len(loopvars) == 1:
@@ -1285,7 +1293,7 @@ class Renderer:
         except Exception as exc:
             msg = "exception occured when defining macro '{}'\n{}"\
                 .format(name, exc)
-            raise FyppError(msg, self._curfile, spans[0])
+            raise FyppError(msg, self._curfile, spans[0], exc)
         if self._linenums and not self._diversions:
             result = linenumdir(spans[1][1], self._curfile)
         return result
@@ -1299,7 +1307,7 @@ class Renderer:
         except Exception as exc:
             msg = "exception occured when setting variable {} to {}\n{}"\
                 .format(name, valstr, exc)
-            raise FyppError(msg, self._curfile, span)
+            raise FyppError(msg, self._curfile, span, exc)
         multiline = (span[0] != span[1])
         if self._linenums and not self._diversions and multiline:
             result = linenumdir(span[1], self._curfile)
@@ -1929,7 +1937,7 @@ class Fypp:
                 except Exception as exc:
                     msg = "exception at evaluating '{}' in definition for " \
                           "'{}'\n{}".format(words[1], name, exc)
-                    raise FyppError(msg)
+                    raise FyppError(msg, cause=exc)
             evaluator.define(name, value)
 
 
@@ -1938,10 +1946,10 @@ class Fypp:
         for module in modules:
             try:
                 evaluator.execute('import ' + module)
-            except Exception as ex:
+            except Exception as exc:
                 msg = "exception occured during import of module '{}'\n{}"\
-                      .format(module, ex)
-                raise FyppError(msg)
+                      .format(module, exc)
+                raise FyppError(msg, cause=exc)
 
 
     @staticmethod
@@ -1951,17 +1959,17 @@ class Fypp:
                 inifp = open(inifile, 'r')
                 source = inifp.read()
                 inifp.close()
-            except IOError as ex:
+            except IOError as exc:
                 msg = "IO error occured at reading file '{}'\n{}"\
-                    .format(inifile, ex)
-                raise FyppError(msg)
+                    .format(inifile, exc)
+                raise FyppError(msg, cause=exc)
             try:
                 code = compile(source, inifile, 'exec', dont_inherit=-1)
                 evaluator.execute(code)
-            except Exception as ex:
+            except Exception as exc:
                 msg = "exception occured when executing ini-file '{}'\n{}"\
-                      .format(inifile, ex)
-                raise FyppError(msg)
+                      .format(inifile, exc)
+                raise FyppError(msg, cause=exc)
 
 
 class FyppOptions:
@@ -2220,9 +2228,9 @@ def _shiftinds(inds, shift):
 def _open_input_file(inpfile):
     try:
         inpfp = open(inpfile, 'r')
-    except IOError as ex:
-        msg = "Failed to open file '{}' for read\n{}".format(inpfile, ex)
-        raise FyppError(msg)
+    except IOError as exc:
+        msg = "Failed to open file '{}' for read\n{}".format(inpfile, exc)
+        raise FyppError(msg, cause=exc)
     return inpfp
 
 
@@ -2239,9 +2247,9 @@ def _open_output_file(outfile, create_parents=False):
                     raise FyppError(msg)
     try:
         outfp = open(outfile, 'w')
-    except IOError as ex:
-        msg = "Failed to open file '{}' for write\n{}".format(outfile, ex)
-        raise FyppError(msg)
+    except IOError as exc:
+        msg = "Failed to open file '{}' for write\n{}".format(outfile, exc)
+        raise FyppError(msg, cause=exc)
     return outfp
 
 
