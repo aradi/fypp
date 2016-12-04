@@ -1254,20 +1254,27 @@ EXCEPTION_TESTS = [
      ([],
       '#:def test(x)\n${x}$\n#:enddef\n$: test(\'A\', 1)\n',
       [(fypp.FyppError, fypp.STRING, (3, 4)),
-       (fypp.FyppError, None, None)]
+       (fypp.FyppError, fypp.STRING, (0, 1))]
      )
     ),
     ('macro_call_less_args',
      ([],
       '#:def test(x)\n${x}$\n#:enddef\n$: test()\n',
       [(fypp.FyppError, fypp.STRING, (3, 4)),
-       (fypp.FyppError, None, None)]
+       (fypp.FyppError, fypp.STRING, (0, 1))]
      )
     ),
     ('short_line_length',
      ([_linelen(4)],
       '',
       [(fypp.FyppError, None, None)]
+     )
+    ),
+    ('failing_macro_in_include',
+     ([],
+      '#:include "include/failingmacro.inc"\n$:failingmacro()\n',
+      [(fypp.FyppError, fypp.STRING, (1, 2)),
+       (fypp.FyppError, 'include/failingmacro.inc', (2, 3))]
      )
     ),
     #
