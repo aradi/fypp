@@ -27,7 +27,7 @@ Main features
       print *, "Some debug information"
     #:endif
 
-    #:setvar LOGLEVEL 2
+    #:set LOGLEVEL 2
 
 * Macro defintions and macro calls (apart of minor syntax differences similar to
   scoped intelligent Fortran macros, which probably will once become part of the
