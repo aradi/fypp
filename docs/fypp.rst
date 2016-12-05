@@ -843,6 +843,25 @@ prepropessor and will not appear in the ouput::
 
 There is no inline form of the comment directive.
 
+
+`stop` directive
+================
+
+The `stop` directive can be used to report an error and stop the preprocessor
+before all input has been consumed. This can be useful in cases, where some
+external conditions (e.g. user defined variables) do not meet certain
+criteria. The directive expects a Python expression, which will be converted to
+string and written to standard error. After writing the error message Fypp exits
+immediately with a non-zero exit code (see `Exit Codes`_)::
+
+    #! Stop the code, if DEBUGLEVEL is not positive
+    #:if DEBUGLEVEL < 0
+      #:stop 'Wrong debug level {}!'.format(DEBUGLEVEL)
+    #:endif
+
+There is no inline form of the `stop` directive.
+
+
 ****************
 Various features
 ****************
@@ -983,6 +1002,20 @@ accepts following mode arguments:
 * ``nocontlines``: Same as full, but line numbering directives are ommitted
   before continuation lines. (Some compilers, like the NAG Fortran compiler,
   have difficulties with line numbering directives before continuation lines).
+
+
+Exit codes
+==========
+
+When run as a standalone application, Fypp returns one of the following exit
+codes to the calling environment:
+
+* 0: Preprocessing finished successfully.
+
+* 1: Stopped due to an unexpected error.
+
+* 2: Explicitely requested stop encountered (see `stop directive`_).
+
 
 
 ********

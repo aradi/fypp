@@ -996,91 +996,91 @@ EXCEPTION_TESTS = [
     ('invalid_directive',
      ([],
       '#:invalid\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_macrodef',
      ([],
       '#:def alma[x]\n#:enddef\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_variable_assign',
      ([],
       '#:setvar A=3\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_for_decl',
      ([],
       '#:for i = 1, 2\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_include',
      ([],
       '#:include <test.h>\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('inline_include',
      ([],
       '#{include "test.h"}#\n',
-      [(fypp.FyppError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
     ('wrong_include_file',
      ([],
       '#:include "testfkjsdlfkjslf.h"\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_else',
      ([],
       '#:if 1 > 2\nA\n#:else True\nB\n#:endif\n',
-      [(fypp.FyppError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('invalid_endif',
      ([],
       '#:if 1 > 2\nA\n#:else\nB\n#:endif INV\n',
-      [(fypp.FyppError, fypp.STRING, (4, 5))]
+      [(fypp.FyppFatalError, fypp.STRING, (4, 5))]
      )
     ),
     ('invalid_enddef',
      ([],
       '#:def test(x)\nA:${x}$\n#:enddef INV\n',
-      [(fypp.FyppError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('invalid_endfor',
      ([],
       '#:for i in range(5)\n${i}$\n#:endfor INV\n',
-      [(fypp.FyppError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('invalid_mute',
      ([],
       '#:mute TEST\n#:endmute\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_endmute',
      ([],
       '#:mute\n#:endmute INVALID\n',
-      [(fypp.FyppError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
      )
     ),
     ('inline_mute',
      ([],
       '#{mute}#test#{endmute}#\n',
-      [(fypp.FyppError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
     ('inline_endmute',
      ([],
       '#:mute\ntest#{endmute}#\n',
-      [(fypp.FyppError, fypp.STRING, (1, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
      )
     ),
     #
@@ -1089,169 +1089,169 @@ EXCEPTION_TESTS = [
     ('line_if_inline_endif',
      ([],
       '#:if 1 < 2\nTrue\n#{endif}#\n',
-      [(fypp.FyppError, fypp.STRING, (2, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
      )
     ),
     ('inline_if_line_endif',
      ([],
       '#{if 1 < 2}#True\n#:endif\n',
-      [(fypp.FyppError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
      )
     ),
     ('line_if_inline_elif',
      ([],
       '#:if 1 < 2\nTrue\n#{elif 2 > 3}#\n',
-      [(fypp.FyppError, fypp.STRING, (2, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
      )
     ),
     ('inline_if_line_elif',
      ([],
       '#{if 1 < 2}#True\n#:elif 2 > 3\n',
-      [(fypp.FyppError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
      )
     ),
     ('line_if_inline_else',
      ([],
       '#:if 1 < 2\nTrue\n#{else}#\n',
-      [(fypp.FyppError, fypp.STRING, (2, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
      )
     ),
     ('inline_if_line_else',
      ([],
       '#{if 1 < 2}#True\n#:else\n',
-      [(fypp.FyppError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
      )
     ),
     ('loose_else',
      ([],
       'A\n#:else\n',
-      [(fypp.FyppError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
      )
     ),
     ('loose_inline_else',
      ([],
       'A\n#{else}#\n',
-      [(fypp.FyppError, fypp.STRING, (1, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
      )
     ),
     ('loose_elif',
      ([],
       'A\n#:elif 1 > 2\n',
-      [(fypp.FyppError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
      )
     ),
     ('loose_inline_elif',
      ([],
       'A\n#{elif 1 > 2}#\n',
-      [(fypp.FyppError, fypp.STRING, (1, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
      )
     ),
     ('loose_endif',
      ([],
       'A\n#:endif\n',
-      [(fypp.FyppError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
      )
     ),
     ('loose_inline_endif',
      ([],
       'A\n#{endif}#\n',
-      [(fypp.FyppError, fypp.STRING, (1, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
      )
     ),
     ('mismatching_else',
      ([],
       '#:if 1 < 2\n#:for i in range(3)\n#:else\n',
-      [(fypp.FyppError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('mismatching_elif',
      ([],
       '#:if 1 < 2\n#:for i in range(3)\n#:elif 1 > 2\n',
-      [(fypp.FyppError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('mismatching_endif',
      ([],
       '#:if 1 < 2\n#:for i in range(3)\n#:endif\n',
-      [(fypp.FyppError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('line_def_inline_enddef',
      ([],
       '#:def alma(x)\n#{enddef}#\n',
-      [(fypp.FyppError, fypp.STRING, (1, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
      )
     ),
     ('inline_def_line_enddef',
      ([],
       '#{def alma(x)}#Empty\n#:enddef\n',
-      [(fypp.FyppError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
      )
     ),
     ('loose_enddef',
      ([],
       '#:enddef\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('loose_inline_enddef',
      ([],
       '#{enddef}#\n',
-      [(fypp.FyppError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
     ('mismatching_enddef',
      ([],
       '#:def test(x)\n#{if 1 < 2}#\n#:enddef\n',
-      [(fypp.FyppError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('line_for_inline_endfor',
      ([],
       '#:for i in range(3)\nA\n#{endfor}#\n',
-      [(fypp.FyppError, fypp.STRING, (2, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
      )
     ),
     ('inline_for_line_endfor',
      ([],
       '#{for i in range(3)}#Empty\n#:endfor\n',
-      [(fypp.FyppError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
      )
     ),
     ('loose_endfor',
      ([],
       '#:endfor\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('loose_inline_endfor',
      ([],
       '#{endfor}#',
-      [(fypp.FyppError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
     ('mismatching_endfor',
      ([],
       '#:for i in range(3)\n#{if 1 < 2}#\n#:endfor\n',
-      [(fypp.FyppError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('loose_endmute',
      ([],
       '#:endmute\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('mismatching_endmute',
      ([],
       '#:mute\n#{if 1 < 2}#\n#:endmute\n',
-      [(fypp.FyppError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('unclosed_directive',
      ([],
       '#:if 1 > 2\nA\n',
-      [(fypp.FyppError, fypp.STRING, None)]
+      [(fypp.FyppFatalError, fypp.STRING, None)]
      )
     ),
     #
@@ -1260,98 +1260,100 @@ EXCEPTION_TESTS = [
     ('invalid_expression',
      ([],
       '${i}$',
-      [(fypp.FyppError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
     ('invalid_variable',
      ([],
       '#:setvar i 1.2.3\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_condition',
      ([],
       '#{if i >>> 3}##{endif}#',
-      [(fypp.FyppError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
     ('invalid_iterator',
      ([],
       '#:for i in 1.2.3\nDummy\n#:endfor\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_macro_prefix',
      ([],
       '#:def __test(x)\n#:enddef\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1)),
-       (fypp.FyppError, None, None)]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
      )
     ),
     ('reserved_macro_name',
      ([],
       '#:def defined(x)\n#:enddef\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1)),
-       (fypp.FyppError, None, None)]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
      )
     ),
     ('invalid_variable_prefix',
      ([],
       '#:setvar __test 2\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1)),
-       (fypp.FyppError, None, None)]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
      )
     ),
     ('reserved_variable_name',
      ([],
       '#:setvar _LINE_ 2\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1)),
-       (fypp.FyppError, None, None)]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
      )
     ),
     ('macro_call_more_args',
      ([],
       '#:def test(x)\n${x}$\n#:enddef\n$: test(\'A\', 1)\n',
-      [(fypp.FyppError, fypp.STRING, (3, 4)),
-       (fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
+       (fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('macro_call_less_args',
      ([],
       '#:def test(x)\n${x}$\n#:enddef\n$: test()\n',
-      [(fypp.FyppError, fypp.STRING, (3, 4)),
-       (fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
+       (fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('short_line_length',
      ([_linelen(4)],
       '',
-      [(fypp.FyppError, None, None)]
+      [(fypp.FyppFatalError, None, None)]
      )
     ),
     ('failing_macro_in_include',
      ([],
       '#:include "include/failingmacro.inc"\n$:failingmacro()\n',
-      [(fypp.FyppError, fypp.STRING, (1, 2)),
-       (fypp.FyppError, 'include/failingmacro.inc', (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING, (1, 2)),
+       (fypp.FyppFatalError, 'include/failingmacro.inc', (2, 3))]
      )
     ),
     ('incompatible_tuple_assignment',
      ([],
       '#:setvar a,b,c (1, 2)\n${a}$${b}$${c}$\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_lhs_tuple1',
      ([],
       '#:setvar (a, b  (1, 2)\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1)), (fypp.FyppError, None, None)]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
      )
     ),
     ('invalid_lhs_tuple2',
      ([],
       '#:setvar a, b)  (1, 2)\n',
-      [(fypp.FyppError, fypp.STRING, (0, 1)), (fypp.FyppError, None, None)]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
      )
     ),
     #
@@ -1360,25 +1362,40 @@ EXCEPTION_TESTS = [
     ('def_error',
      (['-DVAR=1.2.2'],
       '',
-      [(fypp.FyppError, None, None)]
+      [(fypp.FyppFatalError, None, None)]
      )
     ),
     ('missing_module',
      (['-mWhateverDummyKJFDKf'],
       '',
-      [(fypp.FyppError, None, None)]
+      [(fypp.FyppFatalError, None, None)]
      )
     ),
     ('missing_ini',
      (['-iWhateverDummyKJFDKf'],
       '',
-      [(fypp.FyppError, None, None)]
+      [(fypp.FyppFatalError, None, None)]
      )
     ),
     ('broken_ini',
      (['-iinclude/brokenini.py'],
       '',
-      [(fypp.FyppError, None, None)]
+      [(fypp.FyppFatalError, None, None)]
+     )
+    ),
+    #
+    # User requested stop
+    #
+    ('userstop',
+     ([],
+      '#:setvar A 12\n#:if A > 10\n#:stop "Wrong A: {}".format(A)\n#:endif\n',
+      [(fypp.FyppStopRequest, fypp.STRING, (2, 3))]
+     )
+    ),
+    ('invalid_userstop_expr',
+     ([],
+      '#:setvar A 12\n#:if A > 10\n#:stop "Wrong A: {}".format(BA)\n#:endif\n',
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
 ]
