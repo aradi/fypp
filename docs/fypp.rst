@@ -44,7 +44,7 @@ more in detail in the individual sections further down.
       print *, "Some debug information"
     #:endif
 
-    #:setvar LOGLEVEL 2
+    #:set LOGLEVEL 2
 
 * Macro defintions and macro calls (apart of minor syntax differences similar to
   scoped intelligent Fortran macros, which probably will once become part of the
@@ -420,7 +420,7 @@ Additionally following predefined functions are provided:
     #:if getvar('DEBUG', 0)
 
 * ``setvar(VARNAME, VALUE)``: Sets a variable to given value. It is identical to
-  the ``#:setvar`` control directive. The variable name must be provided as
+  the ``#:set`` control directive. The variable name must be provided as
   string::
 
     $:setvar('i', 12)
@@ -453,33 +453,37 @@ variant::
    code, when being folded at an arbitrary position (e.g. Fortran comments).
 
 
-`setvar` directive
+`set` directive
 ==================
 
-The value of a variable can be set during the preprocessing via the `setvar`
+The value of a variable can be set during the preprocessing via the `set`
 directive. (Otherwise, variables can be also declared and defined via command
 line options.) The first argument is the name of the variable (unquoted),
 followed by an optional Python expression. If latter is not present, the
 variable is set to `None`::
 
-  #:setvar DEBUG
-  #:setvar LOG 1
-  #:setvar LOGLEVEL LOGLEVEL + 1
+  #:set DEBUG
+  #:set LOG 1
+  #:set LOGLEVEL LOGLEVEL + 1
 
 Note, that in the last example the variable `LOGLEVEL` must have been already
 defined in advance.
 
-The `setvar` directive also accepts assignments to variable tuples, provided the
+The `set` directive also accepts assignments to variable tuples, provided the
 right hand side of the assignment is compatible with the variable tuple::
 
-  #:setvar (VAR1, VAR2) 1, 2
+  #:set (VAR1, VAR2) 1, 2
 
 The parantheses around the variable list are optional, but are recommended for
 better readability.
 
-The `setvar` directive can be also used in the inline form::
+The `set` directive can be also used in the inline form::
 
-  #{setvar X 2}#print *, ${X}$
+  #{set X 2}#print *, ${X}$
+
+For backwards compatibility reason, the `setvar` directive is also recognized by
+Fypp. Apart of the different name, it has the same syntax and functionality as
+the `set` directive.
 
 
 `if` directive
@@ -536,7 +540,7 @@ Fortran templates can be easily created by using the `for` directive. The
 following example creates a function for calculating the sine square for both
 single and double precision reals::
 
-  #:setvar real_kinds [ 'sp', 'dp' ]
+  #:set real_kinds [ 'sp', 'dp' ]
 
   interface sin2
   #:for rkind in real_kinds
@@ -561,10 +565,10 @@ inserted using eval directives. If the iterable consists of iterables
 (e.g. tuples), usual indexing can be used to access their components, or a
 variable tuple to unpack them directly in the loop header::
 
-  #:setvar kinds ['sp', 'dp']
-  #:setvar names ['real', 'dreal']
+  #:set kinds ['sp', 'dp']
+  #:set names ['real', 'dreal']
   #! create kinds_names as [('sp', 'real'), ('dp', 'dreal')]
-  #:setvar kinds_names list(zip(kinds, names))
+  #:set kinds_names list(zip(kinds, names))
 
   #! Acces by indexing
   interface sin2
@@ -651,12 +655,12 @@ snippet ::
 
   #:def macro(x)
   print *, "Local XY: ${x}$ ${y}$"
-  #:setvar y -2
+  #:set y -2
   print *, "Local XY: ${x}$ ${y}$"
   #:enddef
 
-  #:setvar x 1
-  #:setvar y 2
+  #:set x 1
+  #:set y 2
   print *, "Global XY: ${x}$ ${y}$"
   $:macro(-1)
   print *, "Global XY: ${x}$ ${y}$"
@@ -780,7 +784,7 @@ The direct call directive can contain continuation lines::
 The arguments are parsed for further directives, so the inline form of the
 eval and control directives can be used::
 
-  #:setvar MYSIZE 2
+  #:set MYSIZE 2
   @:assertEqual size(coords, dim=2) @@ ${MYSIZE}$
 
 
@@ -1036,7 +1040,7 @@ First, we create an include file (``checks.fypp``) with the appropriate macros::
   #:mute
 
   #! Enable debug feature if the preprocessor variable DEBUG has been defined
-  #:setvar DEBUG defined('DEBUG')
+  #:set DEBUG defined('DEBUG')
 
 
   #! Stops the code, if the condition passed to it is not fulfilled
@@ -1175,8 +1179,8 @@ We then create a Fortran module (file ``errorcalc.fpp``) containing the
 interface ``maxRelError`` which maps to all the realizations with the different
 array ranks and precisions::
 
-  #:setvar PRECISIONS ['sp', 'dp']
-  #:setvar RANKS range(0, 8)
+  #:set PRECISIONS ['sp', 'dp']
+  #:set RANKS range(0, 8)
 
   module errorcalc
     implicit none

@@ -595,7 +595,7 @@ class Parser:
         elif directive == 'enddef':
             self._check_empty_param('enddef', param, span)
             self.handle_enddef(span)
-        elif directive == 'setvar':
+        elif directive == 'setvar' or directive == 'set':
             self._process_setvar(param, span)
         elif directive == 'for':
             self._process_for(param, span)

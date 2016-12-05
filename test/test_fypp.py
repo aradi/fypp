@@ -426,10 +426,22 @@ SIMPLE_TESTS = [
       'Done\n',
      )
     ),
-    ('setvar',
+    ('set',
+     ([],
+      '#:set x 2\n$: x\n',
+      '2\n',
+     )
+    ),
+    ('set_setvar',
      ([],
       '#:setvar x 2\n$: x\n',
       '2\n',
+     )
+    ),
+    ('inline_set',
+     ([],
+      '#{set x 2}#${x}$Done\n',
+      '2Done\n',
      )
     ),
     ('inline_setvar',
@@ -438,19 +450,19 @@ SIMPLE_TESTS = [
       '2Done\n',
      )
     ),
-    ('setvar_function',
+    ('set_function',
      ([],
       '$:setvar("x", 2)\n${x}$\nDone\n',
       "\n2\nDone\n",
      )
     ),
-    ('setvar_function_tuple',
+    ('set_function_tuple',
      ([],
       '$:setvar("x, y", (2, 3))\n${x}$${y}$\nDone\n',
       "\n23\nDone\n",
      )
     ),
-    ('setvar_function_tuple2',
+    ('set_function_tuple2',
      ([],
       '$:setvar("(x, y)", (2, 3))\n${x}$${y}$\nDone\n',
       "\n23\nDone\n",
@@ -470,7 +482,7 @@ SIMPLE_TESTS = [
     ),
     ('mute',
      ([],
-      'A\n#:mute\nB\n#:setvar VAR 2\n#:endmute\nVAR=${VAR}$\n',
+      'A\n#:mute\nB\n#:set VAR 2\n#:endmute\nVAR=${VAR}$\n',
       'A\nVAR=2\n'
      )
     ),
@@ -575,49 +587,49 @@ SIMPLE_TESTS = [
     ),
     ('tuple_assignment',
      ([],
-      '#:setvar mytuple (1, 2, 3)\n#:setvar a, b, c mytuple\n${a}$${b}$${c}$\n',
+      '#:set mytuple (1, 2, 3)\n#:set a, b, c mytuple\n${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('tuple_assignment2',
      ([],
-      '#:setvar a, b, c (1, 2, 3)\n${a}$${b}$${c}$\n',
+      '#:set a, b, c (1, 2, 3)\n${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('tuple_assignment3',
      ([],
-      '#:setvar a, b, c 1, 2, 3\n${a}$${b}$${c}$\n',
+      '#:set a, b, c 1, 2, 3\n${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('tuple_assignment_nospace',
      ([],
-      '#:setvar a,b,c (1, 2, 3)\n${a}$${b}$${c}$\n',
+      '#:set a,b,c (1, 2, 3)\n${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('tuple_assignment_vartuple',
      ([],
-      '#:setvar (a, b, c) (1, 2, 3)\n${a}$${b}$${c}$\n',
+      '#:set (a, b, c) (1, 2, 3)\n${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('tuple_assignment_vartuple2',
      ([],
-      '#:setvar ( a, b, c ) (1, 2, 3)\n${a}$${b}$${c}$\n',
+      '#:set ( a, b, c ) (1, 2, 3)\n${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('inline_tuple_assignment',
      ([],
-      '#{setvar a, b, c 1, 2, 3}#${a}$${b}$${c}$\n',
+      '#{set a, b, c 1, 2, 3}#${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('inline_tuple_assignment_vartuple',
      ([],
-      '#{setvar (a, b, c) 1, 2, 3}#${a}$${b}$${c}$\n',
+      '#{set (a, b, c) 1, 2, 3}#${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
@@ -850,15 +862,15 @@ LINENUM_TESTS = [
       _linenum(0) + '12Done\n'
      )
     ),
-    ('setvar',
+    ('set',
      ([_LINENUM_FLAG],
-      '#:setvar x 2\n$: x\n',
+      '#:set x 2\n$: x\n',
       _linenum(0) + _linenum(1) + '2\n',
      )
     ),
-    ('inline_setvar',
+    ('inline_set',
      ([_LINENUM_FLAG],
-      '#{setvar x 2}#${x}$Done\n',
+      '#{set x 2}#${x}$Done\n',
       _linenum(0) + '2Done\n',
      )
     ),
@@ -876,7 +888,7 @@ LINENUM_TESTS = [
     ),
     ('mute',
      ([_LINENUM_FLAG],
-      'A\n#:mute\nB\n#:setvar VAR 2\n#:endmute\nVAR=${VAR}$\n',
+      'A\n#:mute\nB\n#:set VAR 2\n#:endmute\nVAR=${VAR}$\n',
       _linenum(0) + 'A\n' + _linenum(5) + 'VAR=2\n'
      )
     ),
@@ -1007,7 +1019,7 @@ EXCEPTION_TESTS = [
     ),
     ('invalid_variable_assign',
      ([],
-      '#:setvar A=3\n',
+      '#:set A=3\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
@@ -1265,7 +1277,7 @@ EXCEPTION_TESTS = [
     ),
     ('invalid_variable',
      ([],
-      '#:setvar i 1.2.3\n',
+      '#:set i 1.2.3\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
@@ -1297,14 +1309,14 @@ EXCEPTION_TESTS = [
     ),
     ('invalid_variable_prefix',
      ([],
-      '#:setvar __test 2\n',
+      '#:set __test 2\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('reserved_variable_name',
      ([],
-      '#:setvar _LINE_ 2\n',
+      '#:set _LINE_ 2\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
@@ -1338,20 +1350,20 @@ EXCEPTION_TESTS = [
     ),
     ('incompatible_tuple_assignment',
      ([],
-      '#:setvar a,b,c (1, 2)\n${a}$${b}$${c}$\n',
+      '#:set a,b,c (1, 2)\n${a}$${b}$${c}$\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_lhs_tuple1',
      ([],
-      '#:setvar (a, b  (1, 2)\n',
+      '#:set (a, b  (1, 2)\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('invalid_lhs_tuple2',
      ([],
-      '#:setvar a, b)  (1, 2)\n',
+      '#:set a, b)  (1, 2)\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
@@ -1388,13 +1400,13 @@ EXCEPTION_TESTS = [
     #
     ('userstop',
      ([],
-      '#:setvar A 12\n#:if A > 10\n#:stop "Wrong A: {}".format(A)\n#:endif\n',
+      '#:set A 12\n#:if A > 10\n#:stop "Wrong A: {}".format(A)\n#:endif\n',
       [(fypp.FyppStopRequest, fypp.STRING, (2, 3))]
      )
     ),
     ('invalid_userstop_expr',
      ([],
-      '#:setvar A 12\n#:if A > 10\n#:stop "Wrong A: {}".format(BA)\n#:endif\n',
+      '#:set A 12\n#:if A > 10\n#:stop "Wrong A: {}".format(BA)\n#:endif\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
