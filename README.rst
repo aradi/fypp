@@ -113,6 +113,12 @@ Main features
     #:include "macrodefs.fypp"
     #:endmute
 
+* Explicit request for stopping the preprocessor::
+
+    #:if DEBUGLEVEL < 0
+      #:stop 'Negative debug level not allowed!'
+    #:endif
+
 
 Installing
 ==========
