@@ -444,6 +444,18 @@ SIMPLE_TESTS = [
       "\n2\nDone\n",
      )
     ),
+    ('setvar_function_tuple',
+     ([],
+      '$:setvar("x, y", (2, 3))\n${x}$${y}$\nDone\n',
+      "\n23\nDone\n",
+     )
+    ),
+    ('setvar_function_tuple2',
+     ([],
+      '$:setvar("(x, y)", (2, 3))\n${x}$${y}$\nDone\n',
+      "\n23\nDone\n",
+     )
+    ),    
     ('getvar_existing_value',
      ([_defvar('VAR', '\"VAL\"')],
       '$:getvar("VAR", "DEFAULT")\n',
@@ -554,12 +566,59 @@ SIMPLE_TESTS = [
      )
     ),
     ('fixed_format_folding',
-
      ([_FIXED_FORMAT_FLAG],
       '      print *, ${\'aa\'}$, bb, cc, dd, ee, ff, gg, hh, ii, jj, kk, ll, '
       'mm, nn, oo, pp, qq, rr, ss, tt\n',
       '      print *, aa, bb, cc, dd, ee, ff, gg, hh, ii, jj, kk, ll, mm, nn, '
       'o\n     &o, pp, qq, rr, ss, tt\n',
+     )
+    ),
+    ('tuple_assignment',
+     ([],
+      '#:setvar mytuple (1, 2, 3)\n#:setvar a, b, c mytuple\n${a}$${b}$${c}$\n',
+      '123\n'
+     )
+    ),
+   ('tuple_assignment2',
+     ([],
+      '#:setvar a, b, c (1, 2, 3)\n${a}$${b}$${c}$\n',
+      '123\n'
+     )
+    ),
+   ('tuple_assignment3',
+     ([],
+      '#:setvar a, b, c 1, 2, 3\n${a}$${b}$${c}$\n',
+      '123\n'
+     )
+    ),
+   ('tuple_assignment_nospace',
+     ([],
+      '#:setvar a,b,c (1, 2, 3)\n${a}$${b}$${c}$\n',
+      '123\n'
+     )
+    ),
+   ('tuple_assignment_vartuple',
+     ([],
+      '#:setvar (a, b, c) (1, 2, 3)\n${a}$${b}$${c}$\n',
+      '123\n'
+     )
+    ),
+   ('tuple_assignment_vartuple2',
+     ([],
+      '#:setvar ( a, b, c ) (1, 2, 3)\n${a}$${b}$${c}$\n',
+      '123\n'
+     )
+    ),
+   ('inline_tuple_assignment',
+     ([],
+      '#{setvar a, b, c 1, 2, 3}#${a}$${b}$${c}$\n',
+      '123\n'
+     )
+    ),
+   ('inline_tuple_assignment_vartuple',
+     ([],
+      '#{setvar (a, b, c) 1, 2, 3}#${a}$${b}$${c}$\n',
+      '123\n'
      )
     ),
 ]
@@ -1275,6 +1334,24 @@ EXCEPTION_TESTS = [
       '#:include "include/failingmacro.inc"\n$:failingmacro()\n',
       [(fypp.FyppError, fypp.STRING, (1, 2)),
        (fypp.FyppError, 'include/failingmacro.inc', (2, 3))]
+     )
+    ),
+    ('incompatible_tuple_assignment',
+     ([],
+      '#:setvar a,b,c (1, 2)\n${a}$${b}$${c}$\n',
+      [(fypp.FyppError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('invalid_lhs_tuple1',
+     ([],
+      '#:setvar (a, b  (1, 2)\n',
+      [(fypp.FyppError, fypp.STRING, (0, 1)), (fypp.FyppError, None, None)]
+     )
+    ),
+    ('invalid_lhs_tuple2',
+     ([],
+      '#:setvar a, b)  (1, 2)\n',
+      [(fypp.FyppError, fypp.STRING, (0, 1)), (fypp.FyppError, None, None)]
      )
     ),
     #
