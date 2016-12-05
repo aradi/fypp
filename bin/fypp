@@ -85,7 +85,7 @@ else:
     import __builtin__ as builtins
 
 
-VERSION = '1.1'
+VERSION = '1.2'
 
 STDIN = '<stdin>'
 
