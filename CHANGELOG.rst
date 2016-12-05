@@ -3,6 +3,28 @@ Change Log
 ==========
 
 
+1.2
+===
+
+Added
+-----
+
+* Allow (and promote) usage of set directive instead of setvar.
+
+* Implement stop request via stop directive.
+
+* Assignment to variable tuples.
+
+* Hierarchial exception testing.
+
+
+Fixed
+-----
+
+* Wrong file name in error report, when exception occurs in a macro defined in
+  an included file.
+
+
 1.1
 ===
 

@@ -11,7 +11,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 setup(
     name='fypp',
 
-    version='1.1',
+    version='1.2',
 
     description='Python powered Fortran preprocessor',
     long_description=long_description,
@@ -43,8 +43,6 @@ setup(
     ],
 
     keywords='fortran metaprogramming pre-processor',
-
-    #packages=find_packages(exclude=['contrib', 'docs', 'tests']),
 
     package_dir={'': 'src'},
     py_modules=['fypp'],

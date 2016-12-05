@@ -29,7 +29,7 @@ documentation available on `readthedocs.org
 <http://fypp.readthedocs.org>`_. Fypp is released under the *BSD 2-clause
 license*.
 
-This document describes Fypp Version 1.1.
+This document describes Fypp Version 1.2.
 
 
 Features
@@ -44,7 +44,7 @@ more in detail in the individual sections further down.
       print *, "Some debug information"
     #:endif
 
-    #:setvar LOGLEVEL 2
+    #:set LOGLEVEL 2
 
 * Macro defintions and macro calls (apart of minor syntax differences similar to
   scoped intelligent Fortran macros, which probably will once become part of the
@@ -64,10 +64,10 @@ more in detail in the individual sections further down.
 
     ! Invoked as Python expression (needs quotation)
     $:assertTrue('size(myArray) > 0')
-    
+
 
 * Conditional output::
-  
+
     program test
     #:if defined('WITH_MPI')
       use mpi
@@ -111,7 +111,7 @@ more in detail in the individual sections further down.
         $:code
       #:endif
     #:enddef
-    
+
     #:call debug_code
       if (size(array) > 100) then
         print *, "DEBUG: spuriously large array"
@@ -129,7 +129,7 @@ more in detail in the individual sections further down.
     #:mute
     #:include "macrodefs.fypp"
     #:endmute
-    
+
 
 ***************
 Getting started
@@ -179,7 +179,7 @@ obtain
 
 The command line tool is a single stand-alone script. You can run it directly
 from the source folder ::
-  
+
   FYPP_SOURCE_FOLDER/bin/fypp
 
 or after copying it from the `bin` folder to any location listed in your `PATH`
@@ -275,10 +275,10 @@ examples are pairwise equivalent::
 
   #:if 1 > 2
   #: if 1 > 2
-  
+
   #{if 1 > 2}#
   #{ if 1 > 2 }#
-  
+
   $:time.strftime('%Y-%m-%d')
   $: time.strftime('%Y-%m-%d')
 
@@ -330,7 +330,7 @@ expressions. Although, this may require some additional quotations as compared
 to other preprocessor languages ::
 
   #:if defined('DEBUG')  #! The Python function defined() expects a string argument
-  #:for dtype in [ 'real(dp)', 'integer', 'logical' ]  #! dtype runs over strings  
+  #:for dtype in [ 'real(dp)', 'integer', 'logical' ]  #! dtype runs over strings
 
 it enables consistent expressions with (hopefully) least surprises (once you
 know, how to formulate the expression in Python, you exactly know, how to write
@@ -389,7 +389,7 @@ imported before the execution of the initialization scripts.
 
 
 Predefined variables and functions
-----------------------------------
+==================================
 
 The isolated Python environment for the expression evaluation contains following
 predefined (read-only) variables:
@@ -420,12 +420,19 @@ Additionally following predefined functions are provided:
     #:if getvar('DEBUG', 0)
 
 * ``setvar(VARNAME, VALUE)``: Sets a variable to given value. It is identical to
-  the ``#:setvar`` control directive. The variable name must be provided as
+  the ``#:set`` control directive. The variable name must be provided as
   string::
 
     $:setvar('i', 12)
     print *, "VAR I: ${i}$"
-  
+
+  If the left hand side of the assignment is a tuple of variables, the
+  corresponding Python string representation of the tuple should be used as
+  variable name::
+
+    $:setvar('i, j', (1, 2))
+    print *, "VAR I: ${i}$, VAR J: ${j}$"
+
 
 Eval directive
 ==============
@@ -446,25 +453,37 @@ variant::
    code, when being folded at an arbitrary position (e.g. Fortran comments).
 
 
-`setvar` directive
+`set` directive
 ==================
 
-The value of a variable can be set during the preprocessing via the `setvar`
+The value of a variable can be set during the preprocessing via the `set`
 directive. (Otherwise, variables can be also declared and defined via command
 line options.) The first argument is the name of the variable (unquoted),
 followed by an optional Python expression. If latter is not present, the
 variable is set to `None`::
 
-  #:setvar DEBUG
-  #:setvar LOG 1
-  #:setvar LOGLEVEL LOGLEVEL + 1
+  #:set DEBUG
+  #:set LOG 1
+  #:set LOGLEVEL LOGLEVEL + 1
 
 Note, that in the last example the variable `LOGLEVEL` must have been already
 defined in advance.
 
-The `setvar` directive can be also used in the inline form::
+The `set` directive also accepts assignments to variable tuples, provided the
+right hand side of the assignment is compatible with the variable tuple::
 
-  #{setvar X 2}#print *, ${X}$
+  #:set (VAR1, VAR2) 1, 2
+
+The parantheses around the variable list are optional, but are recommended for
+better readability.
+
+The `set` directive can be also used in the inline form::
+
+  #{set X 2}#print *, ${X}$
+
+For backwards compatibility reason, the `setvar` directive is also recognized by
+Fypp. Apart of the different name, it has the same syntax and functionality as
+the `set` directive.
 
 
 `if` directive
@@ -490,7 +509,7 @@ would result in
   print *, "Before"
   print *, "Debug code"
   print *, "After"
-  
+
 if the Python expression ``DEBUG > 0`` evaluates to `True`, otherwise in
 
 ::
@@ -510,9 +529,9 @@ used as well::
     #:endif
 
 The `if` directive is also available as inline directive::
-  
+
   print *, "COMPILATION MODE: #{if DEBUG > 0}#DEBUG#{else}#PRODUCTION#{endif}#"
-  
+
 
 `for` directive
 ===============
@@ -521,7 +540,7 @@ Fortran templates can be easily created by using the `for` directive. The
 following example creates a function for calculating the sine square for both
 single and double precision reals::
 
-  #:setvar real_kinds [ 'sp', 'dp' ]
+  #:set real_kinds [ 'sp', 'dp' ]
 
   interface sin2
   #:for rkind in real_kinds
@@ -546,26 +565,26 @@ inserted using eval directives. If the iterable consists of iterables
 (e.g. tuples), usual indexing can be used to access their components, or a
 variable tuple to unpack them directly in the loop header::
 
-  #:setvar kinds ['sp', 'dp']
-  #:setvar names ['real', 'dreal']
+  #:set kinds ['sp', 'dp']
+  #:set names ['real', 'dreal']
   #! create kinds_names as [('sp', 'real'), ('dp', 'dreal')]
-  #:setvar kinds_names list(zip(kinds, names))
-  
+  #:set kinds_names list(zip(kinds, names))
+
   #! Acces by indexing
   interface sin2
   #:for kind_name in kinds_names
     module procedure sin2_${kind_name[1]}$
   #:endfor
   end interface sin2
-  
+
   #! Unpacking in the loop header
   #:for kind, name in kinds_names
   function sin2_${name}$(xx) result(res)
     real(${kind}$), intent(in) :: xx
     real(${kind}$) :: res
-  
+
     res = sin(xx) * sin(xx)
-  
+
   end function sin2_${name}$
   #:endfor
 
@@ -636,16 +655,16 @@ snippet ::
 
   #:def macro(x)
   print *, "Local XY: ${x}$ ${y}$"
-  #:setvar y -2
+  #:set y -2
   print *, "Local XY: ${x}$ ${y}$"
   #:enddef
 
-  #:setvar x 1
-  #:setvar y 2
+  #:set x 1
+  #:set y 2
   print *, "Global XY: ${x}$ ${y}$"
   $:macro(-1)
   print *, "Global XY: ${x}$ ${y}$"
-  
+
 would result in ::
 
   print *, "Global XY: 1 2"
@@ -653,7 +672,7 @@ would result in ::
   print *, "Local XY: -1 -2"
   print *, "Global XY: 1 2"
 
-  
+
 The `def` directive can also be used in its short form::
 
   #{def l2(x)}#log(log(${x}$))#{enddef}#
@@ -717,7 +736,7 @@ to code being hard to read, it should be usually avoided::
 
   ! Rather ugly
   print *, #{call choose_code}# a(:) #{nextarg}# size(a) #{endcall}#
-  
+
   ! This form is more readable
   print *, ${choose_code('a(:)', 'size(a)')}$
 
@@ -765,7 +784,7 @@ The direct call directive can contain continuation lines::
 The arguments are parsed for further directives, so the inline form of the
 eval and control directives can be used::
 
-  #:setvar MYSIZE 2
+  #:set MYSIZE 2
   @:assertEqual size(coords, dim=2) @@ ${MYSIZE}$
 
 
@@ -800,11 +819,11 @@ within the `mute` directive::
 
   #:include "mydefs1.fypp"
   #:include "mydefs2.fypp"
-  
+
   #:def test(x)
   print *, "TEST: ${x}$"
   #:enddef
-  
+
   #:endmute
   $:test('me')
 
@@ -828,6 +847,25 @@ prepropessor and will not appear in the ouput::
 
 There is no inline form of the comment directive.
 
+
+`stop` directive
+================
+
+The `stop` directive can be used to report an error and stop the preprocessor
+before all input has been consumed. This can be useful in cases, where some
+external conditions (e.g. user defined variables) do not meet certain
+criteria. The directive expects a Python expression, which will be converted to
+string and written to standard error. After writing the error message Fypp exits
+immediately with a non-zero exit code (see `Exit Codes`_)::
+
+    #! Stop the code, if DEBUGLEVEL is not positive
+    #:if DEBUGLEVEL < 0
+      #:stop 'Wrong debug level {}!'.format(DEBUGLEVEL)
+    #:endif
+
+There is no inline form of the `stop` directive.
+
+
 ****************
 Various features
 ****************
@@ -849,7 +887,7 @@ The line break at the first line must be in the expression, not in the opening
 delimiter characters or in the directive name. Similar to Fortran, the
 continuation character at the beginning of each continuation line may be left
 away, but then all whitespaces at the beginning of the respective continuation
-line will be part of the expression. 
+line will be part of the expression.
 
 Inline directives must not contain any continuation lines.
 
@@ -970,6 +1008,20 @@ accepts following mode arguments:
   have difficulties with line numbering directives before continuation lines).
 
 
+Exit codes
+==========
+
+When run as a standalone application, Fypp returns one of the following exit
+codes to the calling environment:
+
+* 0: Preprocessing finished successfully.
+
+* 1: Stopped due to an unexpected error.
+
+* 2: Explicitely requested stop encountered (see `stop directive`_).
+
+
+
 ********
 Examples
 ********
@@ -988,7 +1040,7 @@ First, we create an include file (``checks.fypp``) with the appropriate macros::
   #:mute
 
   #! Enable debug feature if the preprocessor variable DEBUG has been defined
-  #:setvar DEBUG defined('DEBUG')
+  #:set DEBUG defined('DEBUG')
 
 
   #! Stops the code, if the condition passed to it is not fulfilled
@@ -1022,7 +1074,7 @@ Remarks:
   definitions) in the file which includes ``checks.fypp``.
 
 * The preprocessor variable ``DEBUG`` will determine, whether the checks
-  and the debug code is left in the preprocessed code or not. 
+  and the debug code is left in the preprocessed code or not.
 
 * As the name ``assert`` is a reserved Python keyword, we call our run-time
   checker macro ``ensure`` instead. Additionally, we define a ``debug_code``
@@ -1062,7 +1114,7 @@ Now, the file ``testmod.fpp`` can be preprocessed with Fypp. When the variable
   fypp testmod.fpp testmod.f90
 
 the resulting routine will not contain the conditional code::
-    
+
   subroutine someFunction(ind)
     integer, intent(in) :: ind
 
@@ -1083,7 +1135,7 @@ the run-time checks and the debug code will be there::
 
     subroutine someFunction(ind)
       integer, intent(in) :: ind
-    
+
   if (.not. (ind > 0)) then
     write(*,*) 'Run-time check failed'
     write(*,*) 'Condition: ind > 0'
@@ -1091,13 +1143,13 @@ the run-time checks and the debug code will be there::
     write(*,*) 'Line:', 11
     stop
   end if
-  
+
       ! Do something useful here
       ! :
-  
+
       print *, 'We are in debug mode'
       print *, 'The value of ind is', ind
-  
+
     end subroutine someFunction
 
 
@@ -1106,15 +1158,15 @@ Generic programming
 
 The example below shows how to create a generic function ``maxRelError()``,
 which gives the maximal elementwise relative error for any pair of arrays with
-ranks from 0 (scalar) to 7 in single or double precision. First, we create two
-trivial Python functions (file ``fyppinit.py``) to enable a concise notation::
+ranks from 0 (scalar) to 7 in single or double precision. First, we create a
+trivial Python function (file ``fyppinit.py``) to enable a concise notation::
 
   def ranksuffix(rank):
       '''Returns a Fortran rank specification suffix.
-  
+
       Args:
           rank (int): Rank of the object (must be >= 0).
-      
+
       Returns:
           str: Rank specification suffix (e.g. (:)) or empty string for rank = 0.
       '''
@@ -1122,37 +1174,13 @@ trivial Python functions (file ``fyppinit.py``) to enable a concise notation::
           return ''
       else:
           return '(' + ','.join([':'] * rank) + ')'
-  
-  
-  def variants(name, prefixes=None, suffixes=None, separator=', '):
-      '''Returns all possible variants of a name.
-      
-      Args:
-          name (str): Name to return the variants of.
-          prefixes (list of str): Prefixes to use for building variants.
-          suffixes (list of str): Suffixes to use for building variants.
-          separator (str): Separator to use between variants.
-      
-      Returns:
-          str: All combinations of the form <prefix><name><suffix> separated
-              by the separator.
-      '''
-      if prefixes is None:
-          prefixes = ['']
-      if suffixes is None:
-          suffixes = ['']
-      variants = [prefix + name + suffix
-                  for prefix in prefixes for suffix in suffixes]
-      return separator.join(variants)
 
 We then create a Fortran module (file ``errorcalc.fpp``) containing the
 interface ``maxRelError`` which maps to all the realizations with the different
 array ranks and precisions::
 
-  #:setvar PRECISIONS ['sp', 'dp']
-  #:setvar RANKS range(0, 8)
-  #:setvar SUFFIXES ['_{}_{}'.format(rank, prec)&
-    & for prec in PRECISIONS for rank in RANKS]
+  #:set PRECISIONS ['sp', 'dp']
+  #:set RANKS range(0, 8)
 
   module errorcalc
     implicit none
@@ -1161,27 +1189,31 @@ array ranks and precisions::
     integer, parameter :: dp = kind(1.0d0)
 
     interface maxRelError
-      module procedure ${variants('maxRelError', suffixes=SUFFIXES)}$
+    #:for PREC in PRECISIONS
+      #:for RANK in RANKS
+        module procedure maxRelError_${RANK}$_${PREC}$
+      #:endfor
+    #:endfor
     end interface maxRelError
 
   contains
 
   #:for PREC in PRECISIONS
     #:for RANK in RANKS
-  
+
     function maxRelError_${RANK}$_${PREC}$(obtained, reference) result(res)
       real(${PREC}$), intent(in) :: obtained${ranksuffix(RANK)}$
       real(${PREC}$), intent(in) :: reference${ranksuffix(RANK)}$
       real(${PREC}$) :: res
-    
+
     #:if RANK == 0
       res = abs((obtained - reference) / reference)
     #:else
       res = maxval(abs((obtained - reference) / reference))
     #:endif
-    
+
     end function maxRelError_${RANK}$_${PREC}$
-    
+
     #:endfor
   #:endfor
 
@@ -1194,15 +1226,26 @@ definitions::
   fypp -i fyppinit.py errorcalc.fpp errorcalc.f90
 
 The resulting file ``errorcalc.f90`` will contain a module with the generic
-interface ``markRelError()``::
+interface ``maxRelError()``::
 
   interface maxRelError
-    module procedure maxRelError_0_sp, maxRelError_1_sp, maxRelError_2_sp,&
-        & maxRelError_3_sp, maxRelError_4_sp, maxRelError_5_sp,&
-        & maxRelError_6_sp, maxRelError_7_sp, maxRelError_0_dp,&
-        & maxRelError_1_dp, maxRelError_2_dp, maxRelError_3_dp,&
-        & maxRelError_4_dp, maxRelError_5_dp, maxRelError_6_dp, maxRelError_7_dp
-  end interface maxRelError  
+      module procedure maxRelError_0_sp
+      module procedure maxRelError_1_sp
+      module procedure maxRelError_2_sp
+      module procedure maxRelError_3_sp
+      module procedure maxRelError_4_sp
+      module procedure maxRelError_5_sp
+      module procedure maxRelError_6_sp
+      module procedure maxRelError_7_sp
+      module procedure maxRelError_0_dp
+      module procedure maxRelError_1_dp
+      module procedure maxRelError_2_dp
+      module procedure maxRelError_3_dp
+      module procedure maxRelError_4_dp
+      module procedure maxRelError_5_dp
+      module procedure maxRelError_6_dp
+      module procedure maxRelError_7_dp
+  end interface maxRelError
 
 The interface maps to the appropriate functions::
 
@@ -1212,10 +1255,10 @@ The interface maps to the appropriate functions::
     real(sp) :: res
 
     res = abs((obtained - reference) / reference)
-    
+
   end function maxRelError_0_sp
-  
-  
+
+
   function maxRelError_1_sp(obtained, reference) result(res)
     real(sp), intent(in) :: obtained(:)
     real(sp), intent(in) :: reference(:)
@@ -1224,22 +1267,52 @@ The interface maps to the appropriate functions::
     res = maxval(abs((obtained - reference) / reference))
 
   end function maxRelError_1_sp
-  
-  
+
+
   function maxRelError_2_sp(obtained, reference) result(res)
     real(sp), intent(in) :: obtained(:,:)
     real(sp), intent(in) :: reference(:,:)
     real(sp) :: res
-    
+
     res = maxval(abs((obtained - reference) / reference))
-    
+
   end function maxRelError_2_sp
-  
+
   :
 
 The function ``maxRelError()`` can be, therefore, invoked with a pair of arrays
 with various ranks or with a pair of scalars, both in single and in double
 precision, as required.
+
+If you prefer not to have preprocessor loops around long code blocks, the
+example above can be also written by defining a macro first and then calling
+the macro within the loop. The function definition would then look as follows::
+
+  contains
+
+  #:def maxRelError_factory(RANK, PREC)
+    function maxRelError_${RANK}$_${PREC}$(obtained, reference) result(res)
+      real(${PREC}$), intent(in) :: obtained${ranksuffix(RANK)}$
+      real(${PREC}$), intent(in) :: reference${ranksuffix(RANK)}$
+      real(${PREC}$) :: res
+
+    #:if RANK == 0
+      res = abs((obtained - reference) / reference)
+    #:else
+      res = maxval(abs((obtained - reference) / reference))
+    #:endif
+
+    end function maxRelError_${RANK}$_${PREC}$
+  #:enddef
+
+  #:for PREC in PRECISIONS
+    #:for RANK in RANKS
+      $:maxRelError_factory(RANK, PREC)
+    #:endfor
+  #:endfor
+
+  end module errorcalc
+
 
 
 ***********************************
@@ -1262,12 +1335,12 @@ rule in your ``Makefile``::
 
 or for GNU make::
 
-  .f90: %.fpp
+  %.f90: %.fpp
           fypp $(FYPPFLAGS) $< $@
 
 
 Waf
-===          
+===
 
 For the `waf` build system the Fypp source tree contains extension modules in
 the folder ``tools/waf``. They use Fypps Python API, therefore, the ``fypp``
@@ -1277,11 +1350,11 @@ formulate a Fypp preprocessed Fortran build like the example below::
   def options(opt):
       opt.load('compiler_fc')
       opt.load('fortran_fypp')
-  
+
   def configure(conf):
       conf.load('compiler_fc')
       conf.load('fortran_fypp')
-  
+
   def build(bld):
       sources = bld.path.ant_glob('*.fpp')
       bld(
@@ -1301,23 +1374,23 @@ framework is demonstrated below (thanks to Jacopo Chevallard for providing this
 example)::
 
   ### Pre-process: .fpp -> .f90 via Fypp
-  
+
   # Find all *.fpp files
   FILE(GLOB fppFiles RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/*.fpp")
-  
+
   # Pre-process
   FOREACH(infileName ${fppFiles})
-  
+
       # Generate output file name
       STRING(REGEX REPLACE ".fpp\$" ".f90" outfileName "${infileName}")
-  
+
       # Create the full path for the new file
       SET(outfile "${CMAKE_CURRENT_BINARY_DIR}/${outfileName}")
-  
+
       # Generate input file name
       SET(infile "${CMAKE_CURRENT_SOURCE_DIR}/${infileName}")
-  
+
       # Custom command to do the processing
       ADD_CUSTOM_COMMAND(
           OUTPUT "${outfile}"
@@ -1325,10 +1398,10 @@ example)::
           MAIN_DEPENDENCY "${infile}"
           VERBATIM
           )
-  
+
       # Finally add output file to a list
       SET(outFiles ${outFiles} "${outfile}")
-  
+
   ENDFOREACH(infileName)
 
 
