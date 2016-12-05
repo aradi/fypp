@@ -67,16 +67,16 @@ Additional to the ones above, following class is used for fine tuning:
 
 from __future__ import print_function
 import sys
-if sys.version_info[0] >= 3:
-    import builtins
-else:
-    import __builtin__ as builtins
 import types
 import re
 import os
 import errno
 import time
 from argparse import ArgumentParser
+if sys.version_info[0] >= 3:
+    import builtins
+else:
+    import __builtin__ as builtins
 
 
 VERSION = '1.1'
@@ -124,7 +124,9 @@ _DEF_PARAM_REGEXP = re.compile(
 
 _CALL_PARAM_REGEXP = re.compile(r'^(?P<name>\w+)\s*$')
 
-_SETVAR_PARAM_REGEXP = re.compile(r'^(?P<name>\w+)(?:\s+(?P<expr>.*))?\s*$')
+_SETVAR_PARAM_REGEXP = re.compile(
+    r'^(?P<name>(?:[(]\s*)?\w+(?:\s*,\s*\w+)*(?:\s*[)])?)'\
+    r'(?:\s+(?P<expr>.*))?\s*$')
 
 _FOR_PARAM_REGEXP = re.compile(
     r'^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)\s*$')
@@ -155,7 +157,7 @@ class FyppError(Exception):
         fname (str): File name. None (default) if file name is not available.
         span (tuple of int): Beginning and end line of the region where error
             occured or None if not available.
-        cause (Exception): Contains the exception, which triggered this 
+        cause (Exception): Contains the exception, which triggered this
             exception or None, if this exception is not masking any underlying
             one. (Emulates Python 3 exception chaining in a Python 2 compatible
             way.)
@@ -814,7 +816,7 @@ class Builder:
         '''
         self._check_for_open_block(span, 'elif')
         block = self._open_blocks[-1]
-        directive, fname, spans = block[0:3]
+        directive, _, spans = block[0:3]
         self._check_if_matches_last(directive, 'if', spans[-1], span, 'elif')
         conds, contents = block[3:5]
         conds.append(cond)
@@ -831,7 +833,7 @@ class Builder:
         '''
         self._check_for_open_block(span, 'else')
         block = self._open_blocks[-1]
-        directive, fname, spans = block[0:3]
+        directive, _, spans = block[0:3]
         self._check_if_matches_last(directive, 'if', spans[-1], span, 'else')
         conds, contents = block[3:5]
         conds.append('True')
@@ -848,7 +850,7 @@ class Builder:
         '''
         self._check_for_open_block(span, 'endif')
         block = self._open_blocks.pop(-1)
-        directive, fname, spans = block[0:3]
+        directive, _, spans = block[0:3]
         self._check_if_matches_last(directive, 'if', spans[-1], span, 'endif')
         _, contents = block[3:5]
         contents.append(self._curnode)
@@ -940,7 +942,7 @@ class Builder:
         '''
         self._check_for_open_block(span, 'nextarg')
         block = self._open_blocks[-1]
-        directive, fname, spans = block[0:3]
+        directive, _, spans = block[0:3]
         self._check_if_matches_last(directive, 'call', spans[-1], span,
                                     'endcall')
         _, contents = block[3:5]
@@ -957,7 +959,7 @@ class Builder:
         '''
         self._check_for_open_block(span, 'endcall')
         block = self._open_blocks.pop(-1)
-        directive, fname, spans = block[0:3]
+        directive, _, spans = block[0:3]
         self._check_if_matches_last(directive, 'call', spans[-1], span,
                                     'endcall')
         _, contents = block[3:5]
@@ -1308,7 +1310,7 @@ class Renderer:
         try:
             self._evaluator.define(name, self._evaluator.evaluate(valstr))
         except Exception as exc:
-            msg = "exception occured when setting variable {} to {}"\
+            msg = "exception occured when setting variable(s) {} to {}"\
                 .format(name, valstr)
             raise FyppError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
@@ -1594,15 +1596,27 @@ class Evaluator:
             FyppError: If name starts with the reserved prefix or if it is a
                 reserved name.
         '''
-        if name.startswith(_RESERVED_PREFIX):
-            msg = "Name '{}' starts with reserved prefix '{}'"\
-                .format(name, _RESERVED_PREFIX)
-            raise FyppError(msg, None, None)
-        if name in _RESERVED_NAMES:
-            msg = "Name '{}' is reserved and can not be redefined"\
+        lpar = name.startswith('(')
+        rpar = name.endswith(')')
+        if lpar != rpar:
+            msg = "unbalanced paranthesis around variable name(s) in '{}'"\
                 .format(name)
             raise FyppError(msg, None, None)
-        self._env[name] = value
+        if lpar:
+            name = name[1:-1]
+        varnames = [s.strip() for s in name.split(',')]
+        if len(varnames) == 1:
+            value = (value,)
+        for ind, varname in enumerate(varnames):
+            if varname.startswith(_RESERVED_PREFIX):
+                msg = "Name '{}' starts with reserved prefix '{}'"\
+                    .format(varname, _RESERVED_PREFIX)
+                raise FyppError(msg, None, None)
+            if varname in _RESERVED_NAMES:
+                msg = "Name '{}' is reserved and can not be redefined"\
+                    .format(varname)
+                raise FyppError(msg, None, None)
+            self._env[varname] = value[ind]
 
 
     def updateenv(self, **vardict):
