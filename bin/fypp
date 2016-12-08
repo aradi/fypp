@@ -135,7 +135,7 @@ _CALL_PARAM_REGEXP = re.compile(r'^(?P<name>\w+)\s*$')
 
 _SETVAR_PARAM_REGEXP = re.compile(
     r'^(?P<name>(?:[(]\s*)?\w+(?:\s*,\s*\w+)*(?:\s*[)])?)'\
-    r'(?:\s+(?P<expr>.*))?\s*$')
+    r'(?:(?:(?:\s*=\s*)|\s+)(?P<expr>.*))?\s*$')
 
 _FOR_PARAM_REGEXP = re.compile(
     r'^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)\s*$')

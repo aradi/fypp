@@ -432,6 +432,18 @@ SIMPLE_TESTS = [
       '2\n',
      )
     ),
+    ('set_equal_sign_nospace',
+     ([],
+      '#:set x=2\n$: x\n',
+      '2\n',
+     )
+    ),
+    ('set_equal_sign_withspace',
+     ([],
+      '#:set x = 2\n$: x\n',
+      '2\n',
+     )
+    ),
     ('set_setvar',
      ([],
       '#:setvar x 2\n$: x\n',
@@ -441,6 +453,18 @@ SIMPLE_TESTS = [
     ('inline_set',
      ([],
       '#{set x 2}#${x}$Done\n',
+      '2Done\n',
+     )
+    ),
+    ('inline_set_equal_withspace',
+     ([],
+      '#{set x = 2}#${x}$Done\n',
+      '2Done\n',
+     )
+    ),
+    ('inline_set_equal_nospace',
+     ([],
+      '#{set x=2}#${x}$Done\n',
       '2Done\n',
      )
     ),
@@ -467,7 +491,7 @@ SIMPLE_TESTS = [
       '$:setvar("(x, y)", (2, 3))\n${x}$${y}$\nDone\n',
       "\n23\nDone\n",
      )
-    ),    
+    ),
     ('getvar_existing_value',
      ([_defvar('VAR', '\"VAL\"')],
       '$:getvar("VAR", "DEFAULT")\n',
@@ -1017,12 +1041,6 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
-    ('invalid_variable_assign',
-     ([],
-      '#:set A=3\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
-     )
-    ),
     ('invalid_for_decl',
      ([],
       '#:for i = 1, 2\n',
@@ -1069,6 +1087,12 @@ EXCEPTION_TESTS = [
      ([],
       '#:for i in range(5)\n${i}$\n#:endfor INV\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+     )
+    ),
+    ('invalid_variable_assign',
+     ([],
+      '#:set A=\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_mute',

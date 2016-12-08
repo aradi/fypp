@@ -6,6 +6,11 @@ Change Log
 Unreleased
 ==========
 
+Added
+-----
+
+* Allow equal sign as separator in set directive for better readability.
+
 
 1.2
 ===

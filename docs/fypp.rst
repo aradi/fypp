@@ -44,7 +44,7 @@ more in detail in the individual sections further down.
       print *, "Some debug information"
     #:endif
 
-    #:set LOGLEVEL 2
+    #:set LOGLEVEL = 2
 
 * Macro defintions and macro calls (apart of minor syntax differences similar to
   scoped intelligent Fortran macros, which probably will once become part of the
@@ -80,7 +80,7 @@ more in detail in the individual sections further down.
 * Iterated output (e.g. for generating Fortran templates)::
 
     interface myfunc
-    #:for dtype in [ 'real', 'dreal', 'complex', 'dcomplex' ]
+    #:for dtype in ['real', 'dreal', 'complex', 'dcomplex']
       module procedure myfunc_${dtype}$
     #:endfor
     end interface myfunc
@@ -323,7 +323,7 @@ Expression evaluation
 Python expressions can occur either as part of control directives, like ::
 
   #:if DEBUG > 0
-  #:for dtype in [ 'real(dp)', 'integer', 'logical' ]
+  #:for dtype in ['real(dp)', 'integer', 'logical']
 
 or directly inserted into the code using eval directives. ::
 
@@ -336,7 +336,7 @@ expressions. Although, this may require some additional quotations as compared
 to other preprocessor languages ::
 
   #:if defined('DEBUG')  #! The Python function defined() expects a string argument
-  #:for dtype in [ 'real(dp)', 'integer', 'logical' ]  #! dtype runs over strings
+  #:for dtype in ['real(dp)', 'integer', 'logical']  #! dtype runs over strings
 
 it enables consistent expressions with (hopefully) least surprises (once you
 know, how to formulate the expression in Python, you exactly know, how to write
@@ -473,19 +473,27 @@ variable is set to `None`::
   #:set LOGLEVEL LOGLEVEL + 1
 
 Note, that in the last example the variable `LOGLEVEL` must have been already
-defined in advance.
+defined in advance. For better readability, you can separate the variable name
+and the Python expression by an equal sign::
+
+  #:set LOG = 1
+  #:set LOGLEVEL = LOGLEVEL + 1
 
 The `set` directive also accepts assignments to variable tuples, provided the
 right hand side of the assignment is compatible with the variable tuple::
 
   #:set (VAR1, VAR2) 1, 2
+  #:set VAR1, VAR2 = 1, 2
 
-The parantheses around the variable list are optional, but are recommended for
-better readability.
+The parantheses around the variable list in the first example and the equal sign
+in the second one are again optional, but you should use one of those for better
+readability.
 
 The `set` directive can be also used in the inline form::
 
   #{set X 2}#print *, ${X}$
+  #{set X = 2}#print *, ${X}$
+
 
 For backwards compatibility reason, the `setvar` directive is also recognized by
 Fypp. Apart of the different name, it has the same syntax and functionality as
@@ -546,7 +554,7 @@ Fortran templates can be easily created by using the `for` directive. The
 following example creates a function for calculating the sine square for both
 single and double precision reals::
 
-  #:set real_kinds [ 'sp', 'dp' ]
+  #:set real_kinds = ['sp', 'dp']
 
   interface sin2
   #:for rkind in real_kinds
@@ -571,10 +579,10 @@ inserted using eval directives. If the iterable consists of iterables
 (e.g. tuples), usual indexing can be used to access their components, or a
 variable tuple to unpack them directly in the loop header::
 
-  #:set kinds ['sp', 'dp']
-  #:set names ['real', 'dreal']
+  #:set kinds = ['sp', 'dp']
+  #:set names = ['real', 'dreal']
   #! create kinds_names as [('sp', 'real'), ('dp', 'dreal')]
-  #:set kinds_names list(zip(kinds, names))
+  #:set kinds_names = list(zip(kinds, names))
 
   #! Acces by indexing
   interface sin2
@@ -661,12 +669,12 @@ snippet ::
 
   #:def macro(x)
   print *, "Local XY: ${x}$ ${y}$"
-  #:set y -2
+  #:set y = -2
   print *, "Local XY: ${x}$ ${y}$"
   #:enddef
 
-  #:set x 1
-  #:set y 2
+  #:set x = 1
+  #:set y = 2
   print *, "Global XY: ${x}$ ${y}$"
   $:macro(-1)
   print *, "Global XY: ${x}$ ${y}$"
@@ -790,7 +798,7 @@ The direct call directive can contain continuation lines::
 The arguments are parsed for further directives, so the inline form of the
 eval and control directives can be used::
 
-  #:set MYSIZE 2
+  #:set MYSIZE = 2
   @:assertEqual size(coords, dim=2) @@ ${MYSIZE}$
 
 
@@ -1046,7 +1054,7 @@ First, we create an include file (``checks.fypp``) with the appropriate macros::
   #:mute
 
   #! Enable debug feature if the preprocessor variable DEBUG has been defined
-  #:set DEBUG defined('DEBUG')
+  #:set DEBUG = defined('DEBUG')
 
 
   #! Stops the code, if the condition passed to it is not fulfilled
@@ -1164,29 +1172,16 @@ Generic programming
 
 The example below shows how to create a generic function ``maxRelError()``,
 which gives the maximal elementwise relative error for any pair of arrays with
-ranks from 0 (scalar) to 7 in single or double precision. First, we create a
-trivial Python function (file ``fyppinit.py``) to enable a concise notation::
+ranks from 0 (scalar) to 7 in single or double precision. The Fortran module
+(file ``errorcalc.fpp``) contains the interface ``maxRelError`` which maps to
+all the realizations with the different array ranks and precisions::
 
-  def ranksuffix(rank):
-      '''Returns a Fortran rank specification suffix.
+  #:def ranksuffix(RANK)
+  $:'' if RANK == 0 else '(' + ':' + ',:' * (RANK - 1) + ')'
+  #:enddef
 
-      Args:
-          rank (int): Rank of the object (must be >= 0).
-
-      Returns:
-          str: Rank specification suffix (e.g. (:)) or empty string for rank = 0.
-      '''
-      if rank == 0:
-          return ''
-      else:
-          return '(' + ','.join([':'] * rank) + ')'
-
-We then create a Fortran module (file ``errorcalc.fpp``) containing the
-interface ``maxRelError`` which maps to all the realizations with the different
-array ranks and precisions::
-
-  #:set PRECISIONS ['sp', 'dp']
-  #:set RANKS range(0, 8)
+  #:set PRECISIONS = ['sp', 'dp']
+  #:set RANKS = range(0, 8)
 
   module errorcalc
     implicit none
@@ -1225,13 +1220,18 @@ array ranks and precisions::
 
   end module errorcalc
 
-Finally, we preprocess the Fortran source file ``errorcalc.fpp`` with Fypp by
-using the initialization file ``fyppinit.py`` with the necessary Python function
-definitions::
+The macro ``ranksuffix()`` defined at the beginning receives a rank as argument
+and returns a string, which is either the empty string (rank 0) or the
+appropriate number of dimension placeholder separated by commas and within
+parantheses (e.g. ``(:,:)`` for rank 2). The string expression is calculated as
+a Python expression, so that we can make use of the powerful string manipulation
+routines in Python and write it as a one-line routine.
 
-  fypp -i fyppinit.py errorcalc.fpp errorcalc.f90
+If we preprocess the Fortran source file ``errorcalc.fpp`` with Fypp::
 
-The resulting file ``errorcalc.f90`` will contain a module with the generic
+  fypp errorcalc.fpp errorcalc.f90
+
+the resulting file ``errorcalc.f90`` will contain a module with the generic
 interface ``maxRelError()``::
 
   interface maxRelError
@@ -1255,7 +1255,7 @@ interface ``maxRelError()``::
 
 The interface maps to the appropriate functions::
 
-   function maxRelError_0_sp(obtained, reference) result(res)
+  function maxRelError_0_sp(obtained, reference) result(res)
     real(sp), intent(in) :: obtained
     real(sp), intent(in) :: reference
     real(sp) :: res
@@ -1318,7 +1318,6 @@ the macro within the loop. The function definition would then look as follows::
   #:endfor
 
   end module errorcalc
-
 
 
 ***********************************
