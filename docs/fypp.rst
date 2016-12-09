@@ -330,7 +330,7 @@ or directly inserted into the code using eval directives. ::
   $:time.strftime('%Y-%m-%d')
   print *, "${time.strftime('%Y-%m-%d')}$"
 
-Experssions are always evaluated by using Pythons ``eval()`` builtin and must
+Expressions are always evaluated by using Pythons ``eval()`` builtin and must
 be, therefore, syntactically and semantically correct Python
 expressions. Although, this may require some additional quotations as compared
 to other preprocessor languages ::
@@ -469,34 +469,29 @@ followed by an optional Python expression. If latter is not present, the
 variable is set to `None`::
 
   #:set DEBUG
-  #:set LOG 1
-  #:set LOGLEVEL LOGLEVEL + 1
-
-Note, that in the last example the variable `LOGLEVEL` must have been already
-defined in advance. For better readability, you can separate the variable name
-and the Python expression by an equal sign::
-
   #:set LOG = 1
   #:set LOGLEVEL = LOGLEVEL + 1
+
+Note, that in the last example the variable `LOGLEVEL` must have been already
+defined in advance. The equal signs separating the variable names from the Python
+expressions are optional, but recommended for better readability.
 
 The `set` directive also accepts assignments to variable tuples, provided the
 right hand side of the assignment is compatible with the variable tuple::
 
-  #:set (VAR1, VAR2) 1, 2
   #:set VAR1, VAR2 = 1, 2
+  #:set (VAR1, VAR2) = 1, 2
 
-The parantheses around the variable list in the first example and the equal sign
-in the second one are again optional, but you should use one of those for better
-readability.
+The parantheses around the variable list (second example) are optional.
 
 The `set` directive can be also used in the inline form::
 
-  #{set X 2}#print *, ${X}$
   #{set X = 2}#print *, ${X}$
 
-
+Similar to the line form, the separating equal sign is optional here as well.
+  
 For backwards compatibility reason, the `setvar` directive is also recognized by
-Fypp. Apart of the different name, it has the same syntax and functionality as
+Fypp. Apart of the different name, it has identical syntax and functionality to
 the `set` directive.
 
 
@@ -767,8 +762,8 @@ to code being hard to read, it should be usually avoided::
   ! This form is more readable
   print *, ${choose_code('a(:)', 'size(a)')}$
 
-If the arguments need no further processing, the direct call directive can be
-also used as an alternative to the line form (see next section).
+If the arguments are short, the direct call directive can be also used as an
+alternative to the line form (see next section).
 
 
 Direct call directive
