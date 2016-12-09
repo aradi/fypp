@@ -11,6 +11,11 @@ Added
 
 * Allow equal sign as separator in set directive for better readability.
 
+Changed
+-------
+
+* Reverse order exception printing, exception first occuring printed as last.
+
 
 1.2
 ===

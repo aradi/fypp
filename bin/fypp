@@ -193,9 +193,9 @@ class FyppError(Exception):
 
     def __str__(self):
         if self.cause is not None:
-            previous = str(self.cause) + '\n'
+            cause = str(self.cause)
         else:
-            previous = ''
+            cause = ''
         msg = [self.__class__.__name__, ':']
         if self.fname is not None:
             msg.append(" file '" + self.fname + "'")
@@ -208,7 +208,7 @@ class FyppError(Exception):
             msg.append('\n')
         if self.msg:
             msg.append(self.msg)
-        return previous + ''.join(msg)
+        return ''.join(msg) + '\n' + cause
 
 
 class FyppFatalError(FyppError):
