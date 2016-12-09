@@ -687,6 +687,19 @@ would result in ::
   print *, "Global XY: 1 2"
 
 
+For better readability, you can repeat the name of the macro (but not its
+argument list) at the corresponding enddef directive::
+  
+  #:def assertTrue(cond)
+    #:if DEBUG > 0
+      if (.not. (${cond}$)) then
+        print *, "Assert failed!"
+        error stop
+      end if
+    #:endif
+  #:enddef assertTrue
+
+
 The `def` directive can also be used in its short form::
 
   #{def l2(x)}#log(log(${x}$))#{enddef}#

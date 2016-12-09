@@ -11,6 +11,9 @@ Added
 
 * Allow equal sign as separator in set directive for better readability.
 
+* Allow macro name in enddef directives.
+
+
 Changed
 -------
 
