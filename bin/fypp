@@ -62,7 +62,7 @@ subclasses of `FyppError`_ is raised:
 * FyppFatalError: Unexpected error (e.g. bad input, missing files, etc.)
 
 * FyppStopRequest: Stop was triggered by an explicit request in the input
-  (e.g. stop directive).
+  (by a stop- or an assert-directive).
 
 Additional to those above an additional class is used for fine tuning:
 
@@ -131,16 +131,18 @@ _ALL_DIRECTIVES_REGEXP = re.compile(
 _DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>\w+)\(\s*(?P<args>(?:(?:\w+\s*,\s*)*(?:\w+)))?\s*\)$')
 
-_CALL_PARAM_REGEXP = re.compile(r'^(?P<name>\w+)\s*$')
+_ENDDEF_PARAM_REGEXP = re.compile(r'^(?P<name>\w+)?$')
+
+_CALL_PARAM_REGEXP = re.compile(r'^(?P<name>\w+)$')
 
 _SETVAR_PARAM_REGEXP = re.compile(
     r'^(?P<name>(?:[(]\s*)?\w+(?:\s*,\s*\w+)*(?:\s*[)])?)'\
-    r'(?:\s+(?P<expr>.*))?\s*$')
+    r'(?:(?:(?:\s*=\s*)|\s+)(?P<expr>.*))?$')
 
 _FOR_PARAM_REGEXP = re.compile(
-    r'^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)\s*$')
+    r'^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)$')
 
-_INCLUDE_PARAM_REGEXP = re.compile(r'^(\'|")(?P<fname>.*?)\1\s*$')
+_INCLUDE_PARAM_REGEXP = re.compile(r'^(\'|")(?P<fname>.*?)\1$')
 
 _COMMENTLINE_REGEXP = re.compile(r'^[ \t]*!.*$')
 
@@ -193,9 +195,9 @@ class FyppError(Exception):
 
     def __str__(self):
         if self.cause is not None:
-            previous = str(self.cause) + '\n'
+            cause = str(self.cause)
         else:
-            previous = ''
+            cause = ''
         msg = [self.__class__.__name__, ':']
         if self.fname is not None:
             msg.append(" file '" + self.fname + "'")
@@ -208,7 +210,7 @@ class FyppError(Exception):
             msg.append('\n')
         if self.msg:
             msg.append(self.msg)
-        return previous + ''.join(msg)
+        return ''.join(msg) + '\n' + cause
 
 
 class FyppFatalError(FyppError):
@@ -339,15 +341,16 @@ class Parser:
         self._log_event('def', span, name=name, arguments=args)
 
 
-    def handle_enddef(self, span):
+    def handle_enddef(self, span, name):
         '''Called when parser encounters an enddef directive.
 
         It is a dummy method and should be overriden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
+            name (str): Name found after the enddef directive.
         '''
-        self._log_event('enddef', span)
+        self._log_event('enddef', span, name=name)
 
 
     def handle_if(self, span, cond):
@@ -525,6 +528,17 @@ class Parser:
         self._log_event('stop', span, msg=msg)
 
 
+    def handle_assert(self, span):
+        '''Called when parser finds an assert directive.
+
+        It is a dummy method and should be overriden for actual use.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+        '''
+        self._log_event('assert', span)
+
+
     @staticmethod
     def _log_event(event, span=(-1, -1), **params):
         print('{}: {} --> {}'.format(event, span[0], span[1]))
@@ -593,8 +607,7 @@ class Parser:
         elif directive == 'def':
             self._process_def(param, span)
         elif directive == 'enddef':
-            self._check_empty_param('enddef', param, span)
-            self.handle_enddef(span)
+            self._process_enddef(param, span)
         elif directive == 'setvar' or directive == 'set':
             self._process_setvar(param, span)
         elif directive == 'for':
@@ -624,6 +637,9 @@ class Parser:
         elif directive == 'stop':
             self._check_not_inline_directive('stop', span)
             self.handle_stop(span, param)
+        elif directive == 'assert':
+            self._check_not_inline_directive('assert', span)
+            self.handle_assert(span, param)
         else:
             msg = "unknown directive '{}'".format(directive)
             raise FyppFatalError(msg, self._curfile, span)
@@ -663,6 +679,15 @@ class Parser:
         else:
             args = [s.strip() for s in argstr.split(',')]
         self.handle_def(span, name, args)
+
+
+    def _process_enddef(self, param, span):
+        match = _ENDDEF_PARAM_REGEXP.search(param)
+        if not match:
+            msg = "invalid enddef parameter '{}'".format(param)
+            raise FyppFatalError(msg, self._curfile, span)
+        name = match.group('name')
+        self.handle_enddef(span, name)
 
 
     def _process_setvar(self, param, span):
@@ -939,19 +964,25 @@ class Builder:
         self._open_blocks.append(defblock)
 
 
-    def handle_enddef(self, span):
+    def handle_enddef(self, span, name):
         '''Should be called to signalize an enddef directive.
 
         Args:
             span (tuple of int): Start and end line of the directive.
+            name (str): Name of the enddef statement. Could be None, if enddef
+                was specified without name.
         '''
         self._check_for_open_block(span, 'enddef')
         block = self._open_blocks.pop(-1)
         directive, fname, spans = block[0:3]
         self._check_if_matches_last(directive, 'def', spans[-1], span, 'enddef')
-        name, args, dummy = block[3:6]
+        defname, args, dummy = block[3:6]
+        if name is not None and name != defname:
+            msg = "wrong name in enddef directive "\
+                  "(expected '{}', got '{}')".format(defname, name)
+            raise FyppFatalError(msg, fname, span)
         spans.append(span)
-        block = (directive, fname, spans, name, args, self._curnode)
+        block = (directive, fname, spans, defname, args, self._curnode)
         self._curnode = self._path.pop(-1)
         self._curnode.append(block)
 
@@ -1083,6 +1114,15 @@ class Builder:
             span (tuple of int): Start and end line of the directive.
         '''
         self._curnode.append(('stop', self._curfile, span, msg))
+
+
+    def handle_assert(self, span, cond):
+        '''Should be called to signalize an assert directive.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+        '''
+        self._curnode.append(('assert', self._curfile, span, cond))
 
 
     @property
@@ -1220,6 +1260,9 @@ class Renderer:
                 output.append(self._get_muted_content(*node[1:4]))
             elif cmd == 'stop':
                 self._handle_stop(*node[1:4])
+            elif cmd == 'assert':
+                result = self._handle_assert(*node[1:4])
+                output.append(result)
             else:
                 msg = "internal error: unknown command '{}'".format(cmd)
                 raise FyppFatalError(msg)
@@ -1382,12 +1425,29 @@ class Renderer:
     def _handle_stop(self, fname, span, msgstr):
         self._update_linenr(span[0])
         try:
-            msg = self._evaluator.evaluate(msgstr)
+            msg = str(self._evaluator.evaluate(msgstr))
         except Exception as exc:
-            msg = "exception occured when evaluating stop message: {}"\
+            msg = "exception occured when evaluating stop message '{}'"\
                 .format(msgstr)
             raise FyppFatalError(msg, fname, span, exc)
         raise FyppStopRequest(msg, fname, span)
+
+
+    def _handle_assert(self, fname, span, expr):
+        result = ''
+        self._update_linenr(span[0])
+        try:
+            cond = bool(self._evaluator.evaluate(expr))
+        except Exception as exc:
+            msg = "exception occured when evaluating assert condition '{}'"\
+                .format(expr)
+            raise FyppFatalError(msg, fname, span, exc)
+        if not cond:
+            msg = "Assertion failed ('{}')".format(expr)
+            raise FyppStopRequest(msg, fname, span)
+        if self._linenums and not self._diversions:
+            result = linenumdir(span[1], fname)
+        return result
 
 
     def _divert(self):
@@ -1829,6 +1889,7 @@ class Processor:
         self._parser.handle_mute = self._builder.handle_mute
         self._parser.handle_endmute = self._builder.handle_endmute
         self._parser.handle_stop = self._builder.handle_stop
+        self._parser.handle_assert = self._builder.handle_assert
 
 
     def process_file(self, fname, env=None):

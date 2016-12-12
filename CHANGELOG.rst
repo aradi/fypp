@@ -6,6 +6,21 @@ Change Log
 Unreleased
 ==========
 
+Added
+-----
+
+* Allow equal sign as separator in set directive for better readability.
+
+* Allow macro name in enddef directives.
+
+* Implement assert directive.
+
+
+Changed
+-------
+
+* Reverse order exception printing, exception first occuring printed as last.
+
 
 1.2
 ===

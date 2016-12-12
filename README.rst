@@ -27,7 +27,7 @@ Main features
       print *, "Some debug information"
     #:endif
 
-    #:set LOGLEVEL 2
+    #:set LOGLEVEL = 2
 
 * Macro defintions and macro calls (apart of minor syntax differences similar to
   scoped intelligent Fortran macros, which probably will once become part of the
@@ -119,6 +119,14 @@ Main features
       #:stop 'Negative debug level not allowed!'
     #:endif
 
+* Easy check for macro parameter sanity::
+
+    #:def mymacro(DEBUGLEVEL, SUFFIX)
+      #:assert DEBUGLEVEL > 0
+      #:assert isinstance(SUFFIX, str)
+      :
+    #:enddef mymacro
+  
 
 Installing
 ==========

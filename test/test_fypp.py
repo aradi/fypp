@@ -219,6 +219,12 @@ SIMPLE_TESTS = [
       'MACRO|1|'
      )
     ),
+    ('macrosubs_named_enddef',
+     ([],
+      '#:def macro(var)\nMACRO|${var}$|\n#:enddef macro\n${macro(1)}$',
+      'MACRO|1|'
+     )
+    ),
     ('macro_noargs',
      ([],
       '#:def macro()\nMACRO\n#:enddef\n${macro()}$',
@@ -247,6 +253,12 @@ SIMPLE_TESTS = [
     ('inline_macrodef',
      ([],
       '#{def f(x)}#${x}$^2#{enddef}#\n$: f(20)\nDone\n',
+      '\n20^2\nDone\n'
+     )
+    ),
+    ('inline_macrodef_named_enddef',
+     ([],
+      '#{def f(x)}#${x}$^2#{enddef f}#\n$: f(20)\nDone\n',
       '\n20^2\nDone\n'
      )
     ),
@@ -432,6 +444,18 @@ SIMPLE_TESTS = [
       '2\n',
      )
     ),
+    ('set_equal_sign_nospace',
+     ([],
+      '#:set x=2\n$: x\n',
+      '2\n',
+     )
+    ),
+    ('set_equal_sign_withspace',
+     ([],
+      '#:set x = 2\n$: x\n',
+      '2\n',
+     )
+    ),
     ('set_setvar',
      ([],
       '#:setvar x 2\n$: x\n',
@@ -441,6 +465,18 @@ SIMPLE_TESTS = [
     ('inline_set',
      ([],
       '#{set x 2}#${x}$Done\n',
+      '2Done\n',
+     )
+    ),
+    ('inline_set_equal_withspace',
+     ([],
+      '#{set x = 2}#${x}$Done\n',
+      '2Done\n',
+     )
+    ),
+    ('inline_set_equal_nospace',
+     ([],
+      '#{set x=2}#${x}$Done\n',
       '2Done\n',
      )
     ),
@@ -467,7 +503,7 @@ SIMPLE_TESTS = [
       '$:setvar("(x, y)", (2, 3))\n${x}$${y}$\nDone\n',
       "\n23\nDone\n",
      )
-    ),    
+    ),
     ('getvar_existing_value',
      ([_defvar('VAR', '\"VAL\"')],
       '$:getvar("VAR", "DEFAULT")\n',
@@ -906,6 +942,18 @@ LINENUM_TESTS = [
       _linenum(0) + _linenum(3) + '|a < b|\n' + _linenum(6) + 'Done\n',
      )
     ),
+    ('assert_directive',
+     ([_LINENUM_FLAG],
+      '#:assert 1 < 2\nDone\n',
+      _linenum(0) + _linenum(1) + 'Done\n',
+     )
+    ),
+    ('assert_directive_contline',
+     ([_LINENUM_FLAG],
+      '#:assert 1&\n& < 2\nDone\n',
+      _linenum(0) + _linenum(2) + 'Done\n',
+     )
+    ),
     ('smart_folding',
      ([_LINENUM_FLAG, _linelen(15), _indentation(4), _folding('smart')],
       '  ${3}$456 89 123456 8\nDone\n',
@@ -1017,12 +1065,6 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
-    ('invalid_variable_assign',
-     ([],
-      '#:set A=3\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
-     )
-    ),
     ('invalid_for_decl',
      ([],
       '#:for i = 1, 2\n',
@@ -1059,16 +1101,16 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (4, 5))]
      )
     ),
-    ('invalid_enddef',
-     ([],
-      '#:def test(x)\nA:${x}$\n#:enddef INV\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
-     )
-    ),
     ('invalid_endfor',
      ([],
       '#:for i in range(5)\n${i}$\n#:endfor INV\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+     )
+    ),
+    ('invalid_variable_assign',
+     ([],
+      '#:set A=\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_mute',
@@ -1216,6 +1258,18 @@ EXCEPTION_TESTS = [
      ([],
       '#:def test(x)\n#{if 1 < 2}#\n#:enddef\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+     )
+    ),
+    ('enddef_name_mismatch',
+     ([],
+      '#:def macro(var)\nMACRO|${var}$|\n#:enddef nonsense\n${macro(1)}$',
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+     )
+    ),
+    ('inline_enddef_name_mismatch',
+     ([],
+      '#{def macro(var)}#MACRO|${var}$|#{enddef nonsense}#${macro(1)}$',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
     ('line_for_inline_endfor',
@@ -1408,6 +1462,30 @@ EXCEPTION_TESTS = [
      ([],
       '#:set A 12\n#:if A > 10\n#:stop "Wrong A: {}".format(BA)\n#:endif\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+     )
+    ),
+    ('invalid_inline_stop',
+     ([],
+      '#:set A 12\n#:if A > 10\n#{stop "Wrong A: {}".format(BA)}#\n#:endif\n',
+      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
+     )
+    ),
+    ('assert',
+     ([],
+      '#:set A 12\n#:assert A < 10\n',
+      [(fypp.FyppStopRequest, fypp.STRING, (1, 2))]
+     )
+    ),
+    ('invalid_assert_expr',
+     ([],
+      '#:assert A < 10\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('invalid_inline_assert',
+     ([],
+      '#:set A 12\n#{assert A < 10}#\n',
+      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
      )
     ),
 ]
