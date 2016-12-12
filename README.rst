@@ -119,6 +119,14 @@ Main features
       #:stop 'Negative debug level not allowed!'
     #:endif
 
+* Easy check for macro parameter sanity::
+
+    #:def mymacro(DEBUGLEVEL, SUFFIX)
+      #:assert DEBUGLEVEL > 0
+      #:assert isinstance(SUFFIX, str)
+      :
+    #:enddef mymacro
+  
 
 Installing
 ==========

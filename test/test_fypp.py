@@ -942,6 +942,18 @@ LINENUM_TESTS = [
       _linenum(0) + _linenum(3) + '|a < b|\n' + _linenum(6) + 'Done\n',
      )
     ),
+    ('assert_directive',
+     ([_LINENUM_FLAG],
+      '#:assert 1 < 2\nDone\n',
+      _linenum(0) + _linenum(1) + 'Done\n',
+     )
+    ),
+    ('assert_directive_contline',
+     ([_LINENUM_FLAG],
+      '#:assert 1&\n& < 2\nDone\n',
+      _linenum(0) + _linenum(2) + 'Done\n',
+     )
+    ),
     ('smart_folding',
      ([_LINENUM_FLAG, _linelen(15), _indentation(4), _folding('smart')],
       '  ${3}$456 89 123456 8\nDone\n',
@@ -1450,6 +1462,30 @@ EXCEPTION_TESTS = [
      ([],
       '#:set A 12\n#:if A > 10\n#:stop "Wrong A: {}".format(BA)\n#:endif\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+     )
+    ),
+    ('invalid_inline_stop',
+     ([],
+      '#:set A 12\n#:if A > 10\n#{stop "Wrong A: {}".format(BA)}#\n#:endif\n',
+      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
+     )
+    ),
+    ('assert',
+     ([],
+      '#:set A 12\n#:assert A < 10\n',
+      [(fypp.FyppStopRequest, fypp.STRING, (1, 2))]
+     )
+    ),
+    ('invalid_assert_expr',
+     ([],
+      '#:assert A < 10\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('invalid_inline_assert',
+     ([],
+      '#:set A 12\n#{assert A < 10}#\n',
+      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
      )
     ),
 ]

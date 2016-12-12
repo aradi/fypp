@@ -62,7 +62,7 @@ subclasses of `FyppError`_ is raised:
 * FyppFatalError: Unexpected error (e.g. bad input, missing files, etc.)
 
 * FyppStopRequest: Stop was triggered by an explicit request in the input
-  (e.g. stop directive).
+  (by a stop- or an assert-directive).
 
 Additional to those above an additional class is used for fine tuning:
 
@@ -528,6 +528,17 @@ class Parser:
         self._log_event('stop', span, msg=msg)
 
 
+    def handle_assert(self, span):
+        '''Called when parser finds an assert directive.
+
+        It is a dummy method and should be overriden for actual use.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+        '''
+        self._log_event('assert', span)
+
+
     @staticmethod
     def _log_event(event, span=(-1, -1), **params):
         print('{}: {} --> {}'.format(event, span[0], span[1]))
@@ -626,6 +637,9 @@ class Parser:
         elif directive == 'stop':
             self._check_not_inline_directive('stop', span)
             self.handle_stop(span, param)
+        elif directive == 'assert':
+            self._check_not_inline_directive('assert', span)
+            self.handle_assert(span, param)
         else:
             msg = "unknown directive '{}'".format(directive)
             raise FyppFatalError(msg, self._curfile, span)
@@ -1102,6 +1116,15 @@ class Builder:
         self._curnode.append(('stop', self._curfile, span, msg))
 
 
+    def handle_assert(self, span, cond):
+        '''Should be called to signalize an assert directive.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+        '''
+        self._curnode.append(('assert', self._curfile, span, cond))
+
+
     @property
     def tree(self):
         '''Returns the tree built by the Builder.'''
@@ -1237,6 +1260,9 @@ class Renderer:
                 output.append(self._get_muted_content(*node[1:4]))
             elif cmd == 'stop':
                 self._handle_stop(*node[1:4])
+            elif cmd == 'assert':
+                result = self._handle_assert(*node[1:4])
+                output.append(result)
             else:
                 msg = "internal error: unknown command '{}'".format(cmd)
                 raise FyppFatalError(msg)
@@ -1399,12 +1425,29 @@ class Renderer:
     def _handle_stop(self, fname, span, msgstr):
         self._update_linenr(span[0])
         try:
-            msg = self._evaluator.evaluate(msgstr)
+            msg = str(self._evaluator.evaluate(msgstr))
         except Exception as exc:
-            msg = "exception occured when evaluating stop message: {}"\
+            msg = "exception occured when evaluating stop message '{}'"\
                 .format(msgstr)
             raise FyppFatalError(msg, fname, span, exc)
         raise FyppStopRequest(msg, fname, span)
+
+
+    def _handle_assert(self, fname, span, expr):
+        result = ''
+        self._update_linenr(span[0])
+        try:
+            cond = bool(self._evaluator.evaluate(expr))
+        except Exception as exc:
+            msg = "exception occured when evaluating assert condition '{}'"\
+                .format(expr)
+            raise FyppFatalError(msg, fname, span, exc)
+        if not cond:
+            msg = "Assertion failed ('{}')".format(expr)
+            raise FyppStopRequest(msg, fname, span)
+        if self._linenums and not self._diversions:
+            result = linenumdir(span[1], fname)
+        return result
 
 
     def _divert(self):
@@ -1846,6 +1889,7 @@ class Processor:
         self._parser.handle_mute = self._builder.handle_mute
         self._parser.handle_endmute = self._builder.handle_endmute
         self._parser.handle_stop = self._builder.handle_stop
+        self._parser.handle_assert = self._builder.handle_assert
 
 
     def process_file(self, fname, env=None):

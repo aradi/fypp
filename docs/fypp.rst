@@ -136,6 +136,14 @@ more in detail in the individual sections further down.
       #:stop 'Negative debug level not allowed!'
     #:endif
 
+* Easy check for macro parameter sanity::
+
+    #:def mymacro(DEBUGLEVEL, SUFFIX)
+      #:assert DEBUGLEVEL > 0
+      #:assert isinstance(SUFFIX, str)
+      :
+    #:enddef mymacro
+
 
 ***************
 Getting started
@@ -858,18 +866,6 @@ as output without any newlines.
 The `mute` directive does not have an inline form.
 
 
-Comment directive
-=================
-
-Comment lines can be added by using the ``#!`` preprocessor directive. The
-comment line (including the newlines at their end) will be ignored by the
-prepropessor and will not appear in the ouput::
-
-    #! This will not show up in the output
-
-There is no inline form of the comment directive.
-
-
 `stop` directive
 ================
 
@@ -886,6 +882,52 @@ immediately with a non-zero exit code (see `Exit Codes`_)::
     #:endif
 
 There is no inline form of the `stop` directive.
+
+
+`assert` directive
+==================
+
+The `assert` directive is a short form for the combination of an `if` and a
+`stop` directive. It evaluates a given expression and stops the code, if the
+boolean value of the result is `False`. This can be very convenient, if you want
+to write robust macros containing sanity checks for their arguments::
+
+  #:def mymacro(DEBUGLEVEL, SUFFIX)
+    #:assert DEBUGLEVEL >= 0
+    #:assert isinstance(SUFFIX, str)
+    :
+  #:enddef mymacro
+
+Given the macro definition above, the macro call ::
+
+  $:mymacro(1, 'test')
+
+would pass the first two assert statements, while the two calls ::
+
+  $:mymacro(-1, 'test')
+  $:mymacro(0, 12)
+
+would cause Fypp to stop at the first and second `assert` directive,
+respectively. 
+
+When the expression in an `assert` directive evaluates to `False`, Fypp reports
+the failed assertion (the condition, the file name and the line number) on
+standard error and terminates immediately with a non-zero exit code (see `Exit
+Codes`_).
+
+There is no inline form of the `assert` directive.
+
+
+Comment directive
+=================
+
+Comment lines can be added by using the ``#!`` preprocessor directive. The
+comment line (including the newlines at their end) will be ignored by the
+prepropessor and will not appear in the ouput::
+
+    #! This will not show up in the output
+
+There is no inline form of the comment directive.
 
 
 ****************

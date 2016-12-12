@@ -13,6 +13,8 @@ Added
 
 * Allow macro name in enddef directives.
 
+* Implement assert directive.
+
 
 Changed
 -------
