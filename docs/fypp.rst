@@ -138,9 +138,9 @@ more in detail in the individual sections further down.
 
 * Easy check for macro parameter sanity::
 
-    #:def mymacro(DEBUGLEVEL, SUFFIX)
-      #:assert DEBUGLEVEL > 0
-      #:assert isinstance(SUFFIX, str)
+    #:def mymacro(RANK)
+      #! Macro only works for RANK 1 and above
+      #:assert RANK > 0
       :
     #:enddef mymacro
 
@@ -892,9 +892,9 @@ The `assert` directive is a short form for the combination of an `if` and a
 boolean value of the result is `False`. This can be very convenient, if you want
 to write robust macros containing sanity checks for their arguments::
 
-  #:def mymacro(DEBUGLEVEL, SUFFIX)
-    #:assert DEBUGLEVEL >= 0
-    #:assert isinstance(SUFFIX, str)
+  #:def mymacro(RANK)
+    #! Macro only works for RANK 1 and above
+    #:assert RANK > 0
     :
   #:enddef mymacro
 

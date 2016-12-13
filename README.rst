@@ -121,9 +121,9 @@ Main features
 
 * Easy check for macro parameter sanity::
 
-    #:def mymacro(DEBUGLEVEL, SUFFIX)
-      #:assert DEBUGLEVEL > 0
-      #:assert isinstance(SUFFIX, str)
+    #:def mymacro(RANK)
+      #! Macro only works for RANK 1 and above
+      #:assert RANK > 0
       :
     #:enddef mymacro
   
