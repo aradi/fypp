@@ -3,7 +3,7 @@ import sys
 import re
 import os
 
-VERSION_PATTERN = r'\d+\.\d+(?:\.\d+)?'
+VERSION_PATTERN = r'\d+\.\d+(?:\.\d+)?(?:-\w+)?'
 FILES_PATTERNS = [ ('bin/fypp', 
                     r'^VERSION\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN), 
                     "VERSION = '{version}'"),
@@ -56,8 +56,9 @@ fp = open(fname, 'r')
 txt = fp.read()
 fp.close()
 decoration = '=' * len(version)
-newtxt, nsub = re.subn('^Unreleased\s*\n=+', version + '\n' + decoration, txt,
-                       flags=re.MULTILINE)
+newtxt, nsub = re.subn(
+    '^{}\s*\n=+'.format(VERSION_PATTERN), version + '\n' + decoration, txt, 
+    count=1, flags=re.MULTILINE)
 print(nsub)
 fp = open(fname, 'w')
 fp.write(newtxt)
