@@ -9,22 +9,22 @@ def _linenum(linenr, fname=None, flag=None):
     return fypp.linenumdir(linenr, fname, flag)
 
 def _defvar(var, val):
-    return '-D{}={}'.format(var, val)
+    return '-D{0}={1}'.format(var, val)
 
 def _incdir(path):
-    return '-I{}'.format(path)
+    return '-I{0}'.format(path)
 
 def _linelen(linelen):
-    return '-l{}'.format(linelen)
+    return '-l{0}'.format(linelen)
 
 def _indentation(ind):
-    return '--indentation={}'.format(ind)
+    return '--indentation={0}'.format(ind)
 
 def _folding(fold):
-    return '-f{}'.format(fold)
+    return '-f{0}'.format(fold)
 
 def _linenumbering(nummode):
-    return '-N{}'.format(nummode)
+    return '-N{0}'.format(nummode)
 
 _LINENUM_FLAG = '-n'
 
@@ -1502,19 +1502,19 @@ EXCEPTION_TESTS = [
     #
     ('userstop',
      ([],
-      '#:set A 12\n#:if A > 10\n#:stop "Wrong A: {}".format(A)\n#:endif\n',
+      '#:set A 12\n#:if A > 10\n#:stop "Wrong A: {0}".format(A)\n#:endif\n',
       [(fypp.FyppStopRequest, fypp.STRING, (2, 3))]
      )
     ),
     ('invalid_userstop_expr',
      ([],
-      '#:set A 12\n#:if A > 10\n#:stop "Wrong A: {}".format(BA)\n#:endif\n',
+      '#:set A 12\n#:if A > 10\n#:stop "Wrong A: {0}".format(BA)\n#:endif\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('invalid_inline_stop',
      ([],
-      '#:set A 12\n#:if A > 10\n#{stop "Wrong A: {}".format(BA)}#\n#:endif\n',
+      '#:set A 12\n#:if A > 10\n#{stop "Wrong A: {0}".format(BA)}#\n#:endif\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
      )
     ),
@@ -1555,7 +1555,7 @@ def get_test_output_method(args, inp, out):
         '''Tests whether Fypp result matches expected output.'''
         options = fypp.FyppOptions()
         argparser = fypp.get_option_parser()
-        tool = fypp.Fypp(argparser.parse_args(args, namespace=options))
+        tool = fypp.Fypp(argparser.parse_args(args, values=options)[0])
         result = tool.process_text(inp)
         self.assertEqual(out, result)
     return test_output
@@ -1568,7 +1568,7 @@ def get_test_exception_method(args, inp, exceptions):
         args (list of str): Command-line arguments to pass to Fypp.
         inp (str): Input with Fypp directives.
         exceptions (list of tuples): Each tuple contains an exception, a file
-            name name and a span (tuple or int). The tuples should be in reverse
+            name and a span (tuple or int). The tuples should be in reverse
             order (latest raised exception first).
 
     Returns:
@@ -1577,14 +1577,14 @@ def get_test_exception_method(args, inp, exceptions):
 
     def test_exception(self):
         '''Tests whether Fypp throws the correct exception.'''
-
         options = fypp.FyppOptions()
         argparser = fypp.get_option_parser()
-        lastexception = exceptions[0][0]
-        with self.assertRaises(lastexception) as ctx:
-            tool = fypp.Fypp(argparser.parse_args(args, namespace=options))
+        raised = None
+        try:
+            tool = fypp.Fypp(argparser.parse_args(args, values=options)[0])
             _ = tool.process_text(inp)
-        raised = ctx.exception
+        except Exception as e:
+            raised = e
         for exc, fname, span in exceptions:
             self.assertTrue(isinstance(raised, exc))
             if fname is None:
@@ -1617,7 +1617,7 @@ class TestContainer(unittest.TestCase):
         for itest, test in enumerate(tests):
             name = test[0]
             testargs = test[1]
-            methodname = 'test{}_{}'.format(itest + 1, name)
+            methodname = 'test{0}_{1}'.format(itest + 1, name)
             setattr(cls, methodname, methodfactory(*testargs))
 
 
