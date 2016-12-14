@@ -38,7 +38,7 @@ Main features
       error stop
     end if
     #:endif
-    #:enddef
+    #:enddef assertTrue
 
     ! Invoked via direct call (needs no quotation)
     @:assertTrue size(myArray) > 0
@@ -91,13 +91,13 @@ Main features
       #:if DEBUG > 0
         $:code
       #:endif
-    #:enddef
+    #:enddef debug_code
     
     #:call debug_code
       if (size(array) > 100) then
         print *, "DEBUG: spuriously large array"
       end if
-    #:endcall
+    #:endcall debug_code
 
 * Preprocessor comments::
 

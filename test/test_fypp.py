@@ -310,6 +310,20 @@ SIMPLE_TESTS = [
       '|L1\nL2\nL3|\n',
      )
     ),
+    ('call_directive_named_endcall',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '#:call mymacro\nL1\nL2\nL3\n#:endcall mymacro\n',
+      '|L1\nL2\nL3|\n',
+     )
+    ),
+    ('inine_call_directive_named_endcall',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '#{call mymacro}#L1 L2 L3#{endcall mymacro}#',
+      '|L1 L2 L3|',
+     )
+    ),
     ('call_directive_quotation',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
@@ -1290,6 +1304,20 @@ EXCEPTION_TESTS = [
      ([],
       '#{def macro(var)}#MACRO|${var}$|#{enddef nonsense}#${macro(1)}$',
       [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+     )
+    ),
+    ('endcall_name_mismatch',
+     ([],
+      '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n'\
+      '#:call macro\n1\n#:endcall nonsense\n',
+      [(fypp.FyppFatalError, fypp.STRING, (5, 6))]
+     )
+    ),
+    ('inline_endcall_name_mismatch',
+     ([],
+      '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n'\
+      '#{call macro}#1#{endcall nonsense}#',
+      [(fypp.FyppFatalError, fypp.STRING, (3, 3))]
      )
     ),
     ('line_for_inline_endfor',

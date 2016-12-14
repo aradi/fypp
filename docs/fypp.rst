@@ -114,7 +114,7 @@ more in detail in the individual sections further down.
       if (size(array) > 100) then
         print *, "DEBUG: spuriously large array"
       end if
-    #:endcall
+    #:endcall debug_code
 
 * Preprocessor comments::
 
@@ -637,7 +637,7 @@ the following three calls ::
 
   #:call assertTrue
   x > y
-  #:endcall
+  #:endcall assertTrue
 
   @:assertTrue x > y
 
@@ -706,11 +706,11 @@ The `def` directive can also be used in its short form::
   #{def l2(x)}#log(log(${x}$))#{enddef}#
 
 .. warning:: The content of macros is usually inserted via an eval directive and
-	     is accordingly subject to eventual line folding. Macros should,
-	     therefore, not contain any inline Fortran comments. (Comments
-	     starting at the beginning of the line preceeded by optional
-	     whitespaces only are OK, though). Use preprocessor comments
-	     (``#!``) instead.
+     is accordingly subject to eventual line folding. Macros should,
+     therefore, not contain any inline Fortran comments. (Comments
+     starting at the beginning of the line preceeded by optional
+     whitespaces only are OK, though). Use preprocessor comments
+     (``#!``) instead.
 
 
 `call` directive
@@ -734,9 +734,18 @@ directive to avoid extra quoting of the arguments::
 
 The `call` directive takes the name of the callable as argument. The lines
 between the opening and closing directives will be rendered and then passed as
-Python string argument to the callable. If the callable has more than one
-arguments, the `nextarg` directive can be used to separate the arguments from
-each other::
+Python string argument to the callable. Similar to the `enddef` directive, the
+name of the macro can be repeated also in the `endcall` directive for enhanced
+readability::
+
+  #:call debug_code
+    if (a < b) then
+      print *, "DEBUG: a is less than b"
+    end if
+  #:endcall debug_code
+
+If the callable has more than one arguments, the `nextarg` directive can be used
+to separate the arguments from each other::
 
   #:def choose_code(code_debug, code_nondebug)
     #:if DEBUG > 0
@@ -752,7 +761,7 @@ each other::
     end if
   #:nextarg
     print *, "No debugging"
-  #:endcall
+  #:endcall choose_code
 
 The lines in the body of the `call` directive may contain directives
 themselves. However, any variable defined within the body of the `call`
@@ -1163,7 +1172,7 @@ after including ``checks.fypp``::
     #:call debug_code
       print *, 'We are in debug mode'
       print *, 'The value of ind is', ind
-    #:endcall
+    #:endcall debug_code
 
     end subroutine someFunction
 

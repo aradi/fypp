@@ -131,9 +131,7 @@ _ALL_DIRECTIVES_REGEXP = re.compile(
 _DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>\w+)\(\s*(?P<args>(?:(?:\w+\s*,\s*)*(?:\w+)))?\s*\)$')
 
-_ENDDEF_PARAM_REGEXP = re.compile(r'^(?P<name>\w+)?$')
-
-_CALL_PARAM_REGEXP = re.compile(r'^(?P<name>\w+)$')
+_MACRO_NAME_REGEXP = re.compile(r'^(?P<name>\w+)?$')
 
 _SETVAR_PARAM_REGEXP = re.compile(
     r'^(?P<name>(?:[(]\s*)?\w+(?:\s*,\s*\w+)*(?:\s*[)])?)'\
@@ -450,15 +448,16 @@ class Parser:
         self._log_event('nextarg', span)
 
 
-    def handle_endcall(self, span):
+    def handle_endcall(self, span, name):
         '''Called when parser encounters an endcall directive.
 
         It is a dummy method and should be overriden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
+            name (str): Name found after the endcall directive.
         '''
-        self._log_event('endcall', span)
+        self._log_event('endcall', span, name=name)
 
 
     def handle_eval(self, span, expr):
@@ -624,8 +623,7 @@ class Parser:
             self._check_empty_param('nextcall', param, span)
             self.handle_nextarg(span)
         elif directive == 'endcall':
-            self._check_empty_param('endcall', param, span)
-            self.handle_endcall(span)
+            self._process_endcall(param, span)
         elif directive == 'include':
             self._check_not_inline_directive('include', span)
             self._process_include(param, span)
@@ -667,7 +665,7 @@ class Parser:
             for arg in args[1:]:
                 self.handle_nextarg(span)
                 self._parse(arg, linenr=linenr, linedirs=False)
-        self.handle_endcall(span)
+        self.handle_endcall(span, macroname)
 
 
     def _process_def(self, param, span):
@@ -685,7 +683,7 @@ class Parser:
 
 
     def _process_enddef(self, param, span):
-        match = _ENDDEF_PARAM_REGEXP.search(param)
+        match = _MACRO_NAME_REGEXP.search(param)
         if not match:
             msg = "invalid enddef parameter '{}'".format(param)
             raise FyppFatalError(msg, self._curfile, span)
@@ -712,12 +710,21 @@ class Parser:
 
 
     def _process_call(self, param, span):
-        match = _CALL_PARAM_REGEXP.search(param)
+        match = _MACRO_NAME_REGEXP.search(param)
         if not match:
             msg = "invalid macro call '{}'".format(param)
             raise FyppFatalError(msg, self._curfile, span)
         name = match.group('name')
         self.handle_call(span, name)
+
+
+    def _process_endcall(self, param, span):
+        match = _MACRO_NAME_REGEXP.search(param)
+        if not match:
+            msg = "invalid endcall parameter '{}'".format(param)
+            raise FyppFatalError(msg, self._curfile, span)
+        name = match.group('name')
+        self.handle_endcall(span, name)
 
 
     def _process_include(self, param, span):
@@ -1019,18 +1026,24 @@ class Builder:
         self._curnode = []
 
 
-    def handle_endcall(self, span):
+    def handle_endcall(self, span, name):
         '''Should be called to signalize an endcall directive.
 
         Args:
             span (tuple of int): Start and end line of the directive.
+            name (str): Name of the endcall statement. Could be None, if endcall
+                was specified without name.
         '''
         self._check_for_open_block(span, 'endcall')
         block = self._open_blocks.pop(-1)
-        directive, _, spans = block[0:3]
+        directive, fname, spans = block[0:3]
         self._check_if_matches_last(directive, 'call', spans[-1], span,
                                     'endcall')
-        _, contents = block[3:5]
+        callname, contents = block[3:5]
+        if name is not None and name != callname:
+            msg = "wrong name in endcall directive "\
+                  "(expected '{}', got '{}')".format(callname, name)
+            raise FyppFatalError(msg, fname, span)
         contents.append(self._curnode)
         spans.append(span)
         self._curnode = self._path.pop(-1)
