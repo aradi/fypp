@@ -205,15 +205,34 @@ The python module ``fypp.py`` can be found in ``FYP_SOURCE_FOLDER/src``.
 Testing
 =======
 
-You can test Fypp on your system by running ::
+Simple manual testing can be done by issuing the command ::
 
   ./test/runtests.sh
 
-in the source tree. This will execute various unit tests to check whether Fypp
-works as expected. If you want to run the tests with a specific Python
-interpreter, you can specify it as argument to the script::
+from the root of the Fypp source tree. This executes the unit tests shipped with
+Fypp with the default Python interpreter in your path. If you wish to use a
+specific interpreter, you can pass it as first argument to the script::
 
-  ./test/runtests.sh python3.2
+  ./test/runtests.sh python3
+
+
+Testing for developers
+----------------------
+
+If you wish to contribute to Fypp, you should have `tox` installed on your
+system, so that you can test the packaged project in isolated environments
+before issuing a pull request.
+
+In order to execute the unit tests with `tox`, run  ::
+
+  tox
+
+from the root folder of the source tree. This tests Fypp with both, the default
+Python 2 and Python 3 interpreter in your path. If you want to limit the test to
+only one of them, you can select it by the appropriate switch, e.g. ::
+
+  tox -e py3
+
 
 
 Running

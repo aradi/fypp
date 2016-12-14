@@ -17,6 +17,8 @@ Added
 
 * Add flags for new file and returning to file in line numbering directives.
 
+* Additional testing with tox.
+
 
 Changed
 -------
