@@ -46,9 +46,7 @@ more in detail in the individual sections further down.
 
     #:set LOGLEVEL = 2
 
-* Macro defintions and macro calls (apart of minor syntax differences similar to
-  scoped intelligent Fortran macros, which probably will once become part of the
-  Fortran standard)::
+* Macro definitions and macro calls::
 
     #:def assertTrue(cond)
     #:if DEBUG > 0
@@ -57,7 +55,7 @@ more in detail in the individual sections further down.
       error stop
     end if
     #:endif
-    #:enddef
+    #:enddef assertTrue
 
     ! Invoked via direct call (needs no quotation)
     @:assertTrue size(myArray) > 0
@@ -110,7 +108,7 @@ more in detail in the individual sections further down.
       #:if DEBUG > 0
         $:code
       #:endif
-    #:enddef
+    #:enddef debug_code
 
     #:call debug_code
       if (size(array) > 100) then
@@ -726,7 +724,7 @@ directive to avoid extra quoting of the arguments::
     #:if DEBUG > 0
       $:code
     #:endif
-  #:enddef
+  #:enddef debug_code
 
   #:call debug_code
     if (a < b) then
@@ -746,7 +744,7 @@ each other::
     #:else
       $:code_nondebug
     #:endif
-  #:enddef
+  #:enddef choose_code
 
   #:call chose_code
     if (a < b) then
@@ -788,7 +786,7 @@ directive::
     error stop
   end if
   #:endif
-  #:enddef
+  #:enddef assertTrue
 
   @:assertTrue size(aa) >= size(bb)
 
@@ -802,7 +800,7 @@ argument, the arguments must be separated by the character sequence ``@@``::
     print *, "AssertEqual failed!"
     error stop
   end if
-  #:enddef
+  #:enddef assertEqual
 
   @:assertEqual size(coords, dim=2) @@ size(types)
 
@@ -852,7 +850,7 @@ within the `mute` directive::
 
   #:def test(x)
   print *, "TEST: ${x}$"
-  #:enddef
+  #:enddef test
 
   #:endmute
   $:test('me')
@@ -876,7 +874,7 @@ criteria. The directive expects a Python expression, which will be converted to
 string and written to standard error. After writing the error message Fypp exits
 immediately with a non-zero exit code (see `Exit Codes`_)::
 
-    #! Stop the code, if DEBUGLEVEL is not positive
+    #! Stop the code if DEBUGLEVEL is not positive
     #:if DEBUGLEVEL < 0
       #:stop 'Wrong debug level {}!'.format(DEBUGLEVEL)
     #:endif
@@ -888,7 +886,7 @@ There is no inline form of the `stop` directive.
 ==================
 
 The `assert` directive is a short form for the combination of an `if` and a
-`stop` directive. It evaluates a given expression and stops the code, if the
+`stop` directive. It evaluates a given expression and stops the code if the
 boolean value of the result is `False`. This can be very convenient, if you want
 to write robust macros containing sanity checks for their arguments::
 
@@ -900,15 +898,13 @@ to write robust macros containing sanity checks for their arguments::
 
 Given the macro definition above, the macro call ::
 
-  $:mymacro(1, 'test')
+  $:mymacro(1)
 
-would pass the first two assert statements, while the two calls ::
+would pass the `assert` directive in the third line, while the call ::
 
-  $:mymacro(-1, 'test')
-  $:mymacro(0, 12)
+  $:mymacro(0)
 
-would cause Fypp to stop at the first and second `assert` directive,
-respectively. 
+would cause Fypp to stop at it.
 
 When the expression in an `assert` directive evaluates to `False`, Fypp reports
 the failed assertion (the condition, the file name and the line number) on
@@ -1006,7 +1002,7 @@ documentation or OpenMP directives)::
   ${DTYPE}$ function calcSomething(xx)
   :
   end function calcSomething
-  #:enddef
+  #:enddef macro
 
 
 Escaping
@@ -1030,7 +1026,7 @@ Line numbering directives
 
 In order to support compilers in emitting messages with correct line numbers
 with respect to the original source file, Fypp can put line number directives
-(a.k.a. linemarkers) in its output. This can be enabled by using the command
+(a.k.a. line markers) in its output. This can be enabled by using the command
 line option ``-n``. Given a file ``test.fpp`` with the content ::
 
   program test
@@ -1048,7 +1044,7 @@ the command ::
 
 produces the output ::
 
-  # 1 "test.fpp"
+  # 1 "test.fpp" 1
   program test
   # 3 "test.fpp"
     use mpi
@@ -1082,7 +1078,8 @@ codes to the calling environment:
 
 * 1: Stopped due to an unexpected error.
 
-* 2: Explicitely requested stop encountered (see `stop directive`_).
+* 2: Explicitely requested stop encountered (`stop directive`_ or `assert
+  directive`_).
 
 
 
@@ -1119,7 +1116,7 @@ First, we create an include file (``checks.fypp``) with the appropriate macros::
     stop
   end if
     #:endif
-  #:enddef
+  #:enddef ensure
 
 
   #! Includes code if in debug mode.
@@ -1127,7 +1124,7 @@ First, we create an include file (``checks.fypp``) with the appropriate macros::
     #:if DEBUG
   $:code
     #:endif
-  #:enddef
+  #:enddef debug_code
 
   #:endmute
 
@@ -1228,7 +1225,7 @@ all the realizations with the different array ranks and precisions::
 
   #:def ranksuffix(RANK)
   $:'' if RANK == 0 else '(' + ':' + ',:' * (RANK - 1) + ')'
-  #:enddef
+  #:enddef ranksuffix
 
   #:set PRECISIONS = ['sp', 'dp']
   #:set RANKS = range(0, 8)
@@ -1346,7 +1343,7 @@ the macro within the loop. The function definition would then look as follows::
 
   contains
 
-  #:def maxRelError_factory(RANK, PREC)
+  #:def maxRelError_template(RANK, PREC)
     function maxRelError_${RANK}$_${PREC}$(obtained, reference) result(res)
       real(${PREC}$), intent(in) :: obtained${ranksuffix(RANK)}$
       real(${PREC}$), intent(in) :: reference${ranksuffix(RANK)}$
@@ -1359,11 +1356,11 @@ the macro within the loop. The function definition would then look as follows::
     #:endif
 
     end function maxRelError_${RANK}$_${PREC}$
-  #:enddef
+  #:enddef maxRelError_template
 
   #:for PREC in PRECISIONS
     #:for RANK in RANKS
-      $:maxRelError_factory(RANK, PREC)
+      $:maxRelError_template(RANK, PREC)
     #:endfor
   #:endfor
 

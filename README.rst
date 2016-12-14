@@ -29,9 +29,7 @@ Main features
 
     #:set LOGLEVEL = 2
 
-* Macro defintions and macro calls (apart of minor syntax differences similar to
-  scoped intelligent Fortran macros, which probably will once become part of the
-  Fortran standard)::
+* Macro definitions and macro calls::
 
     #:def assertTrue(cond)
     #:if DEBUG > 0

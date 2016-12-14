@@ -15,11 +15,19 @@ Added
 
 * Implement assert directive.
 
+* Add flags for new file and returning to file in line numbering directives.
+
 
 Changed
 -------
 
 * Reverse order exception printing, exception first occuring printed as last.
+
+
+Fixed
+-----
+
+* The new line numbering with flags fixes gfortrans confusion with line numbers.
 
 
 1.2

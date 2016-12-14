@@ -159,6 +159,9 @@ _RESERVED_PREFIX = '__'
 _RESERVED_NAMES = ('defined', 'setvar', 'getvar', '_LINE_', '_FILE_',
                    '_TIME_', '_DATE_')
 
+_LINENUM_NEW_FILE = 1
+
+_LINENUM_RETURN_TO_FILE = 2
 
 class FyppError(Exception):
     '''Signalizes error occuring during preprocessing.
@@ -1367,13 +1370,13 @@ class Renderer:
         out = []
         self._evaluator.updateenv(_FILE_=includefname)
         if self._linenums and not self._diversions:
-            out += linenumdir(0, includefname)
+            out += linenumdir(0, includefname, _LINENUM_NEW_FILE)
         outcont, ieval, peval = self._render(content)
         ieval = _shiftinds(ieval, len(out))
         out += outcont
         self._evaluator.updateenv(_FILE_=fname)
         if self._linenums and not self._diversions and spans[0] is not None:
-            out += linenumdir(spans[0][1], fname)
+            out += linenumdir(spans[0][1], fname, _LINENUM_RETURN_TO_FILE)
         return out, ieval, peval
 
 
@@ -1927,14 +1930,17 @@ class Processor:
         return ''.join(output)
 
 
-def linenumdir(linenr, fname):
+def linenumdir(linenr, fname, flag=None):
     '''Returns a line numbering directive.
 
     Args:
         linenr (int): Line nr (starting with 0).
         fname (str): File name.
     '''
-    return '# {} "{}"\n'.format(linenr + 1, fname)
+    if flag is None:
+        return '# {} "{}"\n'.format(linenr + 1, fname)
+    else:
+        return '# {} "{}" {}\n'.format(linenr + 1, fname, flag)
 
 
 class Fypp:
