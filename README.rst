@@ -129,7 +129,8 @@ Main features
 Installing
 ==========
 
-Fypp needs a Python interpreter of version 2.7, 3.2 or above.
+Fypp needs a working Python interpreter. It is compatible with Python 2 (version
+2.6 and above) and Python 3 (all versions).
 
 Automatic install
 -----------------

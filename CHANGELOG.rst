@@ -19,6 +19,8 @@ Added
 
 * Additional testing with tox.
 
+* Python 2.6, 3.0 and 3.1 compatibility.
+
 
 Changed
 -------

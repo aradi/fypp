@@ -8,4 +8,4 @@ fi
 root="../"
 export PYTHONPATH="$root/src:$PYTHONPATH"
 cd $testdir
-$python -m unittest discover 
+$python test_fypp.py

@@ -103,14 +103,14 @@ _LINE_DIRECTIVES_PATTERN = r'''
 |
 # line control directive (with optional continuation lines)
 ^[ \t]*\#:[ \t]*(?P<ldirective>\w+)[ \t]*
-(?P<lparam>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
+(?P<lparam>.*?(?:&[ \t]*\n[ \t]*&.*?)*)[ \t]*\n
 |
 # line eval directive (with optional continuation lines)
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 |
 # direct call directive (with optional continuation lines)
 ^[ \t]*@:[ \t]*(?P<macro>\w+)[ \t]*
-(?P<macroparams>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
+(?P<macroparams>.*?(?:&[ \t]*\n[ \t]*&.*?)*)[ \t]*\n
 '''
 
 _INLINE_DIRECTIVES_PATTERN = r'''
@@ -1350,7 +1350,7 @@ class Renderer:
                 loopscope = {loopvars[0]: var}
             else:
                 loopscope = dict([(varname, value)
-                             for varname, value in zip(loopvars, var)])
+                                  for varname, value in zip(loopvars, var)])
             if self._linenums and not self._diversions and multiline:
                 out.append(linenumdir(spans[0][1], fname))
             outcont, ievalcont, pevalcont = self._render(content, loopscope)
@@ -1609,7 +1609,9 @@ class Evaluator:
             `True` (restricted environment.
     '''
 
-    RESTRICTED_BUILTINS = {
+    # Restricted builtins working in all supported Python verions. Version
+    # specific ones are added dynamically in _get_restricted_builtins().
+    _RESTRICTED_BUILTINS = {
         'abs': builtins.abs,
         'all': builtins.all,
         'any': builtins.any,
@@ -1617,7 +1619,6 @@ class Evaluator:
         'bool': builtins.bool,
         'bytearray': builtins.bytearray,
         'bytes': builtins.bytes,
-        'callable': builtins.callable,
         'chr': builtins.chr,
         'classmethod': builtins.classmethod,
         'complex': builtins.complex,
@@ -1645,7 +1646,6 @@ class Evaluator:
         'locals': builtins.locals,
         'map': builtins.map,
         'max': builtins.max,
-#        'memoryview': builtins.memoryview,
         'min': builtins.min,
         'next': builtins.next,
         'object': builtins.object,
@@ -1669,9 +1669,6 @@ class Evaluator:
         'type': builtins.type,
         'vars': builtins.vars,
         'zip': builtins.zip,
-        # For Python2 True/False must be explicitely added
-        'True': True,
-        'False': False,
     }
 
     def __init__(self, env=None, restricted=True):
@@ -1682,8 +1679,7 @@ class Evaluator:
         self._envstack = []
 
         if restricted:
-            builtindict = {}
-            builtindict.update(self.RESTRICTED_BUILTINS)
+            builtindict = self._get_restricted_builtins()
             builtindict['__import__'] = self._func_import
         else:
             builtindict = vars(builtins)
@@ -1781,6 +1777,23 @@ class Evaluator:
     def env(self):
         '''Return current environment.'''
         return self._env
+
+
+    @classmethod
+    def _get_restricted_builtins(cls):
+        bidict = cls._RESTRICTED_BUILTINS
+        major, minor = sys.version_info[0:2]
+        if major == 2:
+            bidict['True'] = True
+            bidict['False'] = False
+            bidict['callable'] = builtins.callable
+            if minor >= 7:
+                bidict['memoryview'] = builtins.memoryview
+        elif major == 3:
+            bidict['memoryview'] = builtins.memoryview
+            if minor >= 2:
+                bidict['callable'] = builtins.callable
+        return bidict
 
 
     def _func_defined(self, var):
@@ -2159,6 +2172,7 @@ class FyppOptions(optparse.Values):
     '''
 
     def __init__(self):
+        optparse.Values.__init__(self)
         self.defines = []
         self.includes = []
         self.line_numbering = False
@@ -2301,9 +2315,13 @@ def get_option_parser():
         Fypp settings based on command line arguments.
     '''
     fypp_name = 'fypp'
-    fypp_desc = 'Preprocess source files with Fypp directives.'
-    fypp_vers = fypp_name + ' ' + VERSION
-    parser = optparse.OptionParser(prog=fypp_name, description=fypp_desc, version=fypp_vers)
+    fypp_desc = 'Preprocesses source code with Fypp directives. The input is '\
+                'read from INFILE (default: \'-\', stdin) and written to '\
+                'OUTFILE (default: \'-\', stdout).'
+    fypp_version = fypp_name + ' ' + VERSION
+    usage = '%prog [options] [INFILE] [OUTFILE]'
+    parser = optparse.OptionParser(prog=fypp_name, description=fypp_desc,
+                                   version=fypp_version, usage=usage)
     msg = 'define variable, value is interpreted as ' \
           'Python expression (e.g \'-DDEBUG=1\' sets DEBUG to the ' \
           'integer 1) or set to None if ommitted'
@@ -2354,23 +2372,13 @@ def get_option_parser():
     return parser
 
 
-def _add_io_arguments(parser):
-    parser.usage = parser.usage + " [infile] [outfile]"
-    parser.description = parser.description + 10*"\t" \
-     + "."+10*"\t" \
-     + "Positional arguments:"+ 10*"\t" \
-     + "infile                  input file (default: '-', stdin)"+ 10*"\t" \
-     + "outfile                 output file (default: '-', stdout)"
-
-
 def run_fypp():
     '''Run the Fypp command line tool.'''
     options = FyppOptions()
     argparser = get_option_parser()
-    _add_io_arguments(argparser)
     args, leftover = argparser.parse_args(values=options)
-    args.infile = leftover[0] if(len(leftover)>0) else '-'
-    args.outfile = leftover[1] if(len(leftover)>1) else '-'
+    args.infile = leftover[0] if len(leftover) > 0 else '-'
+    args.outfile = leftover[1] if len(leftover) > 1 else '-'
     try:
         tool = Fypp(args)
         tool.process_file(args.infile, args.outfile)
