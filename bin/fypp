@@ -103,14 +103,14 @@ _LINE_DIRECTIVES_PATTERN = r'''
 |
 # line control directive (with optional continuation lines)
 ^[ \t]*\#:[ \t]*(?P<ldirective>\w+)[ \t]*
-(?P<lparam>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
+(?P<lparam>.*?(?:&[ \t]*\n[ \t]*&.*?)*)[ \t]*\n
 |
 # line eval directive (with optional continuation lines)
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 |
 # direct call directive (with optional continuation lines)
 ^[ \t]*@:[ \t]*(?P<macro>\w+)[ \t]*
-(?P<macroparams>.*?(?:&[ \t]*\n[ \t]*&.*?)*)?[ \t]*\n
+(?P<macroparams>.*?(?:&[ \t]*\n[ \t]*&.*?)*)[ \t]*\n
 '''
 
 _INLINE_DIRECTIVES_PATTERN = r'''
