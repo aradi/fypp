@@ -23,6 +23,9 @@ def _indentation(ind):
 def _folding(fold):
     return '-f{0}'.format(fold)
 
+def _inifile(fname):
+    return '-i{0}'.format(fname)
+
 def _linenumbering(nummode):
     return '-N{0}'.format(nummode)
 
@@ -357,6 +360,37 @@ SIMPLE_TESTS = [
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '#{call mymacro}#A1#{nextarg}#A2#{endcall}#',
       '|A1|A2|',
+     )
+    ),
+    ('call_lambda_func',
+     ([],
+      '#:set convert = lambda s: s.lower()\n'\
+      '#:call convert\nHELLO\n#:endcall\n',
+      'hello\n',
+     )
+    ),
+    ('call_generator',
+     ([_inifile('include/caseconv.py')],
+      '#:call caseconv("l")\nHELLO\n#:endcall\n',
+      'hello\n',
+     )
+    ),
+    ('call_generator_named_endcall',
+     ([_inifile('include/caseconv.py')],
+      '#:call caseconv("l")\nHELLO\n#:endcall caseconv\n',
+      'hello\n',
+     )
+    ),
+    ('call_generator_inline',
+     ([_inifile('include/caseconv.py')],
+      '#{call caseconv("l")}#HELLO#{endcall}#',
+      'hello',
+     )
+    ),
+    ('call_generator_inline_named_endcall',
+     ([_inifile('include/caseconv.py')],
+      '#{call caseconv("l")}#HELLO#{endcall caseconv}#',
+      'hello',
      )
     ),
     ('direct_call',
@@ -1324,6 +1358,18 @@ EXCEPTION_TESTS = [
       '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n'\
       '#{call macro}#1#{endcall nonsense}#',
       [(fypp.FyppFatalError, fypp.STRING, (3, 3))]
+     )
+    ),
+    ('generator_endcall_name_mismatch',
+     ([_inifile('include/caseconv.py')],
+      '#:call caseconv("l")\nHELLO\n#:endcall invalid\n',
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+     )
+    ),
+    ('inline_generator_endcall_name_mismatch',
+     ([_inifile('include/caseconv.py')],
+      '#{call caseconv("l")}#HELLO#{endcall nonsense}#',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
     ('line_for_inline_endfor',

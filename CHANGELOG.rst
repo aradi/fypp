@@ -9,15 +9,18 @@ Change Log
 Added
 -----
 
-* Allow equal sign as separator in set directive for better readability.
+* Equal sign as separator in set directive for better readability.
 
-* Allow macro names in enddef and endcall directives.
+* Allow names in enddef and endcall directives.
 
-* Implement assert directive.
+* Assert directive.
 
-* Add flags for new file and returning to file in line numbering directives.
+* Generalized callables.
 
-* Additional testing with tox.
+* Additional flags in line numbering directives when opening a file or returning
+  to a previous file.
+
+* Additional testing with tox for developers.
 
 * Python 2.6, 3.0 and 3.1 compatibility.
 

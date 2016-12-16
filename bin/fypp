@@ -109,8 +109,8 @@ _LINE_DIRECTIVES_PATTERN = r'''
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 |
 # direct call directive (with optional continuation lines)
-^[ \t]*@:[ \t]*(?P<macro>[^ \t\n]+)
-(?:[ \t]+(?P<macroparams>.*?(?:&[ \t]*\n[ \t]*&.*?)*))?[ \t]*\n
+^[ \t]*@:[ \t]*(?P<callexpr>[^ \t\n]+)
+(?:[ \t]+(?P<callparams>.*?(?:&[ \t]*\n[ \t]*&.*?)*))?[ \t]*\n
 '''
 
 _INLINE_DIRECTIVES_PATTERN = r'''
@@ -131,7 +131,9 @@ _ALL_DIRECTIVES_REGEXP = re.compile(
 _DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>\w+)\(\s*(?P<args>(?:(?:\w+\s*,\s*)*(?:\w+)))?\s*\)$')
 
-_MACRO_NAME_REGEXP = re.compile(r'^(?P<name>\w+)?$')
+_CALLABLE_REGEXP = re.compile(r'^(?P<name>\w+)(?:\(.*\))?$')
+
+_CALLABLE_NAME_REGEXP = re.compile(r'^(?P<name>\w+)$')
 
 _SET_PARAM_REGEXP = re.compile(
     r'^(?P<name>(?:[(]\s*)?\w+(?:\s*,\s*\w+)*(?:\s*[)])?)'\
@@ -425,16 +427,16 @@ class Parser:
         self._log_event('endfor', span)
 
 
-    def handle_call(self, span, macro):
+    def handle_call(self, span, callexpr):
         '''Called when parser encounters a call directive.
 
         It is a dummy method and should be overriden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
-            macro (str): Macro to call.
+            callexpr (str): Expression to evaluate and call.
         '''
-        self._log_event('call', span, macro=macro)
+        self._log_event('call', span, callexpr=callexpr)
 
 
     def handle_nextarg(self, span):
@@ -576,9 +578,10 @@ class Parser:
                 self._process_iexpreval(groups['iexpr'], (linenr, endlinenr))
             elif linedirs and groups['comment'] is not None:
                 self.handle_comment((linenr, endlinenr))
-            elif linedirs and groups['macro'] is not None:
+            elif linedirs and groups['callexpr'] is not None:
                 self._process_directcall(
-                    groups['macro'], groups['macroparams'], (linenr, endlinenr))
+                    groups['callexpr'], groups['callparams'],
+                    (linenr, endlinenr))
             else:
                 msg = 'internal error: unknown matching pattern'
                 raise FyppFatalError(msg, self._curfile, (linenr, endlinenr))
@@ -595,52 +598,63 @@ class Parser:
 
 
     def _process_directive(self, directive, param, span):
-        param = _CONTLINE_REGEXP.sub('', param) if param is not None else ''
+        if param is not None:
+            param = _CONTLINE_REGEXP.sub('', param)
         if directive == 'if':
+            self._check_param_presence(True, 'if', param, span)
             self.handle_if(span, param)
         elif directive == 'else':
-            self._check_empty_param('else', param, span)
+            self._check_param_presence(False, 'else', param, span)
             self.handle_else(span)
         elif directive == 'elif':
+            self._check_param_presence(True, 'elif', param, span)
             self.handle_elif(span, param)
         elif directive == 'endif':
-            self._check_empty_param('endif', param, span)
+            self._check_param_presence(False, 'endif', param, span)
             self.handle_endif(span)
         elif directive == 'def':
+            self._check_param_presence(True, 'def', param, span)
             self._process_def(param, span)
         elif directive == 'enddef':
             self._process_enddef(param, span)
         elif directive == 'setvar':
+            self._check_param_presence(True, 'setvar', param, span)
             self._process_set(param, span, setvar=True)
         elif directive == 'set':
+            self._check_param_presence(True, 'set', param, span)
             self._process_set(param, span)
         elif directive == 'for':
+            self._check_param_presence(True, 'for', param, span)
             self._process_for(param, span)
         elif directive == 'endfor':
-            self._check_empty_param('endfor', param, span)
+            self._check_param_presence(False, 'endfor', param, span)
             self.handle_endfor(span)
         elif directive == 'call':
+            self._check_param_presence(True, 'call', param, span)
             self._process_call(param, span)
         elif directive == 'nextarg':
-            self._check_empty_param('nextcall', param, span)
+            self._check_param_presence(False, 'nextcall', param, span)
             self.handle_nextarg(span)
         elif directive == 'endcall':
             self._process_endcall(param, span)
         elif directive == 'include':
+            self._check_param_presence(True, 'include', param, span)
             self._check_not_inline_directive('include', span)
             self._process_include(param, span)
         elif directive == 'mute':
-            self._check_empty_param('mute', param, span)
+            self._check_param_presence(False, 'mute', param, span)
             self._check_not_inline_directive('mute', span)
             self.handle_mute(span)
         elif directive == 'endmute':
-            self._check_empty_param('endmute', param, span)
+            self._check_param_presence(False, 'endmute', param, span)
             self._check_not_inline_directive('endmute', span)
             self.handle_endmute(span)
         elif directive == 'stop':
+            self._check_param_presence(True, 'stop', param, span)
             self._check_not_inline_directive('stop', span)
             self.handle_stop(span, param)
         elif directive == 'assert':
+            self._check_param_presence(True, 'assert', param, span)
             self._check_not_inline_directive('assert', span)
             self.handle_assert(span, param)
         else:
@@ -657,17 +671,17 @@ class Parser:
         self.handle_eval(span, expr)
 
 
-    def _process_directcall(self, macroname, macroparams, span):
-        macroparams = _CONTLINE_REGEXP.sub('', macroparams)
-        self._process_call(macroname, span)
-        args = [arg.strip() for arg in macroparams.split('@@')]
+    def _process_directcall(self, callname, callparams, span):
+        callparams = _CONTLINE_REGEXP.sub('', callparams)
+        self._process_call(callname, span)
+        args = [arg.strip() for arg in callparams.split('@@')]
         if len(args):
             linenr = span[0]
             self._parse(args[0], linenr=linenr, linedirs=False)
             for arg in args[1:]:
                 self.handle_nextarg(span)
                 self._parse(arg, linenr=linenr, linedirs=False)
-        self.handle_endcall(span, macroname)
+        self.handle_endcall(span, callname)
 
 
     def _process_def(self, param, span):
@@ -685,12 +699,13 @@ class Parser:
 
 
     def _process_enddef(self, param, span):
-        match = _MACRO_NAME_REGEXP.search(param)
-        if not match:
-            msg = "invalid enddef parameter '{0}'".format(param)
-            raise FyppFatalError(msg, self._curfile, span)
-        name = match.group('name')
-        self.handle_enddef(span, name)
+        if param is not None:
+            match = _CALLABLE_NAME_REGEXP.search(param)
+            if not match:
+                msg = "invalid enddef parameter '{0}'".format(param)
+                raise FyppFatalError(msg, self._curfile, span)
+            param = match.group('name')
+        self.handle_enddef(span, param)
 
 
     def _process_set(self, param, span, setvar=False):
@@ -700,11 +715,11 @@ class Parser:
             raise FyppFatalError(msg, self._curfile, span)
         else:
             has_equal_sign = match.group('equal') is not None
-            if setvar and has_equal_sign:
-                msg = 'superfluous equal sign in setvar directive'
-                raise FyppFatalError(msg, self._curfile, span)
-            if (not setvar) and (not has_equal_sign):
-                msg = 'missing equal sign in set directive'
+            if setvar == has_equal_sign:
+                if setvar:
+                    msg = 'superfluous equal sign in setvar directive'
+                else:
+                    msg = 'missing equal sign in set directive'
                 raise FyppFatalError(msg, self._curfile, span)
         self.handle_set(span, match.group('name'), match.group('expr'))
 
@@ -720,21 +735,22 @@ class Parser:
 
 
     def _process_call(self, param, span):
-        match = _MACRO_NAME_REGEXP.search(param)
+        match = _CALLABLE_REGEXP.search(param)
         if not match:
-            msg = "invalid macro call '{0}'".format(param)
+            msg = "invalid callable name '{0}'".format(param)
             raise FyppFatalError(msg, self._curfile, span)
         name = match.group('name')
-        self.handle_call(span, name)
+        self.handle_call(span, param, name)
 
 
     def _process_endcall(self, param, span):
-        match = _MACRO_NAME_REGEXP.search(param)
-        if not match:
-            msg = "invalid endcall parameter '{0}'".format(param)
-            raise FyppFatalError(msg, self._curfile, span)
-        name = match.group('name')
-        self.handle_endcall(span, name)
+        if param is not None:
+            match = _CALLABLE_NAME_REGEXP.search(param)
+            if not match:
+                msg = "invalid endcall parameter '{0}'".format(param)
+                raise FyppFatalError(msg, self._curfile, span)
+            param = match.group('name')
+        self.handle_endcall(span, param)
 
 
     def _process_include(self, param, span):
@@ -769,10 +785,14 @@ class Parser:
         self.handle_endmute(span)
 
 
-    def _check_empty_param(self, directive, param, span):
-        if param.strip():
-            msg = 'superfluous data in {0} directive'.format(directive)
+    def _check_param_presence(self, presence, directive, param, span):
+        if (param is not None) != presence:
+            if presence:
+                msg = 'missing data in {0} directive'.format(directive)
+            else:
+                msg = 'forbidden data in {0} directive'.format(directive)
             raise FyppFatalError(msg, self._curfile, span)
+
 
     def _check_not_inline_directive(self, directive, span):
         if span[0] == span[1]:
@@ -1007,16 +1027,19 @@ class Builder:
         self._curnode.append(block)
 
 
-    def handle_call(self, span, name):
+    def handle_call(self, span, callexpr, name):
         '''Should be called to signalize a call directive.
 
         Args:
             span (tuple of int): Start and end line of the directive.
-            name (str): Name of the macro to call.
+            callexpr (str): Expression, which after evaluation can be called.
+            name (str): Name of callable (the same name must appear in
+                the corresponding endcall directive).
         '''
         self._path.append(self._curnode)
         self._curnode = []
-        self._open_blocks.append(('call', self._curfile, [span], name, []))
+        self._open_blocks.append(('call', self._curfile, [span], callexpr, name,
+                                  []))
 
 
     def handle_nextarg(self, span):
@@ -1030,7 +1053,7 @@ class Builder:
         directive, _, spans = block[0:3]
         self._check_if_matches_last(directive, 'call', spans[-1], span,
                                     'endcall')
-        _, contents = block[3:5]
+        contents = block[5]
         contents.append(self._curnode)
         spans.append(span)
         self._curnode = []
@@ -1049,13 +1072,14 @@ class Builder:
         directive, fname, spans = block[0:3]
         self._check_if_matches_last(directive, 'call', spans[-1], span,
                                     'endcall')
-        callname, contents = block[3:5]
+        callexpr, callname, contents = block[3:6]
         if name is not None and name != callname:
             msg = "wrong name in endcall directive "\
                   "(expected '{0}', got '{1}')".format(callname, name)
             raise FyppFatalError(msg, fname, span)
         contents.append(self._curnode)
         spans.append(span)
+        block = (directive, fname, spans, callexpr, contents)
         self._curnode = self._path.pop(-1)
         self._curnode.append(block)
 

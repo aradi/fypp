@@ -102,7 +102,7 @@ more in detail in the individual sections further down.
       print *, "Doing something here"
     #:endif
 
-* Passing multiline string arguments to macros::
+* Passing multiline string arguments to callables::
 
     #:def debug_code(code)
       #:if DEBUG > 0
@@ -760,11 +760,10 @@ directive to avoid extra quoting of the arguments::
     end if
   #:endcall
 
-The `call` directive takes the name of the callable as argument. The lines
-between the opening and closing directives will be rendered and then passed as
-Python string argument to the callable. Similar to the `enddef` directive, the
-name of the macro can be repeated also in the `endcall` directive for enhanced
-readability::
+The `call` directive takes the callable as argument. The lines between the
+opening and closing directives will be rendered and then passed as Python string
+argument to the callable. Similar to the `enddef` directive, the name of the
+macro can be repeated also in the `endcall` directive for enhanced readability::
 
   #:call debug_code
     if (a < b) then
@@ -807,6 +806,56 @@ to code being hard to read, it should be usually avoided::
 
 If the arguments are short, the direct call directive can be also used as an
 alternative to the line form (see next section).
+
+Note, that the callables are not restricted to macros only, but can be arbitrary
+Python callables. Using the `lambda` construct of Python, such callables can be
+even generated during preprocessing. The following example creates a callable,
+which converts its argument to lower case::
+
+  #:set LOWER = lambda s: s.lower()
+  #:call LOWER
+  TEST
+  #:endcall LOWER
+
+The callable can also be the result of a call (function call, object
+initialization) itself. In this case, the name in the `call` directive must
+immediately be followed by an opening paranthesis, then eventual arguments and a
+closing paranthesis. The call will be evaluted in Python and must return a
+callable object, which will be then called with the text between the `call` and
+`endcall` directives.
+
+As an example, consider a Python file (``caseconv.py``), which contains a case
+converter object. When an instance of it is called, it converts the passed text
+to lower or upper case, depending the flag passed at initialization::
+
+  class CaseConverter:
+
+      def __init__(self, case):
+          self._lower = (case == 'l')
+
+      def __call__(self, txt):
+          if self._lower:
+              return txt.lower()
+          else:
+              return txt.upper()
+
+The ``CaseConverter`` object can be initialized in the `call` directive
+according to the needs (``example.fypp``)::
+
+  #:call CaseConverter('l')
+  THIS WILL BE CONVERTED TO LOWERCASE
+  #:endcall CaseConverter
+
+  #:call CaseConverter('u')
+  this will be converted to uppercase
+  #:endcall CaseConverter
+
+For better readability, the name of the callable-generator can be repeated in
+the `endcall` directive, but not its arguments. To run the example above, the
+Python file with the defintion of ``CaseConverter`` must be passed to the
+preprocessor as initialization file::
+
+  fypp -i caseconv.py example.fypp
 
 
 Direct call directive
@@ -852,6 +901,19 @@ eval and control directives can be used::
   #:set MYSIZE = 2
   @:assertEqual size(coords, dim=2) @@ ${MYSIZE}$
 
+The direct call directive needs the name of a callable and does not allow for
+on-the fly callable-generation. If a callable-factory is used, first the
+callable must be generated and stored in a temporary variable, and then called
+with the direct call directive. The example from the end of the last section
+could be realized as follows::
+
+  #:set lower = CaseConverter('l')
+  #:set upper = CaseConverter('u')
+
+  @:lower THIS WILL BE CONVERTED TO LOWERCASE
+  @:upper this will be converted to uppercase
+  
+  
 
 `include` directive
 ===================
