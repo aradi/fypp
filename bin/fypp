@@ -102,20 +102,20 @@ _LINE_DIRECTIVES_PATTERN = r'''
 (?P<comment>(?:^[ \t]*\#!.*\n)+)
 |
 # line control directive (with optional continuation lines)
-^[ \t]*\#:[ \t]*(?P<ldirective>\w+)[ \t]*
-(?P<lparam>.*?(?:&[ \t]*\n[ \t]*&.*?)*)[ \t]*\n
+^[ \t]*\#:[ \t]*(?P<ldirective>[^ \t\n]+)
+(?:[ \t]+(?P<lparam>.*?(?:&[ \t]*\n[ \t]*&.*?)*))?[ \t]*\n
 |
 # line eval directive (with optional continuation lines)
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 |
 # direct call directive (with optional continuation lines)
-^[ \t]*@:[ \t]*(?P<macro>\w+)[ \t]*
-(?P<macroparams>.*?(?:&[ \t]*\n[ \t]*&.*?)*)[ \t]*\n
+^[ \t]*@:[ \t]*(?P<macro>[^ \t\n]+)
+(?:[ \t]+(?P<macroparams>.*?(?:&[ \t]*\n[ \t]*&.*?)*))?[ \t]*\n
 '''
 
 _INLINE_DIRECTIVES_PATTERN = r'''
 # inline control directive
-\#\{[ \t]*(?P<idirective>\w+)[ \t]*(?P<param>.*?)[ \t]*\}\#
+\#\{[ \t]*(?P<idirective>[^ \t\n]+?)(?:[ \t]+(?P<param>.*?))?[ \t]*\}\#
 |
 # inline eval directive
 \$\{[ \t]*(?P<iexpr>.*?)[ \t]*\}\$
@@ -595,7 +595,7 @@ class Parser:
 
 
     def _process_directive(self, directive, param, span):
-        param = _CONTLINE_REGEXP.sub('', param)
+        param = _CONTLINE_REGEXP.sub('', param) if param is not None else ''
         if directive == 'if':
             self.handle_if(span, param)
         elif directive == 'else':

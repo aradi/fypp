@@ -293,7 +293,6 @@ an inline form:
 
     @:mymacro a < b
 
-
 The line form must always start at the beginning of a line (preceded by optional
 whitespace characters only) and it ends at the end of the line. The inline form
 can appear anywhere, but if the construct consists of several directives
@@ -342,6 +341,14 @@ Preprocessor directives can be arbitrarily nested::
   #:endif
 
 Every open directive must be closed before the end of the file is reached.
+
+In all control directives and in the direct call directive, the whitespace
+separating the name of the directive or the name of the callable from the
+following parameters is obligatory. Therefore, the following example is
+syntactically incorrect::
+
+  #! Incorrect due to missing whitespace after 'if'
+  #:if(1 > 2)  
 
 
 Expression evaluation

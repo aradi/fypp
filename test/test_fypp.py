@@ -1368,6 +1368,18 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, None)]
      )
     ),
+    ('missing_space_after_directive',
+     ([],
+      '#:if(1 > 2)\nA\n#:endif',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('missing_space_after_inline_directive',
+     ([],
+      '#{if(1 > 2)}#A#{endif}#',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+     )
+    ),
     #
     # Renderer errors
     #
@@ -1579,12 +1591,13 @@ def get_test_exception_method(args, inp, exceptions):
         '''Tests whether Fypp throws the correct exception.'''
         options = fypp.FyppOptions()
         argparser = fypp.get_option_parser()
-        raised = None
         try:
             tool = fypp.Fypp(argparser.parse_args(args, values=options)[0])
             _ = tool.process_text(inp)
         except Exception as e:
             raised = e
+        else:
+            self.fail('No exception was raised')
         for exc, fname, span in exceptions:
             self.assertTrue(isinstance(raised, exc))
             if fname is None:
