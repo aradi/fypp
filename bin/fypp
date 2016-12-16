@@ -1721,8 +1721,8 @@ class Evaluator:
             value (Python object): Value of the entity.
 
         Raises:
-            FyppFatalError: If name starts with the reserved prefix or if it is a
-                reserved name.
+            FyppFatalError: If name starts with the reserved prefix or if it is
+                a reserved name.
         '''
         lpar = name.startswith('(')
         rpar = name.endswith(')')
@@ -1805,7 +1805,7 @@ class Evaluator:
         if module is not None and isinstance(module, types.ModuleType):
             return module
         else:
-            msg = "Import of module '{0}' via '__import__' not allowed" \
+            msg = "Import of module '{0}' via '__import__' not allowed"\
                   .format(name)
             raise ImportError(msg)
 
@@ -1856,9 +1856,9 @@ class _Macro:
     def __call__(self, *args, **keywords):
         self._divert()
         if len(args) != len(self._argnames):
-            msg = "Macro '{0}' received incorrect nr. of positional arguments " \
-                  "(expected: {1}, received: {2})".format(
-                      self._name, len(self._argnames), len(args))
+            msg = "Macro '{0}' received incorrect nr. of positional arguments "\
+                  "(expected: {1}, received: {2})"\
+                      .format(self._name, len(self._argnames), len(args))
             raise FyppFatalError(msg, self._fname, self._spans[0])
         argdict = {}
         for argname, arg in zip(self._argnames, args):
@@ -2212,8 +2212,8 @@ class FortranLineFolder:
         # east one character apart of indentation and two continuation signs
         minmaxlen = indent + len(prefix) + len(suffix) + 1
         if maxlen < minmaxlen:
-            msg = 'Maximal line length less than {0} when using an indentation' \
-                  'of {1}'.format(minmaxlen, indent)
+            msg = 'Maximal line length less than {0} when using an indentation'\
+                  ' of {1}'.format(minmaxlen, indent)
             raise FyppFatalError(msg)
         self._maxlen = maxlen
         self._indent = indent
