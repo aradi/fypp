@@ -507,8 +507,7 @@ variable is set to `None`::
   #:set LOGLEVEL = LOGLEVEL + 1
 
 Note, that in the last example the variable `LOGLEVEL` must have been already
-defined in advance. The equal signs separating the variable names from the Python
-expressions are optional, but recommended for better readability.
+defined in advance.
 
 The `set` directive also accepts assignments to variable tuples, provided the
 right hand side of the assignment is compatible with the variable tuple::
@@ -525,8 +524,9 @@ The `set` directive can be also used in the inline form::
 Similar to the line form, the separating equal sign is optional here as well.
   
 For backwards compatibility reason, the `setvar` directive is also recognized by
-Fypp. Apart of the different name, it has identical syntax and functionality to
-the `set` directive.
+Fypp. It has identical syntax and functionality to the `set` directive, but the
+equal sign between variable and value must be omitted. Its usage is not
+recommended, as it may become obsolated in the future.
 
 
 `if` directive

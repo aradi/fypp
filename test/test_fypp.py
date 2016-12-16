@@ -457,7 +457,7 @@ SIMPLE_TESTS = [
     ),
     ('set',
      ([],
-      '#:set x 2\n$: x\n',
+      '#:set x = 2\n$: x\n',
       '2\n',
      )
     ),
@@ -477,12 +477,6 @@ SIMPLE_TESTS = [
      ([],
       '#:setvar x 2\n$: x\n',
       '2\n',
-     )
-    ),
-    ('inline_set',
-     ([],
-      '#{set x 2}#${x}$Done\n',
-      '2Done\n',
      )
     ),
     ('inline_set_equal_withspace',
@@ -535,7 +529,7 @@ SIMPLE_TESTS = [
     ),
     ('mute',
      ([],
-      'A\n#:mute\nB\n#:set VAR 2\n#:endmute\nVAR=${VAR}$\n',
+      'A\n#:mute\nB\n#:set VAR = 2\n#:endmute\nVAR=${VAR}$\n',
       'A\nVAR=2\n'
      )
     ),
@@ -640,49 +634,49 @@ SIMPLE_TESTS = [
     ),
     ('tuple_assignment',
      ([],
-      '#:set mytuple (1, 2, 3)\n#:set a, b, c mytuple\n${a}$${b}$${c}$\n',
+      '#:set mytuple = (1, 2, 3)\n#:set a, b, c = mytuple\n${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('tuple_assignment2',
      ([],
-      '#:set a, b, c (1, 2, 3)\n${a}$${b}$${c}$\n',
+      '#:set a, b, c = (1, 2, 3)\n${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('tuple_assignment3',
      ([],
-      '#:set a, b, c 1, 2, 3\n${a}$${b}$${c}$\n',
+      '#:set a, b, c = 1, 2, 3\n${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('tuple_assignment_nospace',
      ([],
-      '#:set a,b,c (1, 2, 3)\n${a}$${b}$${c}$\n',
+      '#:set a,b,c = (1, 2, 3)\n${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('tuple_assignment_vartuple',
      ([],
-      '#:set (a, b, c) (1, 2, 3)\n${a}$${b}$${c}$\n',
+      '#:set (a, b, c) = (1, 2, 3)\n${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('tuple_assignment_vartuple2',
      ([],
-      '#:set ( a, b, c ) (1, 2, 3)\n${a}$${b}$${c}$\n',
+      '#:set ( a, b, c ) = (1, 2, 3)\n${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('inline_tuple_assignment',
      ([],
-      '#{set a, b, c 1, 2, 3}#${a}$${b}$${c}$\n',
+      '#{set a, b, c = 1, 2, 3}#${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
    ('inline_tuple_assignment_vartuple',
      ([],
-      '#{set (a, b, c) 1, 2, 3}#${a}$${b}$${c}$\n',
+      '#{set (a, b, c) = 1, 2, 3}#${a}$${b}$${c}$\n',
       '123\n'
      )
     ),
@@ -927,13 +921,13 @@ LINENUM_TESTS = [
     ),
     ('set',
      ([_LINENUM_FLAG],
-      '#:set x 2\n$: x\n',
+      '#:set x = 2\n$: x\n',
       _linenum(0, flag=_NEW_FILE) + _linenum(1) + '2\n',
      )
     ),
     ('inline_set',
      ([_LINENUM_FLAG],
-      '#{set x 2}#${x}$Done\n',
+      '#{set x = 2}#${x}$Done\n',
       _linenum(0, flag=_NEW_FILE) + '2Done\n',
      )
     ),
@@ -951,7 +945,7 @@ LINENUM_TESTS = [
     ),
     ('mute',
      ([_LINENUM_FLAG],
-      'A\n#:mute\nB\n#:set VAR 2\n#:endmute\nVAR=${VAR}$\n',
+      'A\n#:mute\nB\n#:set VAR = 2\n#:endmute\nVAR=${VAR}$\n',
       _linenum(0, flag=_NEW_FILE) + 'A\n' + _linenum(5) + 'VAR=2\n'
      )
     ),
@@ -1169,6 +1163,18 @@ EXCEPTION_TESTS = [
      ([],
       '#:mute\ntest#{endmute}#\n',
       [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
+     )
+    ),
+    ('setvar_with_equal',
+     ([],
+      '#:setvar x = 2\n$: x\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('inline_set_without_equal',
+     ([],
+      '#{set x 2}#${x}$Done\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
     #
@@ -1423,14 +1429,14 @@ EXCEPTION_TESTS = [
     ),
     ('invalid_variable_prefix',
      ([],
-      '#:set __test 2\n',
+      '#:set __test = 2\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('reserved_variable_name',
      ([],
-      '#:set _LINE_ 2\n',
+      '#:set _LINE_ = 2\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
@@ -1464,20 +1470,20 @@ EXCEPTION_TESTS = [
     ),
     ('incompatible_tuple_assignment',
      ([],
-      '#:set a,b,c (1, 2)\n${a}$${b}$${c}$\n',
+      '#:set a,b,c = (1, 2)\n${a}$${b}$${c}$\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_lhs_tuple1',
      ([],
-      '#:set (a, b  (1, 2)\n',
+      '#:set (a, b = (1, 2)\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('invalid_lhs_tuple2',
      ([],
-      '#:set a, b)  (1, 2)\n',
+      '#:set a, b) = (1, 2)\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
@@ -1514,25 +1520,25 @@ EXCEPTION_TESTS = [
     #
     ('userstop',
      ([],
-      '#:set A 12\n#:if A > 10\n#:stop "Wrong A: {0}".format(A)\n#:endif\n',
+      '#:set A = 12\n#:if A > 10\n#:stop "Wrong A: {0}".format(A)\n#:endif\n',
       [(fypp.FyppStopRequest, fypp.STRING, (2, 3))]
      )
     ),
     ('invalid_userstop_expr',
      ([],
-      '#:set A 12\n#:if A > 10\n#:stop "Wrong A: {0}".format(BA)\n#:endif\n',
+      '#:set A = 12\n#:if A > 10\n#:stop "Wrong A: {0}".format(BA)\n#:endif\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('invalid_inline_stop',
      ([],
-      '#:set A 12\n#:if A > 10\n#{stop "Wrong A: {0}".format(BA)}#\n#:endif\n',
+      '#:set A = 1\n#:if A > 10\n#{stop "Wrong A: {0}".format(BA)}#\n#:endif\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
      )
     ),
     ('assert',
      ([],
-      '#:set A 12\n#:assert A < 10\n',
+      '#:set A = 12\n#:assert A < 10\n',
       [(fypp.FyppStopRequest, fypp.STRING, (1, 2))]
      )
     ),
@@ -1544,7 +1550,7 @@ EXCEPTION_TESTS = [
     ),
     ('invalid_inline_assert',
      ([],
-      '#:set A 12\n#{assert A < 10}#\n',
+      '#:set A = 12\n#{assert A < 10}#\n',
       [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
      )
     ),

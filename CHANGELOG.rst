@@ -27,6 +27,8 @@ Changed
 
 * Reverse order exception printing, exception first occuring printed as last.
 
+* Make equal sign in set directive mandatory and in setvar directive forbidden.
+
 
 Fixed
 -----

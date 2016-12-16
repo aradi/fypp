@@ -133,9 +133,9 @@ _DEF_PARAM_REGEXP = re.compile(
 
 _MACRO_NAME_REGEXP = re.compile(r'^(?P<name>\w+)?$')
 
-_SETVAR_PARAM_REGEXP = re.compile(
+_SET_PARAM_REGEXP = re.compile(
     r'^(?P<name>(?:[(]\s*)?\w+(?:\s*,\s*\w+)*(?:\s*[)])?)'\
-    r'(?:(?:(?:\s*=\s*)|\s+)(?P<expr>.*))?$')
+    r'(?:(?:(?P<equal>\s*=\s*)|\s+)(?P<expr>.*))?$')
 
 _FOR_PARAM_REGEXP = re.compile(
     r'^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)$')
@@ -315,8 +315,8 @@ class Parser:
         self._log_event('endinclude', span, filename=fname)
 
 
-    def handle_setvar(self, span, name, expr):
-        '''Called when parser encounters a setvar directive.
+    def handle_set(self, span, name, expr):
+        '''Called when parser encounters a set directive.
 
         It is a dummy method and should be overriden for actual use.
 
@@ -326,7 +326,7 @@ class Parser:
             expr (str): String representation of the expression to be assigned
                 to the variable.
         '''
-        self._log_event('setvar', span, name=name, expression=expr)
+        self._log_event('set', span, name=name, expression=expr)
 
 
     def handle_def(self, span, name, args):
@@ -610,8 +610,10 @@ class Parser:
             self._process_def(param, span)
         elif directive == 'enddef':
             self._process_enddef(param, span)
-        elif directive == 'setvar' or directive == 'set':
-            self._process_setvar(param, span)
+        elif directive == 'setvar':
+            self._process_set(param, span, setvar=True)
+        elif directive == 'set':
+            self._process_set(param, span)
         elif directive == 'for':
             self._process_for(param, span)
         elif directive == 'endfor':
@@ -691,12 +693,20 @@ class Parser:
         self.handle_enddef(span, name)
 
 
-    def _process_setvar(self, param, span):
-        match = _SETVAR_PARAM_REGEXP.search(param)
+    def _process_set(self, param, span, setvar=False):
+        match = _SET_PARAM_REGEXP.search(param)
         if not match:
             msg = "invalid variable assignment '{0}'".format(param)
             raise FyppFatalError(msg, self._curfile, span)
-        self.handle_setvar(span, match.group('name'), match.group('expr'))
+        else:
+            has_equal_sign = match.group('equal') is not None
+            if setvar and has_equal_sign:
+                msg = 'superfluous equal sign in setvar directive'
+                raise FyppFatalError(msg, self._curfile, span)
+            if (not setvar) and (not has_equal_sign):
+                msg = 'missing equal sign in set directive'
+                raise FyppFatalError(msg, self._curfile, span)
+        self.handle_set(span, match.group('name'), match.group('expr'))
 
 
     def _process_for(self, param, span):
@@ -1050,8 +1060,8 @@ class Builder:
         self._curnode.append(block)
 
 
-    def handle_setvar(self, span, name, expr):
-        '''Should be called to signalize a setvar directive.
+    def handle_set(self, span, name, expr):
+        '''Should be called to signalize a set directive.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -1059,7 +1069,7 @@ class Builder:
             expr (str): String representation of the expression to be assigned
                 to the variable.
         '''
-        self._curnode.append(('setvar', self._curfile, span, name, expr))
+        self._curnode.append(('set', self._curfile, span, name, expr))
 
 
     def handle_eval(self, span, expr):
@@ -1252,7 +1262,7 @@ class Renderer:
             elif cmd == 'def':
                 result = self._define_macro(*node[1:6])
                 output.append(result)
-            elif cmd == 'setvar':
+            elif cmd == 'set':
                 result = self._define_variable(*node[1:5])
                 output.append(result)
             elif cmd == 'for':
@@ -1908,7 +1918,7 @@ class Processor:
         self._parser.handle_text = self._builder.handle_text
         self._parser.handle_def = self._builder.handle_def
         self._parser.handle_enddef = self._builder.handle_enddef
-        self._parser.handle_setvar = self._builder.handle_setvar
+        self._parser.handle_set = self._builder.handle_set
         self._parser.handle_for = self._builder.handle_for
         self._parser.handle_endfor = self._builder.handle_endfor
         self._parser.handle_call = self._builder.handle_call
