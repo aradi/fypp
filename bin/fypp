@@ -103,19 +103,19 @@ _LINE_DIRECTIVES_PATTERN = r'''
 |
 # line control directive (with optional continuation lines)
 ^[ \t]*\#:[ \t]*(?P<ldirective>[^ \t\n]+)
-(?:[ \t]+(?P<lparam>[^ \t].*?(?:&[ \t]*\n[ \t]*&.*?)*))?[ \t]*\n
+(?:[ \t]+(?P<lparam>[^ \t\n].*?(?:&[ \t]*\n[ \t]*&.*?)*))?[ \t]*\n
 |
 # line eval directive (with optional continuation lines)
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 |
 # direct call directive (with optional continuation lines)
 ^[ \t]*@:[ \t]*(?P<callexpr>[^ \t\n]+)
-(?:[ \t]+(?P<callparams>[^ \t].*?(?:&[ \t]*\n[ \t]*&.*?)*))?[ \t]*\n
+(?:[ \t]+(?P<callparams>[^ \t\n].*?(?:&[ \t]*\n[ \t]*&.*?)*))?[ \t]*\n
 '''
 
 _INLINE_DIRECTIVES_PATTERN = r'''
 # inline control directive
-\#\{[ \t]*(?P<idirective>[^ \t\n]+?)(?:[ \t]+(?P<param>[^ \t].*?))?[ \t]*\}\#
+\#\{[ \t]*(?P<idirective>[^ \t\n]+?)(?:[ \t]+(?P<param>[^ \t\n].*?))?[ \t]*\}\#
 |
 # inline eval directive
 \$\{[ \t]*(?P<iexpr>.*?)[ \t]*\}\$

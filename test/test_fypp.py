@@ -720,6 +720,12 @@ SIMPLE_TESTS = [
       'OK\n'
      )
     ),
+   ('whitespace_but_no_param2',
+     ([],
+      '#:if True\nOK\n#:endif \n \n',
+      'OK\n \n'
+     )
+    ),
    ('whitespace_but_no_param_inline',
      ([],
       '#{if True}#OK#{endif }#',
