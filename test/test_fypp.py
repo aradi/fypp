@@ -1617,9 +1617,10 @@ def get_test_output_method(args, inp, out):
 
     def test_output(self):
         '''Tests whether Fypp result matches expected output.'''
-        options = fypp.FyppOptions()
-        argparser = fypp.get_option_parser()
-        tool = fypp.Fypp(argparser.parse_args(args, values=options)[0])
+        optparser = fypp.get_option_parser()
+        options, leftover = optparser.parse_args(args)
+        self.assertEqual(len(leftover), 0)
+        tool = fypp.Fypp(options)
         result = tool.process_text(inp)
         self.assertEqual(out, result)
     return test_output
@@ -1641,10 +1642,11 @@ def get_test_exception_method(args, inp, exceptions):
 
     def test_exception(self):
         '''Tests whether Fypp throws the correct exception.'''
-        options = fypp.FyppOptions()
-        argparser = fypp.get_option_parser()
+        optparser = fypp.get_option_parser()
+        options, leftover = optparser.parse_args(args)
+        self.assertEqual(len(leftover), 0)
         try:
-            tool = fypp.Fypp(argparser.parse_args(args, values=options)[0])
+            tool = fypp.Fypp(options)
             _ = tool.process_text(inp)
         except Exception as e:
             raised = e

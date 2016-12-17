@@ -53,7 +53,7 @@ using following classes:
 
 * `FyppOptions`_: Contains customizable settings controling the behaviour of
   `Fypp`_. Alternatively, the function `get_option_parser()`_ can be used to
-  obtain an argument parser, which can create settings based on command line
+  obtain an option parser, which can create settings based on command line
   arguments.
 
 If processing stops prematurely, an instance of one of the following
@@ -2009,50 +2009,46 @@ class Fypp:
 
     You can invoke it like ::
 
-        tool = Fypp()
+        tool = fypp.Fypp()
         tool.process_file('file.in', 'file.out')
 
     to initialize Fypp with default options, process `file.in` and write the
     result to `file.out`. If the input should be read from a string, the
     ``process_text()`` method can be used::
 
-        tool = Fypp()
+        tool = fypp.Fypp()
         output = tool.process_text('#:if DEBUG > 0\\nprint *, "DEBUG"\\n#:endif\\n')
 
     If you want to fine tune Fypps behaviour, pass a customized `FyppOptions`_
     instance at initialization::
 
-        options = FyppOptions()
+        options = fypp.FyppOptions()
         options.fixed_format = True
-        tool = Fypp(options)
-
-    Alternatively, you can use the command line parser
-    ``argparse.ArgumentParser`` to set options for Fypp. The function
-    ``get_option_parser()`` returns you a default argument parser. You can then
-    use its ``parse_args()`` method to obtain settings by reading the command
-    line arguments::
-
-        options = FyppOptions()
-        argparser = get_option_parser()
-        options = argparser.parse_args(namespace=options)
         tool = fypp.Fypp(options)
 
-    The command line arguments can also be passed directly as a list when
+    Alternatively, you can use the command line parser ``optparse.OptionParser``
+    to set options for Fypp. The function ``get_option_parser()`` returns you a
+    default option parser. You can then use its ``parse_args()`` method to
+    obtain settings by reading the command line arguments::
+
+        optparser = fypp.get_option_parser()
+        options, leftover = optparser.parse_args()
+        tool = fypp.Fypp(options)
+
+    The command line options can also be passed directly as a list when
     calling ``parse_args()``::
 
-        options = FyppOptions()
         args = ['-DDEBUG=0', 'input.fpp', 'output.f90']
-        argparser = get_option_parser()
-        options = argparser.parse_args(args=args, namespace=options)
+        optparser = fypp.get_option_parser()
+        options, leftover = optparser.parse_args(args=args)
         tool = fypp.Fypp(options)
 
 
     Args:
         options (object): Object containing the settings for Fypp. You typically
-            would pass a customized `FyppOptions`_ instance or a ``Namespace``
-            object as returned by an argument parser. If not present, the
-            default settings in `FyppOptions`_ are used.
-
+            would pass a customized `FyppOptions`_ instance or an
+            ``optparse.Values`` object as returned by the option parser. If not
+            present, the default settings in `FyppOptions`_ are used.
     '''
 
     def __init__(self, options=None):
@@ -2345,8 +2341,8 @@ def get_option_parser():
     '''Returns an option parser for the Fypp command line tool.
 
     Returns:
-        OptionParser: Parser which can create a namespace object with
-        Fypp settings based on command line arguments.
+        OptionParser: Parser which can create an optparse.Values object with
+            Fypp settings based on command line arguments.
     '''
     fypp_name = 'fypp'
     fypp_desc = 'Preprocesses source code with Fypp directives. The input is '\
@@ -2409,13 +2405,13 @@ def get_option_parser():
 def run_fypp():
     '''Run the Fypp command line tool.'''
     options = FyppOptions()
-    argparser = get_option_parser()
-    args, leftover = argparser.parse_args(values=options)
-    args.infile = leftover[0] if len(leftover) > 0 else '-'
-    args.outfile = leftover[1] if len(leftover) > 1 else '-'
+    optparser = get_option_parser()
+    opts, leftover = optparser.parse_args(values=options)
+    infile = leftover[0] if len(leftover) > 0 else '-'
+    outfile = leftover[1] if len(leftover) > 1 else '-'
     try:
-        tool = Fypp(args)
-        tool.process_file(args.infile, args.outfile)
+        tool = Fypp(opts)
+        tool.process_file(infile, outfile)
     except FyppStopRequest as exc:
         sys.stderr.write("STOP REQUEST in file '{0}', line {1}"\
                          .format(exc.fname, exc.span[0] + 1))
