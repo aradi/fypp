@@ -499,8 +499,9 @@ variant::
 The value of a variable can be set during the preprocessing via the `set`
 directive. (Otherwise, variables can be also declared and defined via command
 line options.) The first argument is the name of the variable (unquoted),
-followed by an optional Python expression. If latter is not present, the
-variable is set to `None`::
+followed by an optional Python expression. If the Python expression is present,
+it must be separated by an equal sign from the variable name. If the Python
+expression and the equal sign are not present, the variable is set to `None`::
 
   #:set DEBUG
   #:set LOG = 1
@@ -523,7 +524,7 @@ The `set` directive can be also used in the inline form::
 
 Similar to the line form, the separating equal sign is optional here as well.
   
-For backwards compatibility reason, the `setvar` directive is also recognized by
+For backwards compatibility reason, also a `setvar` directive is recognized by
 Fypp. It has identical syntax and functionality to the `set` directive, but the
 equal sign between variable and value must be omitted. Its usage is not
 recommended, as it may become obsolated in the future.
@@ -744,7 +745,7 @@ The `def` directive can also be used in its short form::
 `call` directive
 ================
 
-When a Python callable (e.g. regular Python function, macro) is called with
+When a Python callable (regular Python function, macro etc.) is called with
 string arguments only (e.g. source code), it can be called using the `call`
 directive to avoid extra quoting of the arguments::
 
@@ -762,12 +763,12 @@ directive to avoid extra quoting of the arguments::
 
 The `call` directive takes the callable as argument. The lines between the
 opening and closing directives will be rendered and then passed as Python string
-argument to the callable. Similar to the `enddef` directive, the name of the
-macro can be repeated also in the `endcall` directive for enhanced readability::
+argument to the callable. The name of the callable can be repeated in the
+`endcall` directive for enhanced readability::
 
   #:call debug_code
     if (a < b) then
-      print *, "DEBUG: a is less than b"
+      print *, "DEBUG: a (${a}$) is less than b (${b}$)"
     end if
   #:endcall debug_code
 
@@ -793,7 +794,8 @@ to separate the arguments from each other::
 The lines in the body of the `call` directive may contain directives
 themselves. However, any variable defined within the body of the `call`
 directive will be a local variable existing only during the evaluation of that
-branch of the directive (and not being available during the call itself).
+branch of the directive (and not being available when the callable is called
+with the evaluated text as argument).
 
 The `call` directive can also be used in its inline form. As this easily leads
 to code being hard to read, it should be usually avoided::
@@ -804,29 +806,29 @@ to code being hard to read, it should be usually avoided::
   ! This form is more readable
   print *, ${choose_code('a(:)', 'size(a)')}$
 
-If the arguments are short, the direct call directive can be also used as an
-alternative to the line form (see next section).
+If the arguments are short, the more compact direct call directive can be also
+used as an alternative to the line form (see next section).
 
 Note, that the callables are not restricted to macros only, but can be arbitrary
 Python callables. Using the `lambda` construct of Python, such callables can be
 even generated during preprocessing. The following example creates a callable,
 which converts its argument to lower case::
 
-  #:set LOWER = lambda s: s.lower()
-  #:call LOWER
-  TEST
-  #:endcall LOWER
+  #:set lower = lambda s: s.lower()
+  #:call lower
+  THIS WILL BE CONVERTED TO LOWERCASE
+  #:endcall lower
 
-The callable can also be the result of a call (function call, object
+The callable can even be the result of a call (function call, object
 initialization) itself. In this case, the name in the `call` directive must
-immediately be followed by an opening paranthesis, then eventual arguments and a
+immediately be followed by an opening paranthesis, eventual arguments and a
 closing paranthesis. The call will be evaluted in Python and must return a
 callable object, which will be then called with the text between the `call` and
 `endcall` directives.
 
 As an example, consider a Python file (``caseconv.py``), which contains a case
 converter object. When an instance of it is called, it converts the passed text
-to lower or upper case, depending the flag passed at initialization::
+to lower or upper case, depending on the flag passed at initialization::
 
   class CaseConverter:
 
@@ -839,8 +841,8 @@ to lower or upper case, depending the flag passed at initialization::
           else:
               return txt.upper()
 
-The ``CaseConverter`` object can be initialized in the `call` directive
-according to the needs (``example.fypp``)::
+The according ``CaseConverter`` instance can be created on the fly in the `call`
+directive according to the needs (``example.fypp``)::
 
   #:call CaseConverter('l')
   THIS WILL BE CONVERTED TO LOWERCASE
@@ -862,7 +864,7 @@ Direct call directive
 =====================
 
 In order to enable compact (single line) calls while still maintaining code
-readability, the `call` directive has an alternative short form, the direct call
+readability, the `call` directive has an alternative form, the direct call
 directive::
 
   #:def assertTrue(cond)
@@ -882,8 +884,8 @@ treated as argument to the callable. When the callable needs more than one
 argument, the arguments must be separated by the character sequence ``@@``::
 
   #:def assertEqual(lhs, rhs)
-  if (lhs != rhs) then
-    print *, "AssertEqual failed!"
+  if (${lhs}$ /= ${rhs}$) then
+    print *, "assertEqual failed (${lhs}$ /= ${rhs}$)!"
     error stop
   end if
   #:enddef assertEqual
@@ -901,11 +903,11 @@ eval and control directives can be used::
   #:set MYSIZE = 2
   @:assertEqual size(coords, dim=2) @@ ${MYSIZE}$
 
-The direct call directive needs the name of a callable and does not allow for
-on-the fly callable-generation. If a callable-factory is used, first the
-callable must be generated and stored in a temporary variable, and then called
-with the direct call directive. The example from the end of the last section
-could be realized as follows::
+The direct call directive needs the name of an existing callable and does not
+allow for on the fly callable-generation. However, it is possible to store the
+result of the callable-generation in a temporary variable first, and call the
+variable content with the direct call directive later. The example from the end
+of the last section could be realized as follows::
 
   #:set lower = CaseConverter('l')
   #:set upper = CaseConverter('u')
