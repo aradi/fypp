@@ -1381,13 +1381,13 @@ class Renderer:
         multiline = (spans[0][0] != spans[-1][1])
         for var in iterobj:
             if len(loopvars) == 1:
-                loopscope = {loopvars[0]: var}
+                self._evaluator.define(loopvars[0], var)
             else:
-                loopscope = dict([(varname, value)
-                                  for varname, value in zip(loopvars, var)])
+                for varname, value in zip(loopvars, var):
+                    self._evaluator.define(varname, value)
             if self._linenums and not self._diversions and multiline:
                 out.append(linenumdir(spans[0][1], fname))
-            outcont, ievalcont, pevalcont = self._render(content, loopscope)
+            outcont, ievalcont, pevalcont = self._render(content)
             ieval += _shiftinds(ievalcont, len(out))
             peval += pevalcont
             out += outcont

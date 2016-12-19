@@ -732,6 +732,13 @@ SIMPLE_TESTS = [
       'OK'
      )
     ),
+   ('for_loop_scope',
+     ([],
+      '#{for i in range(4)}##{set X = i}##{endfor}#${X}$${i}$\n',
+      '33\n'
+     )
+    ),
+
 ]
 
 
