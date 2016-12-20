@@ -131,7 +131,7 @@ _ALL_DIRECTIVES_REGEXP = re.compile(
 _DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>\w+)\(\s*(?P<args>(?:(?:\w+\s*,\s*)*(?:\w+)))?\s*\)$')
 
-_CALLABLE_REGEXP = re.compile(r'^(?P<name>\w+)(?:\(.*\))?$')
+_SIMPLE_CALLABLE_REGEXP = re.compile(r'^(?P<name>\w+)\s*(?:\(.*\))?$')
 
 _CALLABLE_NAME_REGEXP = re.compile(r'^(?P<name>\w+)$')
 
@@ -745,11 +745,11 @@ class Parser:
 
 
     def _process_call(self, param, span):
-        match = _CALLABLE_REGEXP.search(param)
-        if not match:
-            msg = "invalid callable name '{0}'".format(param)
-            raise FyppFatalError(msg, self._curfile, span)
-        name = match.group('name')
+        match = _SIMPLE_CALLABLE_REGEXP.search(param)
+        if match:
+            name = match.group('name')
+        else:
+            name = None
         self.handle_call(span, param, name)
 
 
@@ -1083,6 +1083,9 @@ class Builder:
         self._check_if_matches_last(directive, 'call', spans[-1], span,
                                     'endcall')
         callexpr, callname, contents = block[3:6]
+        if name is not None and callname is None:
+            msg = 'name not allowed for this endcall directive'
+            raise FyppFatalError(msg, fname, span)
         if name is not None and name != callname:
             msg = "wrong name in endcall directive "\
                   "(expected '{0}', got '{1}')".format(callname, name)

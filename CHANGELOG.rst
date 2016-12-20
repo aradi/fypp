@@ -15,7 +15,7 @@ Added
 
 * Assert directive.
 
-* Generalized callables.
+* Generalized call directive with any Python expression yielding a callable.
 
 * Improve on scopes: execute initialisation and evaluations during rendering
   in the same (module like) scope.

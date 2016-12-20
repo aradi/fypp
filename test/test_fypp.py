@@ -373,6 +373,12 @@ SIMPLE_TESTS = [
       'hello\n',
      )
     ),
+    ('call_lambda_direct',
+     ([],
+      '#:call lambda s: s.lower()\nHELLO\n#:endcall\n',
+      'hello\n',
+     )
+    ),
     ('call_generator',
      ([_inifile('include/caseconv.py')],
       '#:call caseconv("l")\nHELLO\n#:endcall\n',
@@ -1479,6 +1485,12 @@ EXCEPTION_TESTS = [
      ([_inifile('include/caseconv.py')],
       '#{call caseconv("l")}#HELLO#{endcall nonsense}#',
       [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+     )
+    ),
+    ('generator_endcall_forbidden_name',
+     ([],
+      '#:call lambda s: s.lower()\nHELLO\n#:endcall lambda\n',
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('line_for_inline_endfor',

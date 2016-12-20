@@ -816,26 +816,21 @@ to code being hard to read, it should be usually avoided::
 If the arguments are short, the more compact direct call directive can be also
 used as an alternative to the line form (see next section).
 
-Note, that the callables are not restricted to macros only, but can be arbitrary
-Python callables. Using the `lambda` construct of Python, such callables can be
-even generated during preprocessing. The following example creates a callable,
-which converts its argument to lower case::
+The callables are not restricted to macros only, but can be arbitrary Python
+expressions, which are either directly callables or after evaluation yield a
+callable. Using the `lambda` construct of Python, such callables can be easily
+generated during preprocessing. The following example shows how to create a
+callable, which converts its argument to lower case::
 
-  #:set lower = lambda s: s.lower()
-  #:call lower
+  #:call lambda s: s.lower()
   THIS WILL BE CONVERTED TO LOWERCASE
-  #:endcall lower
+  #:endcall
 
-The callable can even be the result of a call (function call, object
-initialization) itself. In this case, the name in the `call` directive must
-immediately be followed by an opening paranthesis, eventual arguments and a
-closing paranthesis. The call will be evaluted in Python and must return a
-callable object, which will be then called with the text between the `call` and
-`endcall` directives.
-
-As an example, consider a Python file (``caseconv.py``), which contains a case
-converter object. When an instance of it is called, it converts the passed text
-to lower or upper case, depending on the flag passed at initialization::
+Alternatively, callable-generators can be defined in initialization files, as
+demonstrated in the following example. Consider a Python file (``caseconv.py``),
+which contains a case converter object. When an instance of it is called, it
+converts the passed text to lower or upper case, depending on the flag passed at
+initialization::
 
   class CaseConverter:
 
@@ -848,8 +843,8 @@ to lower or upper case, depending on the flag passed at initialization::
           else:
               return txt.upper()
 
-The according ``CaseConverter`` instance can be created on the fly in the `call`
-directive according to the needs (``example.fypp``)::
+Instances of ``CaseConverter`` can be created on the fly in the `call` directive
+according to the needs (``example.fypp``)::
 
   #:call CaseConverter('l')
   THIS WILL BE CONVERTED TO LOWERCASE
@@ -859,12 +854,24 @@ directive according to the needs (``example.fypp``)::
   this will be converted to uppercase
   #:endcall CaseConverter
 
-For better readability, the name of the callable-generator can be repeated in
-the `endcall` directive, but not its arguments. To run the example above, the
-Python file with the defintion of ``CaseConverter`` must be passed to the
-preprocessor as initialization file::
+To run this example, the Python file with the defintion of ``CaseConverter``
+must be passed to the preprocessor as initialization file::
 
   fypp -i caseconv.py example.fypp
+
+If the header of the `call` directive contains a name of a callable or a simple
+Python call of the form ``callable(...)``, the name of the callable can be
+repeated in the `endcall` directive, but not its arguments (see the example
+above). If the `call` directive contains a more complicated Python expression,
+the `endcall` directive must not contain any name (see the example with
+``lambda``-function above). In those cases, however, it is recommended to use
+temporary variables for better readability::
+
+  #:set lower = lambda s: s.lower()
+
+  #:call lower
+  THIS WILL BE CONVERTED TO LOWERCASE
+  #:endcall lower
 
 
 Direct call directive
