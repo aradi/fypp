@@ -425,7 +425,14 @@ be defined), initialization scripts can be specified via the command line option
 The preprocessor executes the content of each initialization script in the
 isolated environment via Pythons `exec()` command before processing any
 input. If modules had been also specified via the ``-m`` option, they are
-imported before the execution of the initialization scripts.
+imported before the execution of the initialization scripts. The module imports,
+the initialization and the evaluation of the Python expressions during the
+processing all use the same global scope (as if they were part of one single
+module). Therefore, any globals defined during initialization can be accessed
+when evaluating Python expressions during input processing. Additionally,
+functions defined during initialization can access global variables defined
+during the processing, provided the variables have been defined, before the
+function is invoked.
 
 
 Predefined variables and functions

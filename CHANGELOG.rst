@@ -17,6 +17,9 @@ Added
 
 * Generalized callables.
 
+* Improve on scopes: execute initialisation and evaluations during rendering
+  in the same (module like) scope.
+
 * Additional flags in line numbering directives when opening a file or returning
   to a previous file.
 

@@ -29,6 +29,10 @@ def _inifile(fname):
 def _linenumbering(nummode):
     return '-N{0}'.format(nummode)
 
+def _importmodule(module):
+    return '-m{0}'.format(module)
+
+
 _LINENUM_FLAG = '-n'
 
 _FIXED_FORMAT_FLAG = '--fixed-format'
@@ -738,7 +742,42 @@ SIMPLE_TESTS = [
       '33\n'
      )
     ),
-
+    ('macro_scope',
+     ([],
+      '#:set X = 3\n#:def setx()\n#:set X = -5\n#:enddef\n$:setx()\n$:X\n',
+      '\n3\n'
+     )
+    ),
+    ('inifile_scope_get_globals',
+     ([_inifile('include/getx.py')],
+      '#:set X = -1\n$:getX()\n',
+      '-1\n'
+     )
+    ),
+    ('inifile_scope_get_globals2',
+     ([_inifile('include/getx-init.py')],
+      '$:X\n$:getX()\n#:set X = -1\n$:X\n$:getX()\n',
+      '1\n1\n-1\n-1\n'
+     )
+    ),
+    ('inifile_scope_get_globals3',
+     ([_inifile('include/getx2.py')],
+      '#:set X = -1\n$:X\n$:getX()\n$:X\n',
+      '-1\n0\n-1\n'
+     )
+    ),
+    ('inifile_scope_set_globals',
+     ([_inifile('include/setx.py')],
+      '#:set X = -1\n$:X\n$:setX()\n$:X\n',
+      '-1\n0\n0\n'
+     )
+    ),
+    ('import_module',
+     ([_importmodule('math')],
+      '$:int(math.sqrt(4))\n',
+      '2\n'
+     )
+    )
 ]
 
 
