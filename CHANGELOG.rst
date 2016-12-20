@@ -35,6 +35,9 @@ Changed
 
 * Make equal sign in set directive mandatory and in setvar directive forbidden.
 
+* Slight backwards incompatibility in API: process_* methods of Processor and
+  Fypp do not accept the optional argument env any more.
+
 
 Fixed
 -----
