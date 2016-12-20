@@ -1397,21 +1397,37 @@ class Renderer:
 
 
     def _get_called_content(self, fname, spans, name, contents):
-        args = []
+        try:
+            callobj = self._evaluator.evaluate(name)
+        except Exception as exc:
+            msg = "unable to obtain callable by evaluating '{0}'".format(name)
+            raise FyppFatalError(msg, fname, spans[0], exc)
         self._divert()
+        args = []
         for content in contents:
             self._evaluator.pushenv()
             out = self.render(content)
             self._evaluator.popenv()
             if len(out) and out[-1] == '\n':
                 out = out[:-1]
-            out_escaped = out.replace('\\', '\\\\')
-            out_escaped = out_escaped.replace('"', r'\"')
-            args.append('"""' + out_escaped + '"""')
+            args.append(out)
         self._undivert()
-        expr = "{0}({1})".format(name, ','.join(args))
-        out, ieval, peval = self._get_eval(
-            fname, (spans[0][0], spans[-1][1]), expr)
+        try:
+            result = callobj(*args)
+        except Exception as exc:
+            msg = "exception occured when calling '{0}'".format(name)
+            raise FyppFatalError(msg, fname, spans[0], exc)
+        span = (spans[0][0], spans[-1][1])
+        out = []
+        ieval = []
+        peval = []
+        if result is not None:
+            out = [str(result)]
+            if not self._diversions:
+                ieval = [0]
+                peval = [(span, fname)]
+        if span[0] != span[1]:
+            out.append('\n')
         return out, ieval, peval
 
 
