@@ -673,6 +673,10 @@ class Parser:
 
 
     def _process_directcall(self, callname, callparams, span):
+        match = _CALLABLE_NAME_REGEXP.match(callname)
+        if not match:
+            msg = "invalid callable name '{0}' in direct call".format(callname)
+            raise FyppFatalError(msg, self._curfile, span)
         self._process_call(callname, span)
         if callparams is not None:
             callparams = _CONTLINE_REGEXP.sub('', callparams)
