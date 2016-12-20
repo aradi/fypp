@@ -428,7 +428,7 @@ class Parser:
         self._log_event('endfor', span)
 
 
-    def handle_call(self, span, callexpr):
+    def handle_call(self, span, callexpr, name):
         '''Called when parser encounters a call directive.
 
         It is a dummy method and should be overriden for actual use.
@@ -436,6 +436,8 @@ class Parser:
         Args:
             span (tuple of int): Start and end line of the directive.
             callexpr (str): Expression to evaluate and call.
+            name (str): Name of the callable (without any optional arguments)
+                which can be used in the corresponding endcall directive.
         '''
         self._log_event('call', span, callexpr=callexpr)
 
@@ -1232,8 +1234,6 @@ class Renderer:
                  linefolder=None):
         # Evaluator to use for Python expressions
         self._evaluator = Evaluator() if evaluator is None else evaluator
-        self._evaluator.updateenv(_DATE_=time.strftime('%Y-%m-%d'),
-                                  _TIME_=time.strftime('%H:%M:%S'))
 
         # Number of diversions, when > 0 we are within a macro call
         self._diversions = 0
@@ -1322,9 +1322,8 @@ class Renderer:
 
 
     def _get_eval(self, fname, span, expr):
-        self._update_linenr(span[0])
         try:
-            result = self._evaluator.evaluate(expr)
+            result = self._evaluate(expr, fname, span[0])
         except Exception as exc:
             msg = "exception occured when evaluating '{0}'".format(expr)
             raise FyppFatalError(msg, fname, span, exc)
@@ -1347,9 +1346,8 @@ class Renderer:
         peval = []
         multiline = (spans[0][0] != spans[-1][1])
         for condition, content, span in zip(conditions, contents, spans):
-            self._update_linenr(span[1])
             try:
-                cond = bool(self._evaluator.evaluate(condition))
+                cond = bool(self._evaluate(condition, fname, span[0]))
             except Exception as exc:
                 msg = "exception occured when evaluating '{0}'"\
                       .format(condition)
@@ -1371,9 +1369,8 @@ class Renderer:
         out = []
         ieval = []
         peval = []
-        self._update_linenr(spans[0][1])
         try:
-            iterobj = iter(self._evaluator.evaluate(loopiter))
+            iterobj = iter(self._evaluate(loopiter, fname, spans[0][0]))
         except Exception as exc:
             msg = "exception occured when evaluating '{0}'"\
                 .format(loopiter)
@@ -1381,10 +1378,10 @@ class Renderer:
         multiline = (spans[0][0] != spans[-1][1])
         for var in iterobj:
             if len(loopvars) == 1:
-                self._evaluator.define(loopvars[0], var)
+                self._define(loopvars[0], var)
             else:
                 for varname, value in zip(loopvars, var):
-                    self._evaluator.define(varname, value)
+                    self._define(varname, value)
             if self._linenums and not self._diversions and multiline:
                 out.append(linenumdir(spans[0][1], fname))
             outcont, ievalcont, pevalcont = self._render(content)
@@ -1398,7 +1395,7 @@ class Renderer:
 
     def _get_called_content(self, fname, spans, name, contents):
         try:
-            callobj = self._evaluator.evaluate(name)
+            callobj = self._evaluate(name, fname, spans[0][0])
         except Exception as exc:
             msg = "unable to obtain callable by evaluating '{0}'".format(name)
             raise FyppFatalError(msg, fname, spans[0], exc)
@@ -1406,11 +1403,11 @@ class Renderer:
         args = []
         for content in contents:
             self._evaluator.pushenv()
-            out = self.render(content)
+            rendered = self.render(content)
             self._evaluator.popenv()
-            if len(out) and out[-1] == '\n':
-                out = out[:-1]
-            args.append(out)
+            if len(rendered) and rendered[-1] == '\n':
+                rendered = rendered[:-1]
+            args.append(rendered)
         self._undivert()
         try:
             result = callobj(*args)
@@ -1433,13 +1430,11 @@ class Renderer:
 
     def _get_included_content(self, fname, spans, includefname, content):
         out = []
-        self._evaluator.updateenv(_FILE_=includefname)
         if self._linenums and not self._diversions:
             out += linenumdir(0, includefname, _LINENUM_NEW_FILE)
         outcont, ieval, peval = self._render(content)
         ieval = _shiftinds(ieval, len(out))
         out += outcont
-        self._evaluator.updateenv(_FILE_=fname)
         if self._linenums and not self._diversions and spans[0] is not None:
             out += linenumdir(spans[0][1], fname, _LINENUM_RETURN_TO_FILE)
         return out, ieval, peval
@@ -1449,7 +1444,7 @@ class Renderer:
         result = ''
         try:
             macro = _Macro(name, fname, spans, args, content, self)
-            self._evaluator.define(name, macro)
+            self._define(name, macro)
         except Exception as exc:
             msg = "exception occured when defining macro '{0}'"\
                 .format(name)
@@ -1461,9 +1456,8 @@ class Renderer:
 
     def _define_variable(self, fname, span, name, valstr):
         result = ''
-        self._update_linenr(span[0])
         try:
-            self._evaluator.define(name, self._evaluator.evaluate(valstr))
+            self._define(name, self._evaluate(valstr, fname, span[0]))
         except Exception as exc:
             msg = "exception occured when setting variable(s) {0} to {1}"\
                 .format(name, valstr)
@@ -1490,9 +1484,8 @@ class Renderer:
 
 
     def _handle_stop(self, fname, span, msgstr):
-        self._update_linenr(span[0])
         try:
-            msg = str(self._evaluator.evaluate(msgstr))
+            msg = str(self._evaluate(msgstr, fname, span[0]))
         except Exception as exc:
             msg = "exception occured when evaluating stop message '{0}'"\
                 .format(msgstr)
@@ -1502,9 +1495,8 @@ class Renderer:
 
     def _handle_assert(self, fname, span, expr):
         result = ''
-        self._update_linenr(span[0])
         try:
-            cond = bool(self._evaluator.evaluate(expr))
+            cond = bool(self._evaluate(expr, fname, span[0]))
         except Exception as exc:
             msg = "exception occured when evaluating assert condition '{0}'"\
                 .format(expr)
@@ -1528,9 +1520,16 @@ class Renderer:
             raise FyppFatalError(msg)
 
 
-    def _update_linenr(self, linenr):
+    def _evaluate(self, expr, fname, linenr):
         if not self._diversions:
-            self._evaluator.updateenv(_LINE_=linenr + 1)
+            self._evaluator.updateenv(_LINE_=linenr + 1, _FILE_=fname,
+                                      _DATE_=time.strftime('%Y-%m-%d'),
+                                      _TIME_=time.strftime('%H:%M:%S'))
+        return self._evaluator.evaluate(expr)
+
+
+    def _define(self, var, value):
+        self._evaluator.define(var, value)
 
 
     def _postprocess_eval_lines(self, output, eval_inds, eval_pos):

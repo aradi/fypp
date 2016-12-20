@@ -792,6 +792,31 @@ SIMPLE_TESTS = [
       '-1\n0\n0\n'
      )
     ),
+    ('inifile_scope_predefined_vars',
+     ([_inifile('include/getpredefvars.py')],
+      '$:getpredefvars()\n',
+      'FILE: ' + fypp.STRING + ', LINE: 1\n'
+     )
+    ),
+    ('correct_predefined_var_injection',
+     ([],
+      '#:def ASSERT(cond)\n"${cond}$", ${_FILE_}$, ${_LINE_}$\n#:enddef\n'\
+      '@:ASSERT 2 < 3\n',
+      '"2 < 3", ' + fypp.STRING + ', 4\n'
+     )
+    ),
+    ('correct_line_numbering_in_if',
+     ([],
+      '#:if _LINE_ == 1\nOK\n#:endif\n',
+      'OK\n'
+     )
+    ),
+    ('correct_line_numbering_in_for',
+     ([],
+      '#:for line in [_LINE_]\n${line}$ - ${_LINE_}$\n#:endfor\n',
+      '1 - 2\n'
+     )
+    ),
     ('import_module',
      ([_importmodule('math')],
       '$:int(math.sqrt(4))\n',
