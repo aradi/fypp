@@ -481,6 +481,26 @@ SIMPLE_TESTS = [
       '|2 @@ 4|6|\n',
      )
     ),
+    ('direct_call_no_param',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n@:mymacro\n',
+      '||\n'
+     )
+    ),
+    ('call_no_param_inline',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
+      '#{call mymacro}##{endcall}#\n',
+      '||\n'
+     )
+    ),
+    ('call_no_param',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
+      '#:call mymacro\n#:endcall\n',
+      '||\n'
+     )
+    ),
     ('comment_single',
      ([],
       ' #! Comment here\nDone\n',

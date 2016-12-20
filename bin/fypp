@@ -163,6 +163,7 @@ _LINENUM_NEW_FILE = 1
 
 _LINENUM_RETURN_TO_FILE = 2
 
+
 class FyppError(Exception):
     '''Signalizes error occuring during preprocessing.
 
@@ -672,9 +673,12 @@ class Parser:
 
 
     def _process_directcall(self, callname, callparams, span):
-        callparams = _CONTLINE_REGEXP.sub('', callparams)
         self._process_call(callname, span)
-        args = [arg.strip() for arg in callparams.split('@@')]
+        if callparams is not None:
+            callparams = _CONTLINE_REGEXP.sub('', callparams)
+            args = [arg.strip() for arg in callparams.split('@@')]
+        else:
+            args = []
         if len(args):
             linenr = span[0]
             self._parse(args[0], linenr=linenr, linedirs=False)

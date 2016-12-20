@@ -752,9 +752,9 @@ The `def` directive can also be used in its short form::
 `call` directive
 ================
 
-When a Python callable (regular Python function, macro etc.) is called with
-string arguments only (e.g. source code), it can be called using the `call`
-directive to avoid extra quoting of the arguments::
+When a Python callable (regular Python function, macro etc.) with at least one
+argument is called with string argument(s) only (e.g. source code), it can be
+called using the `call` directive to avoid extra quoting of the arguments::
 
   #:def debug_code(code)
     #:if DEBUG > 0
@@ -887,7 +887,8 @@ directive::
 
 The direct call directive starts with ``@:`` followed by the name of a Python
 callable. Everything between the callable name and the end of the line is
-treated as argument to the callable. When the callable needs more than one
+treated as argument to the callable. (Similar to the `call` directive, the
+callable must have at least one argument.) When the callable needs more than one
 argument, the arguments must be separated by the character sequence ``@@``::
 
   #:def assertEqual(lhs, rhs)
