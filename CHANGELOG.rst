@@ -15,7 +15,9 @@ Added
 
 * Assert directive.
 
-* Generalized callables.
+* Generalized call directive with any Python expression yielding a callable.
+
+* Python-like consistent global and local scopes and scope lookup rules.
 
 * Additional flags in line numbering directives when opening a file or returning
   to a previous file.
@@ -31,6 +33,9 @@ Changed
 * Reverse order exception printing, exception first occuring printed as last.
 
 * Make equal sign in set directive mandatory and in setvar directive forbidden.
+
+* Slight backwards incompatibility in API: process_* methods of Processor and
+  Fypp do not accept the optional argument env any more.
 
 
 Fixed

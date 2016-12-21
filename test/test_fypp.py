@@ -29,6 +29,10 @@ def _inifile(fname):
 def _linenumbering(nummode):
     return '-N{0}'.format(nummode)
 
+def _importmodule(module):
+    return '-m{0}'.format(module)
+
+
 _LINENUM_FLAG = '-n'
 
 _FIXED_FORMAT_FLAG = '--fixed-format'
@@ -369,6 +373,12 @@ SIMPLE_TESTS = [
       'hello\n',
      )
     ),
+    ('call_lambda_direct',
+     ([],
+      '#:call lambda s: s.lower()\nHELLO\n#:endcall\n',
+      'hello\n',
+     )
+    ),
     ('call_generator',
      ([_inifile('include/caseconv.py')],
       '#:call caseconv("l")\nHELLO\n#:endcall\n',
@@ -475,6 +485,26 @@ SIMPLE_TESTS = [
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@:mymacro ${2*1}$ @\\@ ${2*2}$ @@ ${2*3}$\n',
       '|2 @@ 4|6|\n',
+     )
+    ),
+    ('direct_call_no_param',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n@:mymacro\n',
+      '||\n'
+     )
+    ),
+    ('call_no_param_inline',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
+      '#{call mymacro}##{endcall}#\n',
+      '||\n'
+     )
+    ),
+    ('call_no_param',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
+      '#:call mymacro\n#:endcall\n',
+      '||\n'
      )
     ),
     ('comment_single',
@@ -732,6 +762,155 @@ SIMPLE_TESTS = [
       'OK'
      )
     ),
+   ('for_loop_scope',
+     ([],
+      '#{for i in range(4)}##{set X = i}##{endfor}#${X}$${i}$\n',
+      '33\n'
+     )
+    ),
+    ('macro_scope',
+     ([],
+      '#:set X = 3\n#:def setx()\n#:set X = -5\n#:enddef\n$:setx()\n$:X\n',
+      '\n3\n'
+     )
+    ),
+    ('inifile_scope_get_globals',
+     ([_inifile('include/getx.py')],
+      '#:set X = -1\n$:getX()\n',
+      '-1\n'
+     )
+    ),
+    ('inifile_scope_get_globals2',
+     ([_inifile('include/getx-init.py')],
+      '$:X\n$:getX()\n#:set X = -1\n$:X\n$:getX()\n',
+      '1\n1\n-1\n-1\n'
+     )
+    ),
+    ('inifile_scope_get_globals3',
+     ([_inifile('include/getx2.py')],
+      '#:set X = -1\n$:X\n$:getX()\n$:X\n',
+      '-1\n0\n-1\n'
+     )
+    ),
+    ('inifile_scope_set_globals',
+     ([_inifile('include/setx.py')],
+      '#:set X = -1\n$:X\n$:setX(0)\n$:X\n',
+      '-1\n0\n0\n'
+     )
+    ),
+    ('inifile_scope_predefined_vars',
+     ([_inifile('include/getpredefvars.py')],
+      '$:getpredefvars()\n',
+      'FILE: ' + fypp.STRING + ', LINE: 1\n'
+     )
+    ),
+    ('global_scope_accessibility',
+     ([_inifile('include/setx.py')],
+      '$:setX(1)\nX0A:${X}$\n'\
+      '#:call lambda s: s\nX1A:${X}$\n'\
+      '#:call lambda s: s\nX2A:${X}$\n$:setX(-1)\nX2B:${X}$\n'\
+      '#:endcall\nX1B:${X}$\n#:endcall\nX0B:${X}$\n',
+      '1\nX0A:1\nX1A:1\nX2A:1\n-1\nX2B:-1\nX1B:-1\nX0B:-1\n'
+     )
+    ),
+    ('global_scope_accessibility_with_shadowing',
+     ([_inifile('include/setx.py')],
+      '#:set X = 1\nX0A:${X}$\n'\
+      '#:call lambda s: s\nX1A:${X}$\n#:set X = 2\nX1B:${X}$\n'\
+      '#:call lambda s: s\nX2A:${X}$\n#:set X = 3\nX2B:${X}$\n'\
+      '$:setX(-1)\nX2C:${X}$\n#:endcall\nX1C:${X}$\n#:endcall\nX0B:${X}$\n',
+      'X0A:1\nX1A:1\nX1B:2\nX2A:2\nX2B:3\n-1\nX2C:3\nX1C:2\nX0B:-1\n'
+     )
+    ),
+    ('local_macro_local_scope',
+     ([],
+      '#:set X = 3\n#:call lambda s: s\n'
+      '#:def mymacro()\nX:${X}$\n#:enddef\n'\
+      '#:set X = 2\n$:mymacro()\n#:endcall\n',
+      'X:2\n',
+     )
+    ),
+    ('local_macro_global_scope',
+     ([],
+      '#:set X = 3\n#:call lambda s: s\n'
+      '#:def mymacro()\nX:${X}$\n#:enddef\n'\
+      '$:mymacro()\n#:endcall\n',
+      'X:3\n',
+     )
+    ),
+    ('scope_global_macro_called_from_local_scope',
+     ([],
+      '#:def printX()\nX:${X}$\n#:enddef\n#:set X = 1\n'\
+      '#:call lambda s: s\n#:set X = 2\n'\
+      '#:call lambda s: s\n#:set X = 3\n$:printX()\n'\
+      '#:endcall\n#:endcall\nX:${X}$\n',
+      'X:1\nX:1\n',
+     )
+    ),
+    ('scope_macro_lookup_locals_in_definition_scope',
+     ([],
+      '#:set X = 0\n'\
+      '#:def macro1()\n#:set X = 1\n'\
+      '#:def macro2()\n'\
+      '#:def macro3a()\nX3a:${X}$\n#:enddef macro3a\n'\
+      '#:def macro3b()\n#:set X = 3\n$:macro3a()\n#:enddef macro3b\n'\
+      '#:set X = 2\n$:macro3b()\nX2:${X}$\n'\
+      '#:enddef macro2\n$:macro2()\nX1:${X}$\n'\
+      '#:enddef macro1\n$:macro1()\nX0:${X}$\n',
+      'X3a:2\nX2:2\nX1:1\nX0:0\n',
+     )
+    ),
+    ('scope_macro_lookup_locals_above_definition_scope',
+     ([],
+      '#:set X = 0\n'\
+      '#:def macro1()\n#:set X = 1\n'\
+      '#:def macro2()\n'\
+      '#:def macro3a()\nX3a:${X}$\n#:enddef macro3a\n'\
+      '#:def macro3b()\n#:set X = 3\n$:macro3a()\n#:enddef macro3b\n'\
+      '$:macro3b()\nX2:${X}$\n'\
+      '#:enddef macro2\n$:macro2()\nX1:${X}$\n'\
+      '#:enddef macro1\n$:macro1()\nX0:${X}$\n',
+      'X3a:1\nX2:1\nX1:1\nX0:0\n',
+     )
+    ),
+    ('scope_macro_lookup_locals_global_scope',
+     ([],
+      '#:set X = 0\n'\
+      '#:def macro1()\n'\
+      '#:def macro2()\n'\
+      '#:def macro3a()\nX3a:${X}$\n#:enddef macro3a\n'\
+      '#:def macro3b()\n#:set X = 3\n$:macro3a()\n#:enddef macro3b\n'\
+      '$:macro3b()\nX2:${X}$\n'\
+      '#:enddef macro2\n$:macro2()\nX1:${X}$\n'\
+      '#:enddef macro1\n$:macro1()\nX0:${X}$\n',
+      'X3a:0\nX2:0\nX1:0\nX0:0\n',
+     )
+    ),
+    ('correct_predefined_var_injection',
+     ([],
+      '#:def ASSERT(cond)\n"${cond}$", ${_FILE_}$, ${_LINE_}$\n#:enddef\n'\
+      '@:ASSERT 2 < 3\n',
+      '"2 < 3", ' + fypp.STRING + ', 4\n'
+     )
+    ),
+    ('correct_line_numbering_in_if',
+     ([],
+      '#:if _LINE_ == 1\nOK\n#:endif\n',
+      'OK\n'
+     )
+    ),
+    ('correct_line_numbering_in_for',
+     ([],
+      '#:for line in [_LINE_]\n${line}$ - ${_LINE_}$\n#:endfor\n',
+      '1 - 2\n'
+     )
+    ),
+    ('import_module',
+     ([_importmodule('math')],
+      '$:int(math.sqrt(4))\n',
+      '2\n'
+     )
+    )
 ]
 
 
@@ -1390,6 +1569,12 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
+    ('generator_endcall_forbidden_name',
+     ([],
+      '#:call lambda s: s.lower()\nHELLO\n#:endcall lambda\n',
+      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+     )
+    ),
     ('line_for_inline_endfor',
      ([],
       '#:for i in range(3)\nA\n#{endfor}#\n',
@@ -1550,6 +1735,14 @@ EXCEPTION_TESTS = [
       '#:set a, b) = (1, 2)\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
+     )
+    ),
+    ('local_macro_visibility',
+     ([],
+      '#:call lambda s: s\n'
+      '#:def mymacro()\nX\n#:enddef\n'\
+      '#:endcall\n$:mymacro()\n',
+      [(fypp.FyppFatalError, fypp.STRING, (5, 6))]
      )
     ),
     #

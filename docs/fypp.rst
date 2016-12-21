@@ -102,7 +102,7 @@ more in detail in the individual sections further down.
       print *, "Doing something here"
     #:endif
 
-* Passing multiline string arguments to callables::
+* Passing (unquoted) multiline string arguments to callables::
 
     #:def debug_code(code)
       #:if DEBUG > 0
@@ -115,6 +115,10 @@ more in detail in the individual sections further down.
         print *, "DEBUG: spuriously large array"
       end if
     #:endcall debug_code
+
+    #:call lambda s: s.upper()
+    this will be converted to upper case
+    #:endcall
 
 * Preprocessor comments::
 
@@ -141,6 +145,26 @@ more in detail in the individual sections further down.
       #:assert RANK > 0
       :
     #:enddef mymacro
+
+* Line numbering directives in output::
+
+    program test
+    #:if defined('MPI')
+    use mpi
+    #:endif
+    :
+
+  transformed to ::
+
+    # 1 "test.fypp" 1
+    program test
+    # 3 "test.fypp"
+    use mpi
+    # 5 "test.fypp"
+    :
+
+  when variable ``MPI`` is defined and Fypp was instructed to generate line
+  markers.
 
 
 ***************
@@ -425,7 +449,14 @@ be defined), initialization scripts can be specified via the command line option
 The preprocessor executes the content of each initialization script in the
 isolated environment via Pythons `exec()` command before processing any
 input. If modules had been also specified via the ``-m`` option, they are
-imported before the execution of the initialization scripts.
+imported before the execution of the initialization scripts. The module imports,
+the initialization and the evaluation of the Python expressions during the
+processing all use the same global scope (as if they were part of one single
+module). Therefore, any globals defined during initialization can be accessed
+when evaluating Python expressions during input processing. Additionally,
+functions defined during initialization can access global variables defined
+during the processing, provided the variables have been defined, before the
+function is invoked.
 
 
 Predefined variables and functions
@@ -745,9 +776,9 @@ The `def` directive can also be used in its short form::
 `call` directive
 ================
 
-When a Python callable (regular Python function, macro etc.) is called with
-string arguments only (e.g. source code), it can be called using the `call`
-directive to avoid extra quoting of the arguments::
+When a Python callable (regular Python function, macro etc.) with at least one
+argument is called with string argument(s) only (e.g. source code), it can be
+called using the `call` directive to avoid extra quoting of the arguments::
 
   #:def debug_code(code)
     #:if DEBUG > 0
@@ -809,26 +840,21 @@ to code being hard to read, it should be usually avoided::
 If the arguments are short, the more compact direct call directive can be also
 used as an alternative to the line form (see next section).
 
-Note, that the callables are not restricted to macros only, but can be arbitrary
-Python callables. Using the `lambda` construct of Python, such callables can be
-even generated during preprocessing. The following example creates a callable,
-which converts its argument to lower case::
+The callables are not restricted to macros only, but can be arbitrary Python
+expressions, which are either directly callables or after evaluation yield a
+callable. Using the `lambda` construct of Python, such callables can be easily
+generated during preprocessing. The following example shows how to create a
+callable, which converts its argument to lower case::
 
-  #:set lower = lambda s: s.lower()
-  #:call lower
+  #:call lambda s: s.lower()
   THIS WILL BE CONVERTED TO LOWERCASE
-  #:endcall lower
+  #:endcall
 
-The callable can even be the result of a call (function call, object
-initialization) itself. In this case, the name in the `call` directive must
-immediately be followed by an opening paranthesis, eventual arguments and a
-closing paranthesis. The call will be evaluted in Python and must return a
-callable object, which will be then called with the text between the `call` and
-`endcall` directives.
-
-As an example, consider a Python file (``caseconv.py``), which contains a case
-converter object. When an instance of it is called, it converts the passed text
-to lower or upper case, depending on the flag passed at initialization::
+Alternatively, callable-generators can be defined in initialization files, as
+demonstrated in the following example. Consider a Python file (``caseconv.py``),
+which contains a case converter object. When an instance of it is called, it
+converts the passed text to lower or upper case, depending on the flag passed at
+initialization::
 
   class CaseConverter:
 
@@ -841,8 +867,8 @@ to lower or upper case, depending on the flag passed at initialization::
           else:
               return txt.upper()
 
-The according ``CaseConverter`` instance can be created on the fly in the `call`
-directive according to the needs (``example.fypp``)::
+Instances of ``CaseConverter`` can be created on the fly in the `call` directive
+according to the needs (``example.fypp``)::
 
   #:call CaseConverter('l')
   THIS WILL BE CONVERTED TO LOWERCASE
@@ -852,12 +878,24 @@ directive according to the needs (``example.fypp``)::
   this will be converted to uppercase
   #:endcall CaseConverter
 
-For better readability, the name of the callable-generator can be repeated in
-the `endcall` directive, but not its arguments. To run the example above, the
-Python file with the defintion of ``CaseConverter`` must be passed to the
-preprocessor as initialization file::
+To run this example, the Python file with the defintion of ``CaseConverter``
+must be passed to the preprocessor as initialization file::
 
   fypp -i caseconv.py example.fypp
+
+If the header of the `call` directive contains a name of a callable or a simple
+Python call of the form ``callable(...)``, the name of the callable can be
+repeated in the `endcall` directive, but not its arguments (see the example
+above). If the `call` directive contains a more complicated Python expression,
+the `endcall` directive must not contain any name (see the example with
+``lambda``-function above). In those cases, however, it is recommended to use
+temporary variables for better readability::
+
+  #:set lower = lambda s: s.lower()
+
+  #:call lower
+  THIS WILL BE CONVERTED TO LOWERCASE
+  #:endcall lower
 
 
 Direct call directive
@@ -880,7 +918,8 @@ directive::
 
 The direct call directive starts with ``@:`` followed by the name of a Python
 callable. Everything between the callable name and the end of the line is
-treated as argument to the callable. When the callable needs more than one
+treated as argument to the callable. (Similar to the `call` directive, the
+callable must have at least one argument.) When the callable needs more than one
 argument, the arguments must be separated by the character sequence ``@@``::
 
   #:def assertEqual(lhs, rhs)
@@ -1167,6 +1206,118 @@ accepts following mode arguments:
 * ``nocontlines``: Same as full, but line numbering directives are ommitted
   before continuation lines. (Some compilers, like the NAG Fortran compiler,
   have difficulties with line numbering directives before continuation lines).
+
+
+Scopes
+======
+
+Fypp uses a scope concept very similar to Pythons one. There is one global scope
+(like in Python modules), and temporary local scopes may be created in special
+cases (e.g. during macro calls).
+
+The global scope is the one, which Fypp normaly uses for defining objects. All
+imports specified on the command line are carried out in this scope. Also, all
+the initialization files are executed within that scope. And all definitions
+made by the `set` and `def` directives in the processed source file defines
+entities in that scope, unless they appear within a `call` or a `def` directive.
+
+Addtional temporary local scopes are opened, whenever
+
+* a macro defined by the `def` directive is called, or
+
+* the body of the `call` directive is evaluated in order to render the text,
+  which will be passed to the callable as argument.
+
+Any entity defined in a local scope is only visible within that scope and is
+unaccessible once the scope has been closed. For example the code snippet::
+
+  #:call lambda s: s.upper()
+  #:set NUMBER = 9
+  here is the number ${NUMBER}$
+  #:endcall
+  $:defined('NUMBER')
+
+results after preprocessing in ::
+
+  HERE IS THE NUMBER 9
+  False
+
+as the variable ``NUMBER`` defined in the local scope is destroyed, when the
+scope is closed (the `endcall` directive has been reached).
+
+
+Lookup rules
+------------
+
+When Fypp tries to resolve a name, the lookup rules depend on the scope, in
+which the query appears:
+
+* global scope (outside of any `def` or `call` directives): only the global
+  scope is searched.
+
+* local scope (within the body of a `call` or `def` directive): first, the
+  active local scope is searched. Then the embedding scope (the scope which
+  contains the directive) is searched. Then the rules are applied recursively
+  until finally also the global scope has been searched. The search is
+  terminated in the scope, in which the name to be resolved occurs first.
+
+Note, that all variables outside of the active scope are read-only. If a
+variable with the same name is created in the active scope, it will shadow the
+original definition. Once the scope is closed, the variable regains it original
+value. For example::
+
+  #:set X = 1
+  #:call lambda s: s.upper()
+  #:set X = 2
+  value ${X}$
+  #:endcall
+  value ${X}$
+
+results in ::
+
+  VALUE 2
+  value 1
+
+Also note, that if a name can not be resolved in the active scope during a macro
+evaluation, the relevant embedding scope for the next lookup is the scope, where
+the macro has been defined (where the `def` directive occurs), and *not* the
+scope, from which the macro is being called. The following snippet demonstrates
+this::
+
+  #! GLOBAL SCOPE
+  
+  #:call lambda s: s.upper()
+  #! LOCAL SCOPE 1
+  
+  #:def macro1()
+  #! LOCAL SCOPE 2A
+  value of x: ${X}$
+  #:enddef macro1
+  
+  #! LOCAL SCOPE 1
+  
+  #:def macro2()
+  #! LOCAL SCOPE 2B
+  #:set X = 2
+  $:macro1()
+  #:enddef macro2
+  
+  #! LOCAL SCOPE 1
+  #:set X = 1
+  $:macro2()
+  #:endcall
+  
+  #! GLOBAL SCOPE
+  
+After preprocessing the code above one obtains ``VALUE OF X: 1``. Although in
+the local scope 2B, from where the macro ``macro1()`` is called, the value of X
+is defined to be ``2``, the relevant scopes for the lookup of X during the macro
+evaluation are the local scope 2A of ``macro1()`` (where the eval-directive for
+X is located), the local scope 1 (where the `def` directive for ``macro1()``
+occurs) and the global scope (which embeds local scope 1). Therefore, during
+the macro evaluation, the value ``1`` will be substituted, as this is the value
+of X in scope 1, and scope 1 is the first scope in the lookup order, which
+provides a value for X.
 
 
 Exit codes

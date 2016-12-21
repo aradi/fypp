@@ -131,7 +131,7 @@ _ALL_DIRECTIVES_REGEXP = re.compile(
 _DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>\w+)\(\s*(?P<args>(?:(?:\w+\s*,\s*)*(?:\w+)))?\s*\)$')
 
-_CALLABLE_REGEXP = re.compile(r'^(?P<name>\w+)(?:\(.*\))?$')
+_SIMPLE_CALLABLE_REGEXP = re.compile(r'^(?P<name>\w+)\s*(?:\(.*\))?$')
 
 _CALLABLE_NAME_REGEXP = re.compile(r'^(?P<name>\w+)$')
 
@@ -162,6 +162,7 @@ _RESERVED_NAMES = ('defined', 'setvar', 'getvar', '_LINE_', '_FILE_',
 _LINENUM_NEW_FILE = 1
 
 _LINENUM_RETURN_TO_FILE = 2
+
 
 class FyppError(Exception):
     '''Signalizes error occuring during preprocessing.
@@ -427,7 +428,7 @@ class Parser:
         self._log_event('endfor', span)
 
 
-    def handle_call(self, span, callexpr):
+    def handle_call(self, span, callexpr, name):
         '''Called when parser encounters a call directive.
 
         It is a dummy method and should be overriden for actual use.
@@ -435,6 +436,8 @@ class Parser:
         Args:
             span (tuple of int): Start and end line of the directive.
             callexpr (str): Expression to evaluate and call.
+            name (str): Name of the callable (without any optional arguments)
+                which can be used in the corresponding endcall directive.
         '''
         self._log_event('call', span, callexpr=callexpr)
 
@@ -672,9 +675,16 @@ class Parser:
 
 
     def _process_directcall(self, callname, callparams, span):
-        callparams = _CONTLINE_REGEXP.sub('', callparams)
+        match = _CALLABLE_NAME_REGEXP.match(callname)
+        if not match:
+            msg = "invalid callable name '{0}' in direct call".format(callname)
+            raise FyppFatalError(msg, self._curfile, span)
         self._process_call(callname, span)
-        args = [arg.strip() for arg in callparams.split('@@')]
+        if callparams is not None:
+            callparams = _CONTLINE_REGEXP.sub('', callparams)
+            args = [arg.strip() for arg in callparams.split('@@')]
+        else:
+            args = []
         if len(args):
             linenr = span[0]
             self._parse(args[0], linenr=linenr, linedirs=False)
@@ -735,11 +745,11 @@ class Parser:
 
 
     def _process_call(self, param, span):
-        match = _CALLABLE_REGEXP.search(param)
-        if not match:
-            msg = "invalid callable name '{0}'".format(param)
-            raise FyppFatalError(msg, self._curfile, span)
-        name = match.group('name')
+        match = _SIMPLE_CALLABLE_REGEXP.search(param)
+        if match:
+            name = match.group('name')
+        else:
+            name = None
         self.handle_call(span, param, name)
 
 
@@ -1073,6 +1083,9 @@ class Builder:
         self._check_if_matches_last(directive, 'call', spans[-1], span,
                                     'endcall')
         callexpr, callname, contents = block[3:6]
+        if name is not None and callname is None:
+            msg = 'name not allowed for this endcall directive'
+            raise FyppFatalError(msg, fname, span)
         if name is not None and name != callname:
             msg = "wrong name in endcall directive "\
                   "(expected '{0}', got '{1}')".format(callname, name)
@@ -1224,8 +1237,6 @@ class Renderer:
                  linefolder=None):
         # Evaluator to use for Python expressions
         self._evaluator = Evaluator() if evaluator is None else evaluator
-        self._evaluator.updateenv(_DATE_=time.strftime('%Y-%m-%d'),
-                                  _TIME_=time.strftime('%H:%M:%S'))
 
         # Number of diversions, when > 0 we are within a macro call
         self._diversions = 0
@@ -1243,29 +1254,23 @@ class Renderer:
             self._linefolder = linefolder
 
 
-    def render(self, tree, env=None):
+    def render(self, tree):
         '''Renders a tree.
 
         Args:
             tree (fypp-tree): Tree to render.
-            env (dict, optional): Dictionary containing additional definitions
-                for the evaluator. The definitions are removed from the
-                the evaluator, once the rendering finished.
 
         Returns:
             str: Rendered string.
         '''
-        output, eval_inds, eval_pos = self._render(tree, env)
+        output, eval_inds, eval_pos = self._render(tree)
         if eval_inds:
             self._postprocess_eval_lines(output, eval_inds, eval_pos)
         txt = ''.join(output)
         return txt
 
 
-    def _render(self, tree, env=None):
-        newscope = env is not None
-        if newscope:
-            self._evaluator.pushenv(env)
+    def _render(self, tree):
         output = []
         eval_inds = []
         eval_pos = []
@@ -1316,15 +1321,12 @@ class Renderer:
             else:
                 msg = "internal error: unknown command '{0}'".format(cmd)
                 raise FyppFatalError(msg)
-        if newscope:
-            self._evaluator.popenv()
         return output, eval_inds, eval_pos
 
 
     def _get_eval(self, fname, span, expr):
-        self._update_linenr(span[0])
         try:
-            result = self._evaluator.evaluate(expr)
+            result = self._evaluate(expr, fname, span[0])
         except Exception as exc:
             msg = "exception occured when evaluating '{0}'".format(expr)
             raise FyppFatalError(msg, fname, span, exc)
@@ -1347,9 +1349,8 @@ class Renderer:
         peval = []
         multiline = (spans[0][0] != spans[-1][1])
         for condition, content, span in zip(conditions, contents, spans):
-            self._update_linenr(span[1])
             try:
-                cond = bool(self._evaluator.evaluate(condition))
+                cond = bool(self._evaluate(condition, fname, span[0]))
             except Exception as exc:
                 msg = "exception occured when evaluating '{0}'"\
                       .format(condition)
@@ -1371,9 +1372,8 @@ class Renderer:
         out = []
         ieval = []
         peval = []
-        self._update_linenr(spans[0][1])
         try:
-            iterobj = iter(self._evaluator.evaluate(loopiter))
+            iterobj = iter(self._evaluate(loopiter, fname, spans[0][0]))
         except Exception as exc:
             msg = "exception occured when evaluating '{0}'"\
                 .format(loopiter)
@@ -1381,13 +1381,13 @@ class Renderer:
         multiline = (spans[0][0] != spans[-1][1])
         for var in iterobj:
             if len(loopvars) == 1:
-                loopscope = {loopvars[0]: var}
+                self._define(loopvars[0], var)
             else:
-                loopscope = dict([(varname, value)
-                                  for varname, value in zip(loopvars, var)])
+                for varname, value in zip(loopvars, var):
+                    self._define(varname, value)
             if self._linenums and not self._diversions and multiline:
                 out.append(linenumdir(spans[0][1], fname))
-            outcont, ievalcont, pevalcont = self._render(content, loopscope)
+            outcont, ievalcont, pevalcont = self._render(content)
             ieval += _shiftinds(ievalcont, len(out))
             peval += pevalcont
             out += outcont
@@ -1397,31 +1397,47 @@ class Renderer:
 
 
     def _get_called_content(self, fname, spans, name, contents):
-        args = []
+        try:
+            callobj = self._evaluate(name, fname, spans[0][0])
+        except Exception as exc:
+            msg = "unable to obtain callable by evaluating '{0}'".format(name)
+            raise FyppFatalError(msg, fname, spans[0], exc)
         self._divert()
+        args = []
         for content in contents:
-            out = self.render(content, {})
-            if len(out) and out[-1] == '\n':
-                out = out[:-1]
-            out_escaped = out.replace('\\', '\\\\')
-            out_escaped = out_escaped.replace('"', r'\"')
-            args.append('"""' + out_escaped + '"""')
+            self._evaluator.openscope()
+            rendered = self.render(content)
+            self._evaluator.closescope()
+            if len(rendered) and rendered[-1] == '\n':
+                rendered = rendered[:-1]
+            args.append(rendered)
         self._undivert()
-        expr = "{0}({1})".format(name, ','.join(args))
-        out, ieval, peval = self._get_eval(
-            fname, (spans[0][0], spans[-1][1]), expr)
+        try:
+            result = callobj(*args)
+        except Exception as exc:
+            msg = "exception occured when calling '{0}'".format(name)
+            raise FyppFatalError(msg, fname, spans[0], exc)
+        span = (spans[0][0], spans[-1][1])
+        out = []
+        ieval = []
+        peval = []
+        if result is not None:
+            out = [str(result)]
+            if not self._diversions:
+                ieval = [0]
+                peval = [(span, fname)]
+        if span[0] != span[1]:
+            out.append('\n')
         return out, ieval, peval
 
 
     def _get_included_content(self, fname, spans, includefname, content):
         out = []
-        self._evaluator.updateenv(_FILE_=includefname)
         if self._linenums and not self._diversions:
             out += linenumdir(0, includefname, _LINENUM_NEW_FILE)
         outcont, ieval, peval = self._render(content)
         ieval = _shiftinds(ieval, len(out))
         out += outcont
-        self._evaluator.updateenv(_FILE_=fname)
         if self._linenums and not self._diversions and spans[0] is not None:
             out += linenumdir(spans[0][1], fname, _LINENUM_RETURN_TO_FILE)
         return out, ieval, peval
@@ -1430,9 +1446,9 @@ class Renderer:
     def _define_macro(self, fname, spans, name, args, content):
         result = ''
         try:
-            macro = _Macro(name, fname, spans, args, content, self.render,
-                           self._divert, self._undivert)
-            self._evaluator.define(name, macro)
+            macro = _Macro(name, fname, spans, args, content, self,
+                           self._evaluator.localscope)
+            self._define(name, macro)
         except Exception as exc:
             msg = "exception occured when defining macro '{0}'"\
                 .format(name)
@@ -1444,9 +1460,8 @@ class Renderer:
 
     def _define_variable(self, fname, span, name, valstr):
         result = ''
-        self._update_linenr(span[0])
         try:
-            self._evaluator.define(name, self._evaluator.evaluate(valstr))
+            self._define(name, self._evaluate(valstr, fname, span[0]))
         except Exception as exc:
             msg = "exception occured when setting variable(s) {0} to {1}"\
                 .format(name, valstr)
@@ -1473,9 +1488,8 @@ class Renderer:
 
 
     def _handle_stop(self, fname, span, msgstr):
-        self._update_linenr(span[0])
         try:
-            msg = str(self._evaluator.evaluate(msgstr))
+            msg = str(self._evaluate(msgstr, fname, span[0]))
         except Exception as exc:
             msg = "exception occured when evaluating stop message '{0}'"\
                 .format(msgstr)
@@ -1485,9 +1499,8 @@ class Renderer:
 
     def _handle_assert(self, fname, span, expr):
         result = ''
-        self._update_linenr(span[0])
         try:
-            cond = bool(self._evaluator.evaluate(expr))
+            cond = bool(self._evaluate(expr, fname, span[0]))
         except Exception as exc:
             msg = "exception occured when evaluating assert condition '{0}'"\
                 .format(expr)
@@ -1511,9 +1524,16 @@ class Renderer:
             raise FyppFatalError(msg)
 
 
-    def _update_linenr(self, linenr):
+    def _evaluate(self, expr, fname, linenr):
         if not self._diversions:
-            self._evaluator.updateenv(_LINE_=linenr + 1)
+            self._evaluator.updateenv(_LINE_=linenr + 1, _FILE_=fname,
+                                      _DATE_=time.strftime('%Y-%m-%d'),
+                                      _TIME_=time.strftime('%H:%M:%S'))
+        return self._evaluator.evaluate(expr)
+
+
+    def _define(self, var, value):
+        self._evaluator.define(var, value)
 
 
     def _postprocess_eval_lines(self, output, eval_inds, eval_pos):
@@ -1638,9 +1658,9 @@ class Evaluator:
     Args:
         env (dict, optional): Initial definitions for the environment, defaults
             to None.
-        restricted (bool, optional): Whether the restricted builtins should
-            be used. Otherwise all Python builtins are accessible. Defaults to
-            `True` (restricted environment.
+        restrict_builtins (bool, optional): Whether restricted builtins
+            should be used. Otherwise all Python builtins are accessible.
+            Defaults to `True`.
     '''
 
     # Restricted builtins working in all supported Python verions. Version
@@ -1705,14 +1725,31 @@ class Evaluator:
         'zip': builtins.zip,
     }
 
-    def __init__(self, env=None, restricted=True):
-        # Definitions (environment) to use when evaluating expressions
-        self._env = env.copy() if env is not None else {}
+    def __init__(self, env=None, restrict_builtins=True):
 
-        # Stack for environments to implement nested scopes
-        self._envstack = []
+        # Global scope
+        self._globals = env if env is not None else {}
 
-        if restricted:
+        # Local scope
+        self._locals = None
+
+        # Stack for local environments to implement nested scopes
+        self._localstack = []
+
+        # Current scope
+        self._scope = self._globals
+
+        # Turn on restricted mode, if desired
+        self.restrict_builtins(restrict_builtins)
+
+
+    def restrict_builtins(self, restrict):
+        '''Sets whether restricted builtins should be used.
+
+        Args:
+            restricted (bool): Whether builtins should be restricted.
+        '''
+        if restrict:
             builtindict = self._get_restricted_builtins()
             builtindict['__import__'] = self._func_import
         else:
@@ -1722,7 +1759,7 @@ class Evaluator:
         builtindict['getvar'] = self._func_getvar
 
         # Permitted builtins when evaluating expressions
-        self._builtins = {'__builtins__': builtindict}
+        self._globals['__builtins__'] = builtindict
 
 
     def evaluate(self, expr):
@@ -1734,7 +1771,7 @@ class Evaluator:
         Return:
             Python object: Result of the expression evaluation.
         '''
-        result = eval(expr, self._builtins, self._env)
+        result = eval(expr, self._globals, self._locals)
         return result
 
 
@@ -1744,7 +1781,7 @@ class Evaluator:
         Args:
             code (str): Python code to run.
         '''
-        exec(code, self._builtins, self._env)
+        exec(code, self._globals, self._locals)
 
 
     def define(self, name, value):
@@ -1778,7 +1815,7 @@ class Evaluator:
                 msg = "Name '{0}' is reserved and can not be redefined"\
                     .format(varname)
                 raise FyppFatalError(msg, None, None)
-            self._env[varname] = value[ind]
+            self._scope[varname] = value[ind]
 
 
     def updateenv(self, **vardict):
@@ -1787,30 +1824,47 @@ class Evaluator:
         Args:
             **vardict: variable defintions.
         '''
-        self._env.update(vardict)
+        self._scope.update(vardict)
 
 
-    def pushenv(self, vardict):
-        '''Push current environment to stack, and use its copy with additional
-        new defintions instead.
-
+    def openscope(self, customlocals=None):
+        '''Opens a new (embedded) scope.
+        
         Args:
-            vardict (dict): New variables.
+            customlocals (dict): By default, the locals of the embedding scope
+                are visible in the new one. When this is not the desired
+                behaviour a dictionary of customized locals can be passed,
+                and those locals will become the only visible ones.
         '''
-        self._envstack.append(self._env)
-        self._env = self._env.copy()
-        self._env.update(vardict)
+        self._localstack.append(self._locals)
+        if customlocals is not None:
+            self._locals = customlocals.copy()
+        elif self._locals is not None:
+            self._locals = self._locals.copy()
+        else:
+            self._locals = {}
+        self._scope = self._locals
 
 
-    def popenv(self):
-        '''Replace current environment with pop last one from stack.'''
-        self._env = self._envstack.pop(-1)
+    def closescope(self):
+        '''Close scope and restore embedding scope.'''
+        self._locals = self._localstack.pop(-1)
+        if self._locals is not None:
+            self._scope = self._locals
+        else:
+            self._scope = self._globals
 
 
     @property
-    def env(self):
-        '''Return current environment.'''
-        return self._env
+    def globalscope(self):
+        'Dictionary of the global scope.'
+        return self._globals
+
+
+    @property
+    def localscope(self):
+        'Dictionary of the current local scope.'
+        return self._locals
 
 
     @classmethod
@@ -1831,11 +1885,14 @@ class Evaluator:
 
 
     def _func_defined(self, var):
-        return var in self._env
+        defined = var in self._globals
+        if not defined and self._locals is not None:
+            defined = var in self._locals
+        return defined
 
 
     def _func_import(self, name, *_, **__):
-        module = self._env.get(name, None)
+        module = self._globals.get(name, None)
         if module is not None and isinstance(module, types.ModuleType):
             return module
         else:
@@ -1850,8 +1907,10 @@ class Evaluator:
 
 
     def _func_getvar(self, name, defvalue):
-        if name in self._env:
-            return self._env[name]
+        if name in self._globals:
+            return self._globals[name]
+        elif self._locals is not None and name in self._locals:
+            return self._locals[name]
         else:
             return defvalue
 
@@ -1860,35 +1919,34 @@ class _Macro:
 
     '''Represents a user defined macro.
 
+    This object should only be initiatied by a Renderer instance, as it
+    needs access to Renderers internal variables and methods.
+
     Args:
         name (str): Name of the macro.
         fname (str): The file where the macro was defined.
         spans (str): Line spans of macro defintion.
         argnames (list of str): Macro dummy arguments.
         content (list): Content of the macro as tree.
-        renderfunc (function): Function to call when content should be rendered.
-            This is typically the corresponding render routine of the Builder.
-        divert (function): Function to call when macro rendering started, in
-            order to suppress its output. Typically the corresponding routine
-            of the Builder.
-        undivert (function): Function to call when macro rendering finished.
-            Typically the corresponding routine of the Builder.
+        renderer (Renderer): Renderer to use for evaluating macro content.
+        localscope (dict): Dictionary with local variables, which should be used
+            the local scope, when the macro is called. Default: None (empty
+            local scope).
     '''
 
-    def __init__(self, name, fname, spans, argnames, content, renderfunc,
-                 divert, undivert):
+    def __init__(self, name, fname, spans, argnames, content, renderer,
+                 localscope=None):
         self._name = name
         self._fname = fname
         self._spans = spans
         self._argnames = argnames
         self._content = content
-        self._renderfunc = renderfunc
-        self._divert = divert
-        self._undivert = undivert
+        self._renderer = renderer
+        self._localscope = localscope if localscope is not None else {}
 
 
     def __call__(self, *args, **keywords):
-        self._divert()
+        self._renderer._divert()
         if len(args) != len(self._argnames):
             msg = "Macro '{0}' received incorrect nr. of positional arguments "\
                   "(expected: {1}, received: {2})"\
@@ -1898,8 +1956,12 @@ class _Macro:
         for argname, arg in zip(self._argnames, args):
             argdict[argname] = arg
         argdict.update(keywords)
-        output = self._renderfunc(self._content, argdict)
-        self._undivert()
+        evaluator = self._renderer._evaluator
+        evaluator.openscope(customlocals=self._localscope)
+        evaluator.updateenv(**argdict)
+        output = self._renderer.render(self._content)
+        evaluator.closescope()
+        self._renderer._undivert()
         if output.endswith('\n'):
             return output[:-1]
         else:
@@ -1955,37 +2017,34 @@ class Processor:
         self._parser.handle_assert = self._builder.handle_assert
 
 
-    def process_file(self, fname, env=None):
+    def process_file(self, fname):
         '''Processeses a file.
 
         Args:
             fname (str): Name of the file to process.
-            env (dict): Additional definitons for the evaluator.
 
         Returns:
             str: Processed content.
         '''
         self._parser.parsefile(fname)
-        return self._render(env)
+        return self._render()
 
 
-    def process_text(self, txt, env=None):
+    def process_text(self, txt):
         '''Processes a string.
 
         Args:
             txt (str): Text to process.
-            env (dict): Additional definitons for the evaluator.
 
         Returns:
             str: Processed content.
         '''
         self._parser.parse(txt)
-        return self._render(env)
+        return self._render()
 
 
-    def _render(self, env):
-        env = {} if env is None else env
-        output = self._renderer.render(self._builder.tree, env)
+    def _render(self):
+        output = self._renderer.render(self._builder.tree)
         self._builder.reset()
         return ''.join(output)
 
@@ -2054,12 +2113,12 @@ class Fypp:
     def __init__(self, options=None):
         if options is None:
             options = FyppOptions()
-        inieval = Evaluator(restricted=False)
+        evaluator = Evaluator(restrict_builtins=False)
         if options.modules:
-            self._import_modules(options.modules, inieval)
+            self._import_modules(options.modules, evaluator)
         if options.inifiles:
-            self._exec_inifiles(options.inifiles, inieval)
-        evaluator = Evaluator(env=inieval.env, restricted=True)
+            self._exec_inifiles(options.inifiles, evaluator)
+        evaluator.restrict_builtins(True)
         if options.defines:
             self._apply_definitions(options.defines, evaluator)
         parser = Parser(options.includes)
@@ -2086,7 +2145,7 @@ class Fypp:
         self._preprocessor = Processor(parser, builder, renderer)
 
 
-    def process_file(self, infile, outfile=None, env=None):
+    def process_file(self, infile, outfile=None):
         '''Processes input file and writes result to output file.
 
         Args:
@@ -2101,7 +2160,7 @@ class Fypp:
             str: Result of processed input, if no outfile was specified.
         '''
         infile = STDIN if infile == '-' else infile
-        output = self._preprocessor.process_file(infile, env)
+        output = self._preprocessor.process_file(infile)
         if outfile is None:
             return output
         else:
@@ -2114,7 +2173,7 @@ class Fypp:
                 outfile.close()
 
 
-    def process_text(self, txt, env=None):
+    def process_text(self, txt):
         '''Processes a string.
 
         Args:
@@ -2124,7 +2183,7 @@ class Fypp:
         Returns:
             str: Processed content.
         '''
-        return self._preprocessor.process_text(txt, env)
+        return self._preprocessor.process_text(txt)
 
 
     @staticmethod
