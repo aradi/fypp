@@ -794,7 +794,7 @@ SIMPLE_TESTS = [
     ),
     ('inifile_scope_set_globals',
      ([_inifile('include/setx.py')],
-      '#:set X = -1\n$:X\n$:setX()\n$:X\n',
+      '#:set X = -1\n$:X\n$:setX(0)\n$:X\n',
       '-1\n0\n0\n'
      )
     ),
@@ -802,6 +802,88 @@ SIMPLE_TESTS = [
      ([_inifile('include/getpredefvars.py')],
       '$:getpredefvars()\n',
       'FILE: ' + fypp.STRING + ', LINE: 1\n'
+     )
+    ),
+    ('global_scope_accessibility',
+     ([_inifile('include/setx.py')],
+      '$:setX(1)\nX0A:${X}$\n'\
+      '#:call lambda s: s\nX1A:${X}$\n'\
+      '#:call lambda s: s\nX2A:${X}$\n$:setX(-1)\nX2B:${X}$\n'\
+      '#:endcall\nX1B:${X}$\n#:endcall\nX0B:${X}$\n',
+      '1\nX0A:1\nX1A:1\nX2A:1\n-1\nX2B:-1\nX1B:-1\nX0B:-1\n'
+     )
+    ),
+    ('global_scope_accessibility_with_shadowing',
+     ([_inifile('include/setx.py')],
+      '#:set X = 1\nX0A:${X}$\n'\
+      '#:call lambda s: s\nX1A:${X}$\n#:set X = 2\nX1B:${X}$\n'\
+      '#:call lambda s: s\nX2A:${X}$\n#:set X = 3\nX2B:${X}$\n'\
+      '$:setX(-1)\nX2C:${X}$\n#:endcall\nX1C:${X}$\n#:endcall\nX0B:${X}$\n',
+      'X0A:1\nX1A:1\nX1B:2\nX2A:2\nX2B:3\n-1\nX2C:3\nX1C:2\nX0B:-1\n'
+     )
+    ),
+    ('local_macro_local_scope',
+     ([],
+      '#:set X = 3\n#:call lambda s: s\n'
+      '#:def mymacro()\nX:${X}$\n#:enddef\n'\
+      '#:set X = 2\n$:mymacro()\n#:endcall\n',
+      'X:2\n',
+     )
+    ),
+    ('local_macro_global_scope',
+     ([],
+      '#:set X = 3\n#:call lambda s: s\n'
+      '#:def mymacro()\nX:${X}$\n#:enddef\n'\
+      '$:mymacro()\n#:endcall\n',
+      'X:3\n',
+     )
+    ),
+    ('scope_global_macro_called_from_local_scope',
+     ([],
+      '#:def printX()\nX:${X}$\n#:enddef\n#:set X = 1\n'\
+      '#:call lambda s: s\n#:set X = 2\n'\
+      '#:call lambda s: s\n#:set X = 3\n$:printX()\n'\
+      '#:endcall\n#:endcall\nX:${X}$\n',
+      'X:1\nX:1\n',
+     )
+    ),
+    ('scope_macro_lookup_locals_in_definition_scope',
+     ([],
+      '#:set X = 0\n'\
+      '#:def macro1()\n#:set X = 1\n'\
+      '#:def macro2()\n'\
+      '#:def macro3a()\nX3a:${X}$\n#:enddef macro3a\n'\
+      '#:def macro3b()\n#:set X = 3\n$:macro3a()\n#:enddef macro3b\n'\
+      '#:set X = 2\n$:macro3b()\nX2:${X}$\n'\
+      '#:enddef macro2\n$:macro2()\nX1:${X}$\n'\
+      '#:enddef macro1\n$:macro1()\nX0:${X}$\n',
+      'X3a:2\nX2:2\nX1:1\nX0:0\n',
+     )
+    ),
+    ('scope_macro_lookup_locals_above_definition_scope',
+     ([],
+      '#:set X = 0\n'\
+      '#:def macro1()\n#:set X = 1\n'\
+      '#:def macro2()\n'\
+      '#:def macro3a()\nX3a:${X}$\n#:enddef macro3a\n'\
+      '#:def macro3b()\n#:set X = 3\n$:macro3a()\n#:enddef macro3b\n'\
+      '$:macro3b()\nX2:${X}$\n'\
+      '#:enddef macro2\n$:macro2()\nX1:${X}$\n'\
+      '#:enddef macro1\n$:macro1()\nX0:${X}$\n',
+      'X3a:1\nX2:1\nX1:1\nX0:0\n',
+     )
+    ),
+    ('scope_macro_lookup_locals_global_scope',
+     ([],
+      '#:set X = 0\n'\
+      '#:def macro1()\n'\
+      '#:def macro2()\n'\
+      '#:def macro3a()\nX3a:${X}$\n#:enddef macro3a\n'\
+      '#:def macro3b()\n#:set X = 3\n$:macro3a()\n#:enddef macro3b\n'\
+      '$:macro3b()\nX2:${X}$\n'\
+      '#:enddef macro2\n$:macro2()\nX1:${X}$\n'\
+      '#:enddef macro1\n$:macro1()\nX0:${X}$\n',
+      'X3a:0\nX2:0\nX1:0\nX0:0\n',
      )
     ),
     ('correct_predefined_var_injection',
@@ -1653,6 +1735,14 @@ EXCEPTION_TESTS = [
       '#:set a, b) = (1, 2)\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
+     )
+    ),
+    ('local_macro_visibility',
+     ([],
+      '#:call lambda s: s\n'
+      '#:def mymacro()\nX\n#:enddef\n'\
+      '#:endcall\n$:mymacro()\n',
+      [(fypp.FyppFatalError, fypp.STRING, (5, 6))]
      )
     ),
     #

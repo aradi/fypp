@@ -1,4 +1,4 @@
-def setX():
+def setX(val):
     global X
-    X = 0
+    X = val
     return str(X)

@@ -1405,9 +1405,9 @@ class Renderer:
         self._divert()
         args = []
         for content in contents:
-            self._evaluator.pushenv()
+            self._evaluator.openscope()
             rendered = self.render(content)
-            self._evaluator.popenv()
+            self._evaluator.closescope()
             if len(rendered) and rendered[-1] == '\n':
                 rendered = rendered[:-1]
             args.append(rendered)
@@ -1446,7 +1446,8 @@ class Renderer:
     def _define_macro(self, fname, spans, name, args, content):
         result = ''
         try:
-            macro = _Macro(name, fname, spans, args, content, self)
+            macro = _Macro(name, fname, spans, args, content, self,
+                           self._evaluator.localscope)
             self._define(name, macro)
         except Exception as exc:
             msg = "exception occured when defining macro '{0}'"\
@@ -1726,11 +1727,17 @@ class Evaluator:
 
     def __init__(self, env=None, restrict_builtins=True):
 
-        # Definitions (environment) to use when evaluating expressions
-        self._env = env if env is not None else {}
+        # Global scope
+        self._globals = env if env is not None else {}
 
-        # Stack for environments to implement nested scopes
-        self._envstack = []
+        # Local scope
+        self._locals = None
+
+        # Stack for local environments to implement nested scopes
+        self._localstack = []
+
+        # Current scope
+        self._scope = self._globals
 
         # Turn on restricted mode, if desired
         self.restrict_builtins(restrict_builtins)
@@ -1752,7 +1759,7 @@ class Evaluator:
         builtindict['getvar'] = self._func_getvar
 
         # Permitted builtins when evaluating expressions
-        self._env['__builtins__'] = builtindict
+        self._globals['__builtins__'] = builtindict
 
 
     def evaluate(self, expr):
@@ -1764,7 +1771,7 @@ class Evaluator:
         Return:
             Python object: Result of the expression evaluation.
         '''
-        result = eval(expr, self._env)
+        result = eval(expr, self._globals, self._locals)
         return result
 
 
@@ -1774,7 +1781,7 @@ class Evaluator:
         Args:
             code (str): Python code to run.
         '''
-        exec(code, self._env)
+        exec(code, self._globals, self._locals)
 
 
     def define(self, name, value):
@@ -1808,7 +1815,7 @@ class Evaluator:
                 msg = "Name '{0}' is reserved and can not be redefined"\
                     .format(varname)
                 raise FyppFatalError(msg, None, None)
-            self._env[varname] = value[ind]
+            self._scope[varname] = value[ind]
 
 
     def updateenv(self, **vardict):
@@ -1817,26 +1824,47 @@ class Evaluator:
         Args:
             **vardict: variable defintions.
         '''
-        self._env.update(vardict)
+        self._scope.update(vardict)
 
 
-    def pushenv(self):
-        '''Push current environment to stack, and use its copy as new
-        environment.
+    def openscope(self, customlocals=None):
+        '''Opens a new (embedded) scope.
+        
+        Args:
+            customlocals (dict): By default, the locals of the embedding scope
+                are visible in the new one. When this is not the desired
+                behaviour a dictionary of customized locals can be passed,
+                and those locals will become the only visible ones.
         '''
-        self._envstack.append(self._env)
-        self._env = self._env.copy()
+        self._localstack.append(self._locals)
+        if customlocals is not None:
+            self._locals = customlocals.copy()
+        elif self._locals is not None:
+            self._locals = self._locals.copy()
+        else:
+            self._locals = {}
+        self._scope = self._locals
 
 
-    def popenv(self):
-        '''Replace current environment with last one popped from stack.'''
-        self._env = self._envstack.pop(-1)
+    def closescope(self):
+        '''Close scope and restore embedding scope.'''
+        self._locals = self._localstack.pop(-1)
+        if self._locals is not None:
+            self._scope = self._locals
+        else:
+            self._scope = self._globals
 
 
     @property
-    def env(self):
-        '''Return current environment.'''
-        return self._env
+    def globalscope(self):
+        'Dictionary of the global scope.'
+        return self._globals
+
+
+    @property
+    def localscope(self):
+        'Dictionary of the current local scope.'
+        return self._locals
 
 
     @classmethod
@@ -1857,11 +1885,14 @@ class Evaluator:
 
 
     def _func_defined(self, var):
-        return var in self._env
+        defined = var in self._globals
+        if not defined and self._locals is not None:
+            defined = var in self._locals
+        return defined
 
 
     def _func_import(self, name, *_, **__):
-        module = self._env.get(name, None)
+        module = self._globals.get(name, None)
         if module is not None and isinstance(module, types.ModuleType):
             return module
         else:
@@ -1876,8 +1907,10 @@ class Evaluator:
 
 
     def _func_getvar(self, name, defvalue):
-        if name in self._env:
-            return self._env[name]
+        if name in self._globals:
+            return self._globals[name]
+        elif self._locals is not None and name in self._locals:
+            return self._locals[name]
         else:
             return defvalue
 
@@ -1896,15 +1929,20 @@ class _Macro:
         argnames (list of str): Macro dummy arguments.
         content (list): Content of the macro as tree.
         renderer (Renderer): Renderer to use for evaluating macro content.
+        localscope (dict): Dictionary with local variables, which should be used
+            the local scope, when the macro is called. Default: None (empty
+            local scope).
     '''
 
-    def __init__(self, name, fname, spans, argnames, content, renderer):
+    def __init__(self, name, fname, spans, argnames, content, renderer,
+                 localscope=None):
         self._name = name
         self._fname = fname
         self._spans = spans
         self._argnames = argnames
         self._content = content
         self._renderer = renderer
+        self._localscope = localscope if localscope is not None else {}
 
 
     def __call__(self, *args, **keywords):
@@ -1919,10 +1957,10 @@ class _Macro:
             argdict[argname] = arg
         argdict.update(keywords)
         evaluator = self._renderer._evaluator
-        evaluator.pushenv()
+        evaluator.openscope(customlocals=self._localscope)
         evaluator.updateenv(**argdict)
         output = self._renderer.render(self._content)
-        evaluator.popenv()
+        evaluator.closescope()
         self._renderer._undivert()
         if output.endswith('\n'):
             return output[:-1]

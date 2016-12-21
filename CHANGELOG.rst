@@ -17,8 +17,7 @@ Added
 
 * Generalized call directive with any Python expression yielding a callable.
 
-* Improve on scopes: execute initialisation and evaluations during rendering
-  in the same (module like) scope.
+* Python-like consistent global and local scopes and scope lookup rules.
 
 * Additional flags in line numbering directives when opening a file or returning
   to a previous file.
