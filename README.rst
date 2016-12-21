@@ -85,7 +85,7 @@ Main features
       print *, "Doing something here"
     #:endif
 
-* Passing multiline string arguments to macros::
+* Passing (unquoted) multiline string arguments to callables::
 
     #:def debug_code(code)
       #:if DEBUG > 0
@@ -98,6 +98,10 @@ Main features
         print *, "DEBUG: spuriously large array"
       end if
     #:endcall debug_code
+
+    #:call lambda s: s.upper()
+    this will be converted to upper case
+    #:endcall
 
 * Preprocessor comments::
 
@@ -125,6 +129,26 @@ Main features
       :
     #:enddef mymacro
   
+* Line numbering directives in output::
+
+    program test
+    #:if defined('MPI')
+    use mpi
+    #:endif
+    :
+
+  transformed to ::
+
+    # 1 "test.fypp" 1
+    program test
+    # 3 "test.fypp"
+    use mpi
+    # 5 "test.fypp"
+    :
+
+  when variable ``MPI`` is defined and Fypp was instructed to generate line
+  markers.
+
 
 Installing
 ==========
