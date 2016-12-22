@@ -1256,10 +1256,10 @@ which the query appears:
   scope is searched.
 
 * local scope (within the body of a `call` or `def` directive): first, the
-  active local scope is searched. Then the embedding scope (the scope which
-  contains the directive) is searched. Then the rules are applied recursively
-  until finally also the global scope has been searched. The search is
-  terminated in the scope, in which the name to be resolved occurs first.
+  active local scope is searched. Then the scope embedding it (the scope which
+  contains the directive) is searched. Then further embedding scopes are
+  searched until finally also the global scope has been checked. The search is
+  immediately terminated, if the name has been found in a scope.
 
 Note, that all variables outside of the active scope are read-only. If a
 variable with the same name is created in the active scope, it will shadow the
@@ -1309,15 +1309,15 @@ this::
   
   #! GLOBAL SCOPE
   
-After preprocessing the code above one obtains ``VALUE OF X: 1``. Although in
-the local scope 2B, from where the macro ``macro1()`` is called, the value of X
-is defined to be ``2``, the relevant scopes for the lookup of X during the macro
+After processing the code above one obtains ``VALUE OF X: 1``. Although in the
+local scope 2B, from where the macro ``macro1()`` is called, the value of X is
+defined to be ``2``, the relevant scopes for the lookup of X during the macro
 evaluation are the local scope 2A of ``macro1()`` (where the eval-directive for
 X is located), the local scope 1 (where the `def` directive for ``macro1()``
-occurs) and the global scope (which embeds local scope 1). Therefore, during
-the macro evaluation, the value ``1`` will be substituted, as this is the value
-of X in scope 1, and scope 1 is the first scope in the lookup order, which
-provides a value for X.
+occurs) and the global scope (which embeds local scope 1). Therefore, at the
+macro evaluation the value ``1`` will be substituted as this is the value of X
+in scope 1, and scope 1 is the first scope in the lookup order, which provides a
+value for X.
 
 
 Exit codes
