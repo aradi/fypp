@@ -2149,6 +2149,7 @@ class Fypp:
         if options is None:
             options = FyppOptions()
         evaluator = Evaluator(restrict_builtins=False)
+        self._adjust_syspath(evaluator)
         if options.modules:
             self._import_modules(options.modules, evaluator)
         if options.inifiles:
@@ -2266,6 +2267,26 @@ class Fypp:
                 msg = "exception occured when executing ini-file '{0}'"\
                       .format(inifile)
                 raise FyppFatalError(msg, cause=exc)
+
+
+    @staticmethod
+    def _adjust_syspath(evaluator):
+        '''Remove the folder of the fypp binary from the search path
+        and add current directory instead.'''
+        curdir = os.path.abspath('.')
+        scriptdir = os.path.abspath(os.path.dirname(sys.argv[0]))
+        syspath = list(sys.path)
+        if os.path.abspath(syspath[0]) == scriptdir:
+            del syspath[0]
+        syspath.insert(0, curdir)
+        try:
+            evaluator.execute('import sys')
+            evaluator.execute('sys.path = {0}'.format(repr(syspath)))
+            evaluator.execute('del sys')
+        except Exception as exc:
+            msg = 'failed to set up sys.path of the evaluator'
+            raise FyppFatalError(msg, cause=exc)
+
 
 
 class FyppOptions(optparse.Values):
