@@ -15,6 +15,8 @@ Added
 
 * Assert directive.
 
+* Default values for macro arguments.
+
 * Generalized call directive with any Python expression yielding a callable.
 
 * Python-like consistent global and local scopes and scope lookup rules.

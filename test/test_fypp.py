@@ -1,5 +1,5 @@
 '''Unit tests for testing Fypp.'''
-
+import sys
 import unittest
 import fypp
 
@@ -42,6 +42,19 @@ _NO_FOLDING_FLAG = '-F'
 _NEW_FILE = 1
 
 _RETURN_TO_FILE = 2
+
+
+# Some test flags, only to be used for exception tests, as the exception
+# stack could be different based on the python version
+
+_PYTHON_2 = 1
+
+_PYTHON_3 = 2
+
+_PYTHON_32_OR_BELOW = 3
+
+_PYTHON_33_OR_ABOVE = 4
+
 
 # Various basic tests
 #
@@ -283,6 +296,69 @@ SIMPLE_TESTS = [
       '#:def macro()\nL1\n\n#:enddef\n|${macro()}$|',
       '|L1\n|',
      )
+    ),
+    ('macro_call_named_arguments',
+     ([],
+      '#:def mymacro(A, B)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '$:mymacro(B=1, A=2)\n',
+      'A=2,B=1\n'
+     )
+    ),
+    ('macro_call_positional_and_named_arguments',
+     ([],
+      '#:def mymacro(A, B, C)\nA=${A}$,B=${B}$,C=${C}$\n#:enddef mymacro\n'\
+      '$:mymacro(1, C=3, B=2)\n',
+      'A=1,B=2,C=3\n'
+     )
+    ),
+    ('optarg_macro_call_all_args',
+     ([],
+      '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '#:call mymacro\n1\n#:nextarg\n2\n#:endcall\n',
+      'A=1,B=2\n'
+      )
+    ),
+    ('optarg_macro_call_missing_args',
+     ([],
+      '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '#:call mymacro\n1\n#:endcall\n',
+      'A=1,B=2\n'
+      )
+    ),
+    ('optarg_macro_eval_call_all_args',
+     ([],
+      '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '$:mymacro(1, 2)\n',
+      'A=1,B=2\n'
+      )
+    ),
+    ('optarg_macro_eval_call_missing_args',
+     ([],
+      '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '$:mymacro(1)\n',
+      'A=1,B=2\n'
+      )
+    ),
+    ('optarg_macro_direct_call_all_args',
+     ([],
+      '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '@:mymacro 1 @@ 2\n',
+      'A=1,B=2\n'
+      )
+    ),
+    ('optarg_macro_direct_call_missing_args',
+     ([],
+      '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '@:mymacro 1\n',
+      'A=1,B=2\n'
+      )
+    ),
+    ('optarg_macro_tuple_as_default',
+     ([],
+      '#:def macro(X, Y=2, Z=(1,2==3))\nX=${X}$,Y=${Y}$,Z=${Z[0]}$,${Z[1]}$\n'\
+      '#:enddef\n@:macro 1\n',
+      'X=1,Y=2,Z=1,False\n'
+      )
     ),
     ('for',
      ([],
@@ -1662,6 +1738,82 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
+    ('invalid_macro_argument_expression',
+     ([],
+      '#:def alma(x))\n#:enddef\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('tuple_macro_argument_py2',
+     ([],
+      '#:def alma((x, y))\n#:enddef\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)],
+     ),
+     _PYTHON_2
+    ),
+    ('tuple_macro_argument_py3',
+     ([],
+      '#:def alma((x, y))\n#:enddef\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))],
+     ),
+     _PYTHON_3
+    ),
+    ('repeated_keyword_argument',
+     ([],
+      '#:def mymacro(A, B)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '$:mymacro(A=1, A=2, B=3)\n',
+      [(fypp.FyppFatalError, fypp.STRING, (3, 4))]
+     )
+    ),
+    ('pos_arg_after_keyword_arg',
+     ([],
+      '#:def mymacro(A, B)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '$:mymacro(B=4, 2)\n',
+      [(fypp.FyppFatalError, fypp.STRING, (3, 4))]
+     )
+    ),
+    ('macrodef_pos_arg_after_keyword_arg',
+     ([],
+      '#:def mymacro(A, B=2, C)\nA=${A}$,B=${B},C=${C}$$\n#:enddef mymacro\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('macrodef_var_arg',
+     ([],
+      '#:def mymacro(A, *B)\n#:enddef\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
+     )
+    ),
+    ('macrodef_var_keyword_arg',
+     ([],
+      '#:def mymacro(A, **B)\n#:enddef\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
+     )
+    ),
+    ('macrodef_pos_arg_after_var_arg_py2_py32',
+     ([],
+      '#:def mymacro(A, *B, C)\n#:enddef\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     ),
+     _PYTHON_32_OR_BELOW
+    ),
+    ('macrodef_pos_arg_after_var_arg_py33',
+     ([],
+      '#:def mymacro(A, *B, C)\n#:enddef\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
+     ),
+     _PYTHON_33_OR_ABOVE
+    ),
+    ('macrodef_pos_arg_after_var_kwarg',
+     ([],
+      '#:def mymacro(A, **B, C)\n#:enddef\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
     ('invalid_macro_prefix',
      ([],
       '#:def __test(x)\n#:enddef\n',
@@ -1814,7 +1966,7 @@ EXCEPTION_TESTS = [
 ]
 
 
-def get_test_output_method(args, inp, out):
+def _get_test_output_method(args, inp, out):
     '''Returns a test method for checking correctness of Fypp output.
 
     Args:
@@ -1837,7 +1989,7 @@ def get_test_output_method(args, inp, out):
     return test_output
 
 
-def get_test_exception_method(args, inp, exceptions):
+def _get_test_exception_method(args, inp, exceptions):
     '''Returns a test method for checking correctness of thrown exception.
 
     Args:
@@ -1879,7 +2031,22 @@ def get_test_exception_method(args, inp, exceptions):
     return test_exception
 
 
-class TestContainer(unittest.TestCase):
+def _test_needed(flag):
+    if flag == _PYTHON_2:
+        return sys.version_info[0] == 2
+    elif flag == _PYTHON_3:
+        return sys.version_info[0] == 3
+    elif flag == _PYTHON_32_OR_BELOW:
+        return (sys.version_info[0] == 2 
+                or (sys.version_info[0] == 3 and sys.version_info[1] <= 2))
+    elif flag == _PYTHON_33_OR_ABOVE:
+        return (sys.version_info[0] == 3 and sys.version_info[1] >= 3)
+    else:
+        msg = 'invalid test flag ' + str(flag)
+        raise ValueError(msg)
+
+
+class _TestContainer(unittest.TestCase):
     '''General test container class.'''
 
     @classmethod
@@ -1896,20 +2063,25 @@ class TestContainer(unittest.TestCase):
             name = test[0]
             testargs = test[1]
             methodname = 'test{0}_{1}'.format(itest + 1, name)
-            setattr(cls, methodname, methodfactory(*testargs))
+            if len(test) < 3:
+                addtest = True
+            else:
+                addtest = _test_needed(test[2])
+            if addtest:
+                setattr(cls, methodname, methodfactory(*testargs))
 
 
-class SimpleTest(TestContainer): pass
-SimpleTest.add_test_methods(SIMPLE_TESTS, get_test_output_method)
+class SimpleTest(_TestContainer): pass
+SimpleTest.add_test_methods(SIMPLE_TESTS, _get_test_output_method)
 
-class LineNumberingTest(TestContainer): pass
-LineNumberingTest.add_test_methods(LINENUM_TESTS, get_test_output_method)
+class LineNumberingTest(_TestContainer): pass
+LineNumberingTest.add_test_methods(LINENUM_TESTS, _get_test_output_method)
 
-class IncludeTest(TestContainer): pass
-IncludeTest.add_test_methods(INCLUDE_TESTS, get_test_output_method)
+class IncludeTest(_TestContainer): pass
+IncludeTest.add_test_methods(INCLUDE_TESTS, _get_test_output_method)
 
-class ExceptionTest(TestContainer): pass
-ExceptionTest.add_test_methods(EXCEPTION_TESTS, get_test_exception_method)
+class ExceptionTest(_TestContainer): pass
+ExceptionTest.add_test_methods(EXCEPTION_TESTS, _get_test_exception_method)
 
 
 if __name__ == '__main__':

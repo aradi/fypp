@@ -237,9 +237,12 @@ Simple manual testing can be done by issuing the command ::
 
 from the root of the Fypp source tree. This executes the unit tests shipped with
 Fypp with the default Python interpreter in your path. If you wish to use a
-specific interpreter, you can pass it as first argument to the script::
+specific interpreter, you can pass it as argument to the script::
 
   ./test/runtests.sh python3
+
+You can also pass multiple interpreters as separate arguments. In that case
+the testing will be carried out for each of them.
 
 
 Testing for developers
@@ -719,6 +722,17 @@ given the defintion of the ``assertTrue()`` macro from above, the call ::
   $:assertTrue('x > y', DEBUG=1)
 
 would override the global value of the `DEBUG` variable within the macro.
+
+It is possible to declare default values for the positional arguments of a
+macro. If for a given positional argument such a value is provided, then default
+values must be provided for all following arguments as well. When the macro is
+called, missing positional arguments will be replaced by their default value::
+
+  #:def macro(X, Y=2, Z=3)
+  X=${X}$, Y=${Y}$, Z=${Z}$
+  #:enddef
+
+  $:macro(1)   #! Returns "X=1, Y=2, Z=3"
 
 Scopes in general follow the Python convention: Within the macro, all variables
 from the encompassing scope are available (as `DEBUG` in the example above), and
