@@ -1365,33 +1365,33 @@ be removed in the production code.
 First, we create an include file (``checks.fypp``) with the appropriate macros::
 
   #:mute
-
+  
   #! Enable debug feature if the preprocessor variable DEBUG has been defined
   #:set DEBUG = defined('DEBUG')
-
-
+  
+  
   #! Stops the code, if the condition passed to it is not fulfilled
   #! Only included in debug mode.
   #:def ensure(cond)
     #:if DEBUG
   if (.not. (${cond}$)) then
     write(*,*) 'Run-time check failed'
-    write(*,*) 'Condition: ${cond}$'
+    write(*,*) 'Condition: ${cond.replace("'", "''")}$'
     write(*,*) 'File: ${_FILE_}$'
     write(*,*) 'Line: ', ${_LINE_}$
     stop
   end if
     #:endif
   #:enddef ensure
-
-
+  
+  
   #! Includes code if in debug mode.
   #:def debug_code(code)
     #:if DEBUG
   $:code
     #:endif
   #:enddef debug_code
-
+  
   #:endmute
 
 Remarks:
@@ -1408,31 +1408,37 @@ Remarks:
   macro. The content of both, ``ensure`` and ``debug_code``, are only included
   if the variable ``DEBUG`` has been defined.
 
+* We also want to print out the failed condition for more verbose output. As the
+  condition may contains apostrophes, we use Python's string replacement method
+  to escape them.
+
 With the definitions above, we can use the functionality in any Fortran source
 after including ``checks.fypp``::
 
   #:include 'checks.fypp'
-
+  
   module testmod
     implicit none
-
+  
   contains
-
-    subroutine someFunction(ind)
+  
+    subroutine someFunction(ind, uplo)
       integer, intent(in) :: ind
-
+      character, intent(in) :: uplo
+  
       @:ensure ind > 0
-
+      @:ensure uplo == 'U' .or. uplo == 'L'
+  
       ! Do something useful here
       ! :
-
+  
     #:call debug_code
       print *, 'We are in debug mode'
       print *, 'The value of ind is', ind
     #:endcall debug_code
-
+  
     end subroutine someFunction
-
+  
   end module testmod
 
 Now, the file ``testmod.fpp`` can be preprocessed with Fypp. When the variable
@@ -1442,8 +1448,10 @@ Now, the file ``testmod.fpp`` can be preprocessed with Fypp. When the variable
 
 the resulting routine will not contain the conditional code::
 
-  subroutine someFunction(ind)
+  subroutine someFunction(ind, uplo)
     integer, intent(in) :: ind
+    character, intent(in) :: uplo
+
 
 
 
@@ -1460,23 +1468,31 @@ On the other hand, if the ``DEBUG`` variable is set::
 
 the run-time checks and the debug code will be there::
 
-    subroutine someFunction(ind)
+    subroutine someFunction(ind, uplo)
       integer, intent(in) :: ind
-
+      character, intent(in) :: uplo
+  
   if (.not. (ind > 0)) then
     write(*,*) 'Run-time check failed'
     write(*,*) 'Condition: ind > 0'
     write(*,*) 'File: testmod.fpp'
-    write(*,*) 'Line:', 11
+    write(*,*) 'Line: ', 12
     stop
   end if
-
+  if (.not. (uplo == 'U' .or. uplo == 'L')) then
+    write(*,*) 'Run-time check failed'
+    write(*,*) 'Condition: uplo == ''U'' .or. uplo == ''L'''
+    write(*,*) 'File: testmod.fpp'
+    write(*,*) 'Line: ', 13
+    stop
+  end if
+  
       ! Do something useful here
       ! :
-
+  
       print *, 'We are in debug mode'
       print *, 'The value of ind is', ind
-
+  
     end subroutine someFunction
 
 
