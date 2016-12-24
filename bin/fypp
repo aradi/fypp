@@ -199,25 +199,22 @@ class FyppError(Exception):
 
 
     def __str__(self):
-        if self.cause is not None:
-            cause = str(self.cause)
-        else:
-            cause = ''
-        msg = [self.__class__.__name__, ':']
+        msg = []
         if self.fname is not None:
-            msg.append(" file '" + self.fname + "'")
+            msg.append(self.fname)
             if self.span is not None:
+                msg.append(':')
                 if self.span[1] > self.span[0] + 1:
-                    msg.append(', lines {0}-{1}'.format(
-                        self.span[0] + 1, self.span[1]))
+                    msg.append('{0}-{1}'.format(self.span[0] + 1, self.span[1]))
                 else:
-                    msg.append(', line {0}'.format(self.span[0] + 1))
-            msg.append('\n')
-        else:
-            msg.append(' ')
+                    msg.append('{0}'.format(self.span[0] + 1))
+            msg.append(':\n')
+        msg.append(self.__class__.__name__ + ': ')
         if self.msg:
             msg.append(self.msg)
-        return ''.join(msg) + '\n' + cause
+        if self.cause is not None:
+            msg.append('\n' + str(self.cause))
+        return ''.join(msg)
 
 
 class FyppFatalError(FyppError):
@@ -879,9 +876,9 @@ class Builder:
         nprev_blocks = self._nr_prev_blocks.pop(-1)
         if len(self._open_blocks) > nprev_blocks:
             directive, fname, spans = self._open_blocks[-1][0:3]
-            msg = '{0} directive in line {1} still unclosed when reaching end '\
-                  'of file'.format(directive, spans[0][0] + 1)
-            raise FyppFatalError(msg, self._curfile)
+            msg = '{0} directive still unclosed when reaching end of file'\
+                  .format(directive)
+            raise FyppFatalError(msg, self._curfile, spans[0])
         block = self._open_blocks.pop(-1)
         directive, blockfname, spans = block[0:3]
         if directive != 'include':
@@ -2528,9 +2525,8 @@ def run_fypp():
         tool = Fypp(opts)
         tool.process_file(infile, outfile)
     except FyppStopRequest as exc:
-        sys.stderr.write("STOP REQUEST in file '{0}', line {1}"\
-                         .format(exc.fname, exc.span[0] + 1))
-        sys.stderr.write('\n')
+        sys.stderr.write('{0}:{1}:\n'.format(exc.fname, exc.span[0] + 1))
+        sys.stderr.write("FyppStopRequest: stop request encountered\n")
         sys.stderr.write(str(exc.msg))
         sys.stderr.write('\n')
         sys.exit(USER_ERROR_EXIT_CODE)

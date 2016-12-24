@@ -34,6 +34,8 @@ Changed
 
 * Reverse order exception printing, exception first occuring printed as last.
 
+* Error messages in GNU-like format to ease parsing for developer tools.
+
 * Make equal sign in set directive mandatory and in setvar directive forbidden.
 
 * Search path for importing modules contains current directory as first element

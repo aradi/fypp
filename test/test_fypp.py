@@ -1696,7 +1696,7 @@ EXCEPTION_TESTS = [
     ('unclosed_directive',
      ([],
       '#:if 1 > 2\nA\n',
-      [(fypp.FyppFatalError, fypp.STRING, None)]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('missing_space_after_directive',
