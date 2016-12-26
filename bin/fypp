@@ -172,7 +172,8 @@ class FyppError(Exception):
         msg (str): Error message.
         fname (str): File name. None (default) if file name is not available.
         span (tuple of int): Beginning and end line of the region where error
-            occured or None if not available.
+            occured or None if not available. If fname was not None, span must
+            not be None.
         cause (Exception): Contains the exception, which triggered this
             exception or None, if this exception is not masking any underlying
             one. (Emulates Python 3 exception chaining in a Python 2 compatible
@@ -199,17 +200,15 @@ class FyppError(Exception):
 
 
     def __str__(self):
-        msg = []
+        msg = [self.__class__.__name__, ': ']
         if self.fname is not None:
-            msg.append(self.fname)
-            if self.span is not None:
-                msg.append(':')
-                if self.span[1] > self.span[0] + 1:
-                    msg.append('{0}-{1}'.format(self.span[0] + 1, self.span[1]))
-                else:
-                    msg.append('{0}'.format(self.span[0] + 1))
-            msg.append(':\n')
-        msg.append(self.__class__.__name__ + ': ')
+            msg.append("file '" + self.fname + "'")
+            if self.span[1] > self.span[0] + 1:
+                msg.append(', lines {0}-{1}'.format(
+                    self.span[0] + 1, self.span[1]))
+            else:
+                msg.append(', line {0}'.format(self.span[0] + 1))
+            msg.append('\n')
         if self.msg:
             msg.append(self.msg)
         if self.cause is not None:
@@ -2530,14 +2529,10 @@ def run_fypp():
         tool = Fypp(opts)
         tool.process_file(infile, outfile)
     except FyppStopRequest as exc:
-        sys.stderr.write('{0}:{1}:\n'.format(exc.fname, exc.span[0] + 1))
-        sys.stderr.write("FyppStopRequest: stop request encountered\n")
-        sys.stderr.write(str(exc.msg))
-        sys.stderr.write('\n')
+        sys.stderr.write(_formatted_exception(exc))
         sys.exit(USER_ERROR_EXIT_CODE)
     except FyppFatalError as exc:
-        sys.stderr.write(str(exc))
-        sys.stderr.write('\n')
+        sys.stderr.write(_formatted_exception(exc))
         sys.exit(ERROR_EXIT_CODE)
 
 
@@ -2627,6 +2622,25 @@ if sys.version_info[0] >= 3 and sys.version_info[1] >= 3:
 else:
     _get_args_and_defaults = _get_args_and_defaults_py2
 
+
+def _formatted_exception(exc):
+    if not isinstance(exc, FyppError):
+        return str(exc)
+    out = []
+    if exc.fname is not None:
+        out.append(exc.fname)
+        if exc.span[1] > exc.span[0] + 1:
+            out.append(':{0}-{1}:'.format(exc.span[0] + 1, exc.span[1]))
+        else:
+            out.append(':{0}:'.format(exc.span[0] + 1))
+        out.append('\n')
+    out.append(exc.__class__.__name__ + ':')
+    if exc.msg:
+        out.append(' ' + exc.msg)
+    if exc.cause is not None:
+        out.append('\n' + _formatted_exception(exc.cause))
+    out.append('\n')
+    return ''.join(out)
 
 
 if __name__ == '__main__':

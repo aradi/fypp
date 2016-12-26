@@ -34,11 +34,11 @@ Changed
 
 * Reverse order exception printing, exception first occuring printed as last.
 
-* Error messages in GNU-like format to ease parsing for developer tools.
+* Command line tool formats error messages in GNU-like format.
 
 * Make equal sign in set directive mandatory and in setvar directive forbidden.
 
-* Search paths for module imports behave more Python-alike.
+* Search paths for module imports behave more Python-like.
 
 * Slight backwards incompatibility in API: process_* methods of Processor and
   Fypp do not accept the optional argument env any more.
