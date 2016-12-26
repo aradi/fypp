@@ -38,8 +38,7 @@ Changed
 
 * Make equal sign in set directive mandatory and in setvar directive forbidden.
 
-* Search path for importing modules contains current directory as first element
-  instead of the directory of Fypp. Latter is removed from the search path.
+* Search paths for module imports behave more Python-alike.
 
 * Slight backwards incompatibility in API: process_* methods of Processor and
   Fypp do not accept the optional argument env any more.

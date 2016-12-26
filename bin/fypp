@@ -2146,11 +2146,12 @@ class Fypp:
         if options is None:
             options = FyppOptions()
         evaluator = Evaluator(restrict_builtins=False)
-        self._adjust_syspath(evaluator)
+        syspath = self._get_syspath_without_scriptdir()
         if options.modules:
-            self._import_modules(options.modules, evaluator)
+            self._import_modules(options.modules, evaluator, syspath)
         if options.inifiles:
-            self._exec_inifiles(options.inifiles, evaluator)
+            self._exec_inifiles(options.inifiles, evaluator, syspath)
+        self._adjust_syspath(evaluator, syspath)
         evaluator.restrict_builtins(True)
         if options.defines:
             self._apply_definitions(options.defines, evaluator)
@@ -2235,8 +2236,9 @@ class Fypp:
             evaluator.define(name, value)
 
 
-    @staticmethod
-    def _import_modules(modules, evaluator):
+    def _import_modules(self, modules, evaluator, syspath):
+        curdir = os.path.abspath('.')
+        self._adjust_syspath(evaluator, [curdir] + syspath)
         for module in modules:
             try:
                 evaluator.execute('import ' + module)
@@ -2246,8 +2248,7 @@ class Fypp:
                 raise FyppFatalError(msg, cause=exc)
 
 
-    @staticmethod
-    def _exec_inifiles(inifiles, evaluator):
+    def _exec_inifiles(self, inifiles, evaluator, syspath):
         for inifile in inifiles:
             try:
                 inifp = open(inifile, 'r')
@@ -2257,6 +2258,8 @@ class Fypp:
                 msg = "IO error occured at reading file '{0}'"\
                     .format(inifile)
                 raise FyppFatalError(msg, cause=exc)
+            inifiledir = os.path.abspath(os.path.dirname(inifile))
+            self._adjust_syspath(evaluator, [inifiledir] + syspath)
             try:
                 code = compile(source, inifile, 'exec', dont_inherit=-1)
                 evaluator.execute(code)
@@ -2267,15 +2270,17 @@ class Fypp:
 
 
     @staticmethod
-    def _adjust_syspath(evaluator):
-        '''Remove the folder of the fypp binary from the search path
-        and add current directory instead.'''
-        curdir = os.path.abspath('.')
-        scriptdir = os.path.abspath(os.path.dirname(sys.argv[0]))
+    def _get_syspath_without_scriptdir():
+        '''Remove the folder of the fypp binary from the search path'''
         syspath = list(sys.path)
+        scriptdir = os.path.abspath(os.path.dirname(sys.argv[0]))
         if os.path.abspath(syspath[0]) == scriptdir:
             del syspath[0]
-        syspath.insert(0, curdir)
+        return syspath
+
+
+    @staticmethod
+    def _adjust_syspath(evaluator, syspath):
         try:
             evaluator.execute('import sys')
             evaluator.execute('sys.path = {0}'.format(repr(syspath)))

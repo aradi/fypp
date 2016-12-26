@@ -981,12 +981,6 @@ SIMPLE_TESTS = [
       '1 - 2\n'
      )
     ),
-    ('import_module',
-     ([_importmodule('math')],
-      '$:int(math.sqrt(4))\n',
-      '2\n'
-     )
-    )
 ]
 
 
@@ -1966,6 +1960,38 @@ EXCEPTION_TESTS = [
 ]
 
 
+# Tests with module imports
+#
+# Each test consists of a tuple containing the test name and a tuple with the
+# arguments of the get_test_output_method() routine.
+#
+# NOTE: imports are global in Python, so all instances of Fypp following after
+# the tests below will see the imported modules Therefore, this tests should be
+# executed as last to minimize unwanted interactions between unit tests. Also,
+# not other test before these should import any modules.
+#
+IMPORT_TESTS = [
+    ('import_module',
+     ([_importmodule('math')],
+      '$:int(math.sqrt(4))\n',
+      '2\n'
+     )
+    ),
+    ('import_module_current_dir',
+     ([_importmodule('inimod')],
+      '${inimod.get_version()}$',
+      '1'
+     )
+    ),
+    ('import_module_inifile_dir',
+     ([_inifile('include/importini.py')],
+      '${inimod2.get_version()}$',
+      '2'
+     )
+    )
+]
+
+
 def _get_test_output_method(args, inp, out):
     '''Returns a test method for checking correctness of Fypp output.
 
@@ -2082,6 +2108,9 @@ IncludeTest.add_test_methods(INCLUDE_TESTS, _get_test_output_method)
 
 class ExceptionTest(_TestContainer): pass
 ExceptionTest.add_test_methods(EXCEPTION_TESTS, _get_test_exception_method)
+
+class ImportTest(_TestContainer): pass
+ImportTest.add_test_methods(IMPORT_TESTS, _get_test_output_method)
 
 
 if __name__ == '__main__':

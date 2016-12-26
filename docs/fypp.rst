@@ -455,11 +455,20 @@ input. If modules had been also specified via the ``-m`` option, they are
 imported before the execution of the initialization scripts. The module imports,
 the initialization and the evaluation of the Python expressions during the
 processing all use the same global scope (as if they were part of one single
-module). Therefore, any globals defined during initialization can be accessed
-when evaluating Python expressions during input processing. Additionally,
-functions defined during initialization can access global variables defined
-during the processing, provided the variables have been defined, before the
-function is invoked.
+module). Therefore, any globals defined at initialization can be accessed when
+evaluating Python expressions during input processing. Additionally, functions
+defined during initialization can access global variables defined during the
+processing, provided the variables have been defined, before the function is
+invoked.
+
+When importing modules with the ``-m`` option, the module search path consists
+of the current directory, the directories in the `PYTHONPATH` environment
+variable and the standard Python module paths. When executing an initialization
+file via the ``-i`` option, the current directory in the module search path is
+replaced by the directory containing the initialization file. Modules in
+initialization files must be imported into the global scope, directly when the
+initialization files are executed, as once all initialization files have been
+processed, module imports are not possible any more.
 
 
 Predefined variables and functions

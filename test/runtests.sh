@@ -5,8 +5,12 @@ if [ $# -gt 0 ]; then
 else
   pythons="python"
 fi
-root="../"
-export PYTHONPATH="$root/src:$PYTHONPATH"
+root=".."
+if [ -z "$PYTHONPATH" ]; then
+  export PYTHONPATH="$root/src"
+else
+  export PYTHONPATH="$root/src:$PYTHONPATH"
+fi
 cd $testdir
 failed="0"
 failing_pythons=""
