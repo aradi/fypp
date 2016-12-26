@@ -981,6 +981,20 @@ SIMPLE_TESTS = [
       '1 - 2\n'
      )
     ),
+    ('global_local_line_numbering_macro',
+     ([],
+      '#:def macro()\n${_THIS_LINE_}$,${_LINE_}$\n#:enddef macro\n'\
+      '${_THIS_LINE_}$,${_LINE_}$|${macro()}$\n',
+      '4,4|2,4\n'
+     )
+    ),
+    ('global_local_line_numbering_argeval',
+     ([],
+      "#:call lambda s: str(_THIS_LINE_) + ',' + str(_LINE_) + '|' + s\n"\
+      "${_THIS_LINE_}$,${_LINE_}$\n#:endcall\n",
+      '1,1|2,1\n'
+     )
+    ),
 ]
 
 

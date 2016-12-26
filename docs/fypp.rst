@@ -474,12 +474,19 @@ processed, module imports are not possible any more.
 Predefined variables and functions
 ==================================
 
+Variables
+---------
+
 The isolated Python environment for the expression evaluation contains following
-predefined (read-only) variables:
+predefined global variables:
 
-* ``_LINE_``: number of current line
+* ``_THIS_LINE_``: number of current line
 
-* ``_FILE_``: name of curernt file ::
+* ``_THIS_FILE_``: name of current file
+
+* ``_LINE_``: number of current line in the processed input file
+
+* ``_FILE_``: name of processed input file ::
 
     print *, "This is line nr. ${_LINE_}$ in file '${_FILE_}$'"
 
@@ -489,7 +496,32 @@ predefined (read-only) variables:
 
     print *, "Rendering started ${_DATE_}$ ${_TIME_}$"
 
-Additionally following predefined functions are provided:
+The predefined variables ``_FILE_`` and ``_LINE_`` differ from their
+counterparts ``_THIS_FILE_`` and ``_THIS_LINE_`` only in cases, where the output
+of an expression evaluation is diverted, so that it can be written at a later
+stage. This typically happens during macro evaluations or when the arguments are
+rendered for the ``call`` directive. In such cases, the variables
+``_THIS_FILE_`` and ``_THIS_LINE_`` specify the position, where the expression
+containing this variables is defined, while the variables ``_FILE_`` and
+``_LINE_`` refer to the position in the processed file, from where the diverted
+construct was called (and where the result of the evaluation will be inserted
+later). For example, the input ::
+
+  #:def macro()
+  IN MACRO: _THIS_LINE_=${_THIS_LINE_}$, _LINE_=${_LINE_}$
+  #:enddef macro
+
+  GLOBAL: _THIS_LINE_=${_THIS_LINE_}$, _LINE_=${_LINE_}$ | ${macro()}$
+
+yields after being processed by Fypp::
+
+  GLOBAL: _THIS_LINE_=5, _LINE_=5 | IN MACRO: _THIS_LINE_=2, _LINE_=5    
+
+
+Functions
+---------
+
+Following predefined functions are available:
 
 * ``defined(VARNAME)``: Returns ``True`` if a variable with a given name has
   been already defined. The variable name must be provided as string::

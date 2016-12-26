@@ -158,7 +158,7 @@ _UNESCAPE_REGEXP3 = re.compile(r'(@)\\(\\*)([:@])')
 _RESERVED_PREFIX = '__'
 
 _RESERVED_NAMES = ('defined', 'setvar', 'getvar', '_LINE_', '_FILE_',
-                   '_TIME_', '_DATE_')
+                   '_THIS_FILE_', '_THIS_LINE_', '_TIME_', '_DATE_')
 
 _LINENUM_NEW_FILE = 1
 
@@ -1407,6 +1407,9 @@ class Renderer:
                 rendered = rendered[:-1]
             args.append(rendered)
         self._undivert()
+        # Since callobj uses the evaluators scope, the globals must be updated
+        # before calling it.
+        self._update_globals(fname, spans[0][0])
         try:
             result = callobj(*args)
         except Exception as exc:
@@ -1534,16 +1537,23 @@ class Renderer:
     def _undivert(self):
         self._diversions -= 1
         if self._diversions < 0:
-            msg = "Internal error: undivert without matching divert"
+            msg = "internal error: undivert without matching divert"
             raise FyppFatalError(msg)
 
 
     def _evaluate(self, expr, fname, linenr):
-        if not self._diversions:
-            self._evaluator.updateenv(_LINE_=linenr + 1, _FILE_=fname,
-                                      _DATE_=time.strftime('%Y-%m-%d'),
-                                      _TIME_=time.strftime('%H:%M:%S'))
+        self._update_globals(fname, linenr)
         return self._evaluator.evaluate(expr)
+
+
+    def _update_globals(self, fname, linenr):
+        self._evaluator.updatescope(
+            globalscope=True, _DATE_=time.strftime('%Y-%m-%d'),
+            _TIME_=time.strftime('%H:%M:%S'), _THIS_FILE_=fname,
+            _THIS_LINE_=linenr + 1)
+        if not self._diversions:
+            self._evaluator.updatescope(
+                globalscope=True, _FILE_=fname, _LINE_=linenr + 1)
 
 
     def _define(self, var, value):
@@ -1832,13 +1842,19 @@ class Evaluator:
             self._scope[varname] = value[ind]
 
 
-    def updateenv(self, **vardict):
-        '''Add variables to the environment.
+    def updatescope(self, globalscope=False, **vardict):
+        '''Update (or create) variables in the local or global scope.
 
         Args:
+            globalscope: Whether the update should happen in the global scope
+                (default: False -- update happens in the active scope).
             **vardict: variable defintions.
         '''
-        self._scope.update(vardict)
+        if globalscope:
+            scope = self._globals
+        else:
+            scope = self._scope
+        scope.update(vardict)
 
 
     def openscope(self, customlocals=None):
@@ -1965,7 +1981,7 @@ class _Macro:
         argdict = self._process_arguments(args, keywords)
         evaluator = self._renderer._evaluator
         evaluator.openscope(customlocals=self._localscope)
-        evaluator.updateenv(**argdict)
+        evaluator.updatescope(**argdict)
         output = self._renderer.render(self._content)
         evaluator.closescope()
         self._renderer._undivert()

@@ -21,6 +21,8 @@ Added
 
 * Python-like consistent global and local scopes and scope lookup rules.
 
+* Predefined variables _THIS_FILE_ and _THIS_LINE_.
+    
 * Additional flags in line numbering directives when opening a file or returning
   to a previous file.
 
@@ -40,8 +42,9 @@ Changed
 
 * Search paths for module imports behave more Python-like.
 
-* Slight backwards incompatibility in API: process_* methods of Processor and
-  Fypp do not accept the optional argument env any more.
+* Slight backwards incompatibilities in API: process_* methods of Processor and
+  Fypp do not accept the optional argument env any more. Method updateenv() of
+  Evaluator has been renamed to updatescope() for more consistency.
 
 
 Fixed
