@@ -2650,8 +2650,8 @@ def _formatted_exception(exc):
         if exc.span[1] > exc.span[0] + 1:
             line = '{0}-{1}'.format(exc.span[0] + 1, exc.span[1])
         else:
-            line= '{0}'.format(exc.span[0] + 1)
-        out.append(error_header_formstr.format(file = exc.fname, line=line))
+            line = '{0}'.format(exc.span[0] + 1)
+        out.append(error_header_formstr.format(file=exc.fname, line=line))
     out.append(error_body_formstr.format(errormsg=exc.msg,
                                          errorclass=exc.__class__.__name__))
     if exc.cause is not None:
