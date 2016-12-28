@@ -46,7 +46,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Fypp'
-copyright = u'2016, Bálint Aradi'
+copyright = u'2016-2017, Bálint Aradi, Universität Bremen'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

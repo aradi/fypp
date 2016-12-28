@@ -18,10 +18,10 @@ Fypp was inspired by the `pyratemp
 scratch focusing on the special needs when preprocessing source code. Fypp
 natively supports the output of line numbering directives, which are used by
 many compilers to generate compiler messages with correct line numbers. Unlike
-most cpp/fpp preprocessors or the coco preprocessor, Fypp also supports
+most cpp/fpp-like preprocessors or the coco preprocessor, Fypp also supports
 iterations, multiline macros, continuation lines in preprocessor directives and
 automatic line folding. It generally tries to extend the modern Fortran language
-with some useful features without tempting you to use it for tasks which
+with metaprogramming capabilities without tempting you to use it for tasks which
 could/should be done in Fortran itself.
 
 The project is `hosted on bitbucket <http://bitbucket.org/aradi/fypp>`_ with
