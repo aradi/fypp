@@ -2640,19 +2640,20 @@ else:
 
 
 def _formatted_exception(exc):
+    error_header_formstr = '{file}:{line}: '
+    error_body_formstr = 'error: {errormsg} [{errorclass}]'
     if not isinstance(exc, FyppError):
-        return str(exc)
+        return error_body_formstr.format(
+            errormsg=str(exc), errorclass=exc.__class__.__name__)
     out = []
     if exc.fname is not None:
-        out.append(exc.fname)
         if exc.span[1] > exc.span[0] + 1:
-            out.append(':{0}-{1}:'.format(exc.span[0] + 1, exc.span[1]))
+            line = '{0}-{1}'.format(exc.span[0] + 1, exc.span[1])
         else:
-            out.append(':{0}:'.format(exc.span[0] + 1))
-        out.append('\n')
-    out.append(exc.__class__.__name__ + ':')
-    if exc.msg:
-        out.append(' ' + exc.msg)
+            line= '{0}'.format(exc.span[0] + 1)
+        out.append(error_header_formstr.format(file = exc.fname, line=line))
+    out.append(error_body_formstr.format(errormsg=exc.msg,
+                                         errorclass=exc.__class__.__name__))
     if exc.cause is not None:
         out.append('\n' + _formatted_exception(exc.cause))
     out.append('\n')
