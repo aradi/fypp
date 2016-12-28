@@ -29,6 +29,9 @@ def _inifile(fname):
 def _linenumbering(nummode):
     return '-N{0}'.format(nummode)
 
+def _linenum_gfortran5():
+    return '--line-marker-format=gfortran5'
+
 def _importmodule(module):
     return '-m{0}'.format(module)
 
@@ -1004,9 +1007,16 @@ SIMPLE_TESTS = [
 # arguments of the get_test_output_method() routine.
 #
 LINENUM_TESTS = [
-    # This test (but only this) must be changed, if linenum directive changes.
+    # Explicit test for line number marker format (GFortran5 compatibility)
     ('explicit_str_linenum_test',
      ([_LINENUM_FLAG],
+      '',
+      '# 1 "<string>"\n',
+     )
+    ),
+    # Explicit test for line number marker format (GFortran5 compatibility)
+    ('explicit_str_linenum_test',
+     ([_LINENUM_FLAG, _linenum_gfortran5()],
       '',
       '# 1 "<string>" 1\n',
      )
@@ -1014,61 +1024,61 @@ LINENUM_TESTS = [
     ('trivial',
      ([_LINENUM_FLAG],
       'Test\n',
-      _linenum(0, flag=_NEW_FILE) + 'Test\n'
+      _linenum(0) + 'Test\n'
      )
     ),
     ('if_true',
      ([_LINENUM_FLAG],
       '#:if 1 < 2\nTrue\n#:endif\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(1) + 'True\n' + _linenum(3)
+      _linenum(0) + _linenum(1) + 'True\n' + _linenum(3)
       + 'Done\n'
      )
     ),
     ('if_false',
      ([_LINENUM_FLAG],
       '#:if 1 > 2\nTrue\n#:endif\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(3) + 'Done\n'
+      _linenum(0) + _linenum(3) + 'Done\n'
      )
     ),
     ('if_else_true',
      ([_LINENUM_FLAG],
       '#:if 1 < 2\nTrue\n#:else\nFalse\n#:endif\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(1) + 'True\n' + _linenum(5)
+      _linenum(0) + _linenum(1) + 'True\n' + _linenum(5)
       + 'Done\n'
      )
     ),
     ('if_else_false',
      ([_LINENUM_FLAG],
       '#:if 1 > 2\nTrue\n#:else\nFalse\n#:endif\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(3) + 'False\n' + _linenum(5)
+      _linenum(0) + _linenum(3) + 'False\n' + _linenum(5)
       + 'Done\n'
      )
     ),
     ('if_elif_true1',
      ([_LINENUM_FLAG],
       '#:if 1 == 1\nTrue1\n#:elif 1 == 2\nTrue2\n#:endif\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(1) + 'True1\n' + _linenum(5)
+      _linenum(0) + _linenum(1) + 'True1\n' + _linenum(5)
       + 'Done\n'
      )
     ),
     ('if_elif_true2',
      ([_LINENUM_FLAG],
       '#:if 2 == 1\nTrue1\n#:elif 2 == 2\nTrue2\n#:endif\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(3) + 'True2\n' + _linenum(5)
+      _linenum(0) + _linenum(3) + 'True2\n' + _linenum(5)
       + 'Done\n'
      )
     ),
     ('if_elif_false',
      ([_LINENUM_FLAG],
       '#:if 0 == 1\nTrue1\n#:elif 0 == 2\nTrue2\n#:endif\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(5) + 'Done\n'
+      _linenum(0) + _linenum(5) + 'Done\n'
      )
     ),
     ('if_elif_else_true1',
      ([_LINENUM_FLAG],
       '#:if 1 == 1\nTrue1\n#:elif 1 == 2\nTrue2\n'
       '#:else\nFalse\n#:endif\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(1) + 'True1\n' + _linenum(7)
+      _linenum(0) + _linenum(1) + 'True1\n' + _linenum(7)
       + 'Done\n'
      )
     ),
@@ -1076,7 +1086,7 @@ LINENUM_TESTS = [
      ([_LINENUM_FLAG],
       '#:if 2 == 1\nTrue1\n#:elif 2 == 2\nTrue2\n'
       '#:else\nFalse\n#:endif\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(3) + 'True2\n' + _linenum(7)
+      _linenum(0) + _linenum(3) + 'True2\n' + _linenum(7)
       + 'Done\n'
      )
     ),
@@ -1084,124 +1094,124 @@ LINENUM_TESTS = [
      ([_LINENUM_FLAG],
       '#:if 0 == 1\nTrue1\n#:elif 0 == 2\nTrue2\n'
       '#:else\nFalse\n#:endif\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(5) + 'False\n' + _linenum(7)
+      _linenum(0) + _linenum(5) + 'False\n' + _linenum(7)
       + 'Done\n'
      )
     ),
     ('inline_if_true',
      ([_LINENUM_FLAG],
       '#{if 1 < 2}#True#{endif}#Done\n',
-      _linenum(0, flag=_NEW_FILE) + 'TrueDone\n'
+      _linenum(0) + 'TrueDone\n'
      )
     ),
     ('inline_if_false',
      ([_LINENUM_FLAG],
       '#{if 1 > 2}#True#{endif}#Done\n',
-      _linenum(0, flag=_NEW_FILE) + 'Done\n'
+      _linenum(0) + 'Done\n'
      )
     ),
     ('inline_if_else_true',
      ([_LINENUM_FLAG],
       '#{if 1 < 2}#True#{else}#False#{endif}#Done\n',
-      _linenum(0, flag=_NEW_FILE) + 'TrueDone\n'
+      _linenum(0) + 'TrueDone\n'
      )
     ),
     ('inline_if_else_false',
      ([_LINENUM_FLAG],
       '#{if 1 > 2}#True#{else}#False#{endif}#Done\n',
-      _linenum(0, flag=_NEW_FILE) + 'FalseDone\n'
+      _linenum(0) + 'FalseDone\n'
      )
     ),
     ('inline_if_elif_true1',
      ([_LINENUM_FLAG],
       '#{if 1 == 1}#True1#{elif 1 == 2}#True2#{endif}#Done\n',
-      _linenum(0, flag=_NEW_FILE) + 'True1Done\n'
+      _linenum(0) + 'True1Done\n'
      )
     ),
     ('inline_if_elif_true2',
      ([_LINENUM_FLAG],
       '#{if 2 == 1}#True1#{elif 2 == 2}#True2#{endif}#Done\n',
-      _linenum(0, flag=_NEW_FILE) + 'True2Done\n'
+      _linenum(0) + 'True2Done\n'
      )
     ),
     ('inline_if_elif_false',
      ([_LINENUM_FLAG],
       '#{if 0 == 1}#True1#{elif 0 == 2}#True2#{endif}#Done\n',
-      _linenum(0, flag=_NEW_FILE) + 'Done\n'
+      _linenum(0) + 'Done\n'
      )
     ),
     ('inline_if_elif_else_true1',
      ([_LINENUM_FLAG],
       '#{if 1 == 1}#True1#{elif 1 == 2}#True2#{else}#False#{endif}#Done\n',
-      _linenum(0, flag=_NEW_FILE) + 'True1Done\n'
+      _linenum(0) + 'True1Done\n'
      )
     ),
     ('inline_if_elif_else_true2',
      ([_LINENUM_FLAG],
       '#{if 2 == 1}#True1#{elif 2 == 2}#True2#{else}#False#{endif}#Done\n',
-      _linenum(0, flag=_NEW_FILE) + 'True2Done\n'
+      _linenum(0) + 'True2Done\n'
      )
     ),
     ('inline_if_elif_else_false',
      ([_LINENUM_FLAG],
       '#{if 0 == 1}#True1#{elif 0 == 2}#True2#{else}#False#{endif}#Done\n',
-      _linenum(0, flag=_NEW_FILE) + 'FalseDone\n'
+      _linenum(0) + 'FalseDone\n'
      )
     ),
     ('linesub_oneline',
      ([_LINENUM_FLAG],
       'A\n$: 1 + 1\nB\n',
-      _linenum(0, flag=_NEW_FILE) + 'A\n2\nB\n'
+      _linenum(0) + 'A\n2\nB\n'
      )
     ),
     ('linesub_contlines',
      ([_LINENUM_FLAG, _defvar('TESTVAR', 1)],
       '$: TESTVAR & \n  & + 1\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + '2\n' + _linenum(2) + 'Done\n'
+      _linenum(0) + '2\n' + _linenum(2) + 'Done\n'
      )
     ),
     ('linesub_contlines2',
      ([_LINENUM_FLAG, _defvar('TESTVAR', 1)],
       '$: TEST& \n  &VAR & \n  & + 1\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + '2\n' + _linenum(3) + 'Done\n'
+      _linenum(0) + '2\n' + _linenum(3) + 'Done\n'
      )
     ),
     ('exprsub_single_line',
      ([_LINENUM_FLAG, _defvar('TESTVAR', 1)],
       'A${TESTVAR}$B${TESTVAR + 1}$C',
-      _linenum(0, flag=_NEW_FILE) + 'A1B2C'
+      _linenum(0) + 'A1B2C'
      )
     ),
     ('exprsub_multi_line',
      ([_LINENUM_FLAG],
       '${"line1\\nline2"}$\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + 'line1\n' + _linenum(0) + 'line2\nDone\n'
+      _linenum(0) + 'line1\n' + _linenum(0) + 'line2\nDone\n'
      )
     ),
     ('macrosubs',
      ([_LINENUM_FLAG],
       '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n${macro(1)}$',
-      _linenum(0, flag=_NEW_FILE) + _linenum(3) + 'MACRO|1|'
+      _linenum(0) + _linenum(3) + 'MACRO|1|'
      )
     ),
     ('recursive_macrosubs',
      ([_LINENUM_FLAG],
       '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n${macro(macro(1))}$',
-      _linenum(0, flag=_NEW_FILE) + _linenum(3) + 'MACRO|MACRO|1||'
+      _linenum(0) + _linenum(3) + 'MACRO|MACRO|1||'
      )
     ),
     ('macrosubs_multiline',
      ([_LINENUM_FLAG],
       '#:def macro(c)\nMACRO1|${c}$|\nMACRO2|${c}$|\n#:enddef\n${macro(\'A\')}$'
       '\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(4) + 'MACRO1|A|\n' + _linenum(4)
+      _linenum(0) + _linenum(4) + 'MACRO1|A|\n' + _linenum(4)
       + 'MACRO2|A|\n'
      )
     ),
     ('recursive_macrosubs_multiline',
      ([_LINENUM_FLAG],
       '#:def f(c)\nLINE1|${c}$|\nLINE2|${c}$|\n#:enddef\n$: f(f("A"))\n',
-      (_linenum(0, flag=_NEW_FILE) + _linenum(4) + 'LINE1|LINE1|A|\n' +
+      (_linenum(0) + _linenum(4) + 'LINE1|LINE1|A|\n' +
        _linenum(4) + 'LINE2|A||\n' + _linenum(4) + 'LINE2|LINE1|A|\n' +
        _linenum(4) + 'LINE2|A||\n')
      )
@@ -1209,7 +1219,7 @@ LINENUM_TESTS = [
     ('multiline_macrocall',
      ([_LINENUM_FLAG],
       '#:def macro(c)\nMACRO|${c}$|\n#:enddef\n$: mac& \n  &ro(\'A\')\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(3) + 'MACRO|A|\n' + _linenum(5)
+      _linenum(0) + _linenum(3) + 'MACRO|A|\n' + _linenum(5)
       + 'Done\n'
      )
     ),
@@ -1217,84 +1227,84 @@ LINENUM_TESTS = [
      ([_LINENUM_FLAG],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '#:call mymacro\nL1\nL2\n#:nextarg\nL3\n#:endcall\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(3) + '|L1\n' + _linenum(3)
+      _linenum(0) + _linenum(3) + '|L1\n' + _linenum(3)
       + 'L2|L3|\n' + _linenum(9),
      )
     ),
     ('for',
      ([_LINENUM_FLAG],
       '#:for i in (1, 2)\n${i}$\n#:endfor\nDone\n',
-      (_linenum(0, flag=_NEW_FILE) + _linenum(1) + '1\n' + _linenum(1) + '2\n'
+      (_linenum(0) + _linenum(1) + '1\n' + _linenum(1) + '2\n'
        + _linenum(3) + 'Done\n')
      )
     ),
     ('inline_for',
      ([_LINENUM_FLAG],
       '#{for i in (1, 2)}#${i}$#{endfor}#Done\n',
-      _linenum(0, flag=_NEW_FILE) + '12Done\n'
+      _linenum(0) + '12Done\n'
      )
     ),
     ('set',
      ([_LINENUM_FLAG],
       '#:set x = 2\n$: x\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(1) + '2\n',
+      _linenum(0) + _linenum(1) + '2\n',
      )
     ),
     ('inline_set',
      ([_LINENUM_FLAG],
       '#{set x = 2}#${x}$Done\n',
-      _linenum(0, flag=_NEW_FILE) + '2Done\n',
+      _linenum(0) + '2Done\n',
      )
     ),
     ('comment_single',
      ([_LINENUM_FLAG],
       ' #! Comment here\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(1) + 'Done\n'
+      _linenum(0) + _linenum(1) + 'Done\n'
      )
     ),
     ('comment_multiple',
      ([_LINENUM_FLAG],
       ' #! Comment1\n#! Comment2\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(2) + 'Done\n',
+      _linenum(0) + _linenum(2) + 'Done\n',
      )
     ),
     ('mute',
      ([_LINENUM_FLAG],
       'A\n#:mute\nB\n#:set VAR = 2\n#:endmute\nVAR=${VAR}$\n',
-      _linenum(0, flag=_NEW_FILE) + 'A\n' + _linenum(5) + 'VAR=2\n'
+      _linenum(0) + 'A\n' + _linenum(5) + 'VAR=2\n'
      )
     ),
     ('direct_call',
      ([_LINENUM_FLAG],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '@:mymacro a < b\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(3) + '|a < b|\n',
+      _linenum(0) + _linenum(3) + '|a < b|\n',
      )
     ),
     ('direct_call_contline',
      ([_LINENUM_FLAG],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '@:mymacro a &\n    &< b&\n    &\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(3) + '|a < b|\n' + _linenum(6)
+      _linenum(0) + _linenum(3) + '|a < b|\n' + _linenum(6)
       + 'Done\n',
      )
     ),
     ('assert_directive',
      ([_LINENUM_FLAG],
       '#:assert 1 < 2\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(1) + 'Done\n',
+      _linenum(0) + _linenum(1) + 'Done\n',
      )
     ),
     ('assert_directive_contline',
      ([_LINENUM_FLAG],
       '#:assert 1&\n& < 2\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(2) + 'Done\n',
+      _linenum(0) + _linenum(2) + 'Done\n',
      )
     ),
     ('smart_folding',
      ([_LINENUM_FLAG, _linelen(15), _indentation(4), _folding('smart')],
       '  ${3}$456 89 123456 8\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + '  3456 89&\n' + _linenum(0)
+      _linenum(0) + '  3456 89&\n' + _linenum(0)
       + '      & 123456&\n' + _linenum(0) + '      & 8\n' + 'Done\n'
      )
     ),
@@ -1302,7 +1312,7 @@ LINENUM_TESTS = [
      ([_LINENUM_FLAG, _linenumbering('nocontlines'), _linelen(15),
        _indentation(4), _folding('smart')],
       '  ${3}$456 89 123456 8\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + '  3456 89&\n' + '      & 123456&\n' \
+      _linenum(0) + '  3456 89&\n' + '      & 123456&\n' \
       + '      & 8\n' + _linenum(1) + 'Done\n'
      )
     ),
@@ -1342,7 +1352,7 @@ INCLUDE_TESTS = [
     ('search_include_linenum',
      ([_LINENUM_FLAG, _incdir('include')],
       '#:include "fypp1.inc"\n$: incmacro(1)\n',
-      (_linenum(0, flag=_NEW_FILE)
+      (_linenum(0)
        + _linenum(0, 'include/fypp1.inc', flag=_NEW_FILE)
        + 'INCL1\n' + _linenum(4, 'include/fypp1.inc')
        + 'INCL5\n' + _linenum(1, flag=_RETURN_TO_FILE) + 'INCMACRO(1)\n')
@@ -1351,7 +1361,7 @@ INCLUDE_TESTS = [
     ('nested_include_in_incpath_linenum',
      ([_LINENUM_FLAG, _incdir('include')],
       '#:include "subfolder/include_fypp1.inc"\n',
-      (_linenum(0, flag=_NEW_FILE)
+      (_linenum(0)
        + _linenum(0, 'include/subfolder/include_fypp1.inc', flag=_NEW_FILE)
        + _linenum(0, 'include/fypp1.inc', flag=_NEW_FILE) + 'INCL1\n'
        + _linenum(4, 'include/fypp1.inc') + 'INCL5\n'
@@ -1363,7 +1373,7 @@ INCLUDE_TESTS = [
     ('nested_include_in_folder_of_incfile',
      ([_LINENUM_FLAG, _incdir('include')],
       '#:include "subfolder/include_fypp2.inc"\n',
-      (_linenum(0, flag=_NEW_FILE)
+      (_linenum(0)
        + _linenum(0, 'include/subfolder/include_fypp2.inc', flag=_NEW_FILE)
        + _linenum(0, 'include/subfolder/fypp2.inc', flag=_NEW_FILE)
        + 'FYPP2\n'
@@ -1381,7 +1391,7 @@ INCLUDE_TESTS = [
     ('muted_include_linenum',
      ([_LINENUM_FLAG, _incdir('include')],
       'START\n#:mute\n#:include \'fypp1.inc\'\n#:endmute\nDONE\n',
-      _linenum(0, flag=_NEW_FILE) + 'START\n' + _linenum(4) + 'DONE\n'
+      _linenum(0) + 'START\n' + _linenum(4) + 'DONE\n'
      )
     ),
 ]
