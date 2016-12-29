@@ -38,13 +38,15 @@ Features
 Below you find a summary over Fypps main features. Each of them is described
 more in detail in the individual sections further down.
 
-* Definition and evaluation of preprocessor variables::
+* Definition, evaluation and removal of variables::
 
     #:if DEBUG > 0
       print *, "Some debug information"
     #:endif
 
     #:set LOGLEVEL = 2
+
+    #:del LOGLEVEL
 
 * Macro definitions and macro calls::
 
@@ -256,11 +258,12 @@ In order to execute the unit tests with `tox`, run  ::
 
   tox
 
-from the root folder of the source tree. This tests Fypp with both, the default
-Python 2 and Python 3 interpreter in your path. If you want to limit the test to
-only one of them, you can select it by the appropriate switch, e.g. ::
+from the root folder of the source tree. This tries to test Fypp with various
+different python interpreters. If you want to limit testing to selected
+interpeters only, select the environment with the appropriate command line
+switch, e.g. ::
 
-  tox -e py3
+  tox -e py34
 
 
 
@@ -548,6 +551,17 @@ Following predefined functions are available:
     $:setvar('i, j', (1, 2))
     print *, "VAR I: ${i}$, VAR J: ${j}$"
 
+* ``delvar(VARNAME)``: Removes a variable or a macro definition from the local
+  scope. It is identical to the ``#:del`` control directive. The variable name
+  must be provided as string::
+    
+    $:delvar('i')
+
+  Analogous to the ``setvar`` function, also variable tuples can be deleted::
+
+    $:delvar('i, j')
+
+
 
 Eval directive
 ==============
@@ -603,6 +617,43 @@ For backwards compatibility reason, also a `setvar` directive is recognized by
 Fypp. It has identical syntax and functionality to the `set` directive, but the
 equal sign between variable and value must be omitted. Its usage is not
 recommended, as it may become obsolated in the future.
+
+
+`del` directive
+==================
+
+A variable (or macro) definition can be removed from the current scope by the
+`del` directive::
+
+  #:set X = 12
+  #! X available, with value 12
+  :
+  #:del X
+  #! X not available any more
+  
+The variable name expression syntax is identical to the one used for the `set`
+directive, so that also variable tuples can be deleted::
+
+  #! Removes the variables X and Y from local scope
+  #:del X, Y
+
+If a variable is passed to the ``del`` directive, which is not defined in the
+current scope, it will be simply ignored. So the example above would not trigger
+any errors, if the variables ``X`` and ``Y`` were not defined before.
+
+The `del` directive can also be used to delete macro defintions::
+
+  #:def echo(TXT)
+  ${TXT}$
+  #:enddef
+  @:echo HELLO
+  #:del echo
+  #! Following line throws an error as macro echo is not available any more
+  @:echo HELLO
+
+The `del` directive can be also used in the inline form::
+
+  #{del X}#
 
 
 `if` directive
