@@ -21,7 +21,7 @@ Fypp is released under the *BSD 2-clause license*.
 Main features
 =============
 
-* Definition and evaluation of preprocessor variables::
+* Definition, evaluation and removal of variables::
 
     #:if DEBUG > 0
       print *, "Some debug information"
@@ -29,6 +29,8 @@ Main features
 
     #:set LOGLEVEL = 2
 
+    #:del LOGLEVEL
+    
 * Macro definitions and macro calls::
 
     #:def assertTrue(cond)

@@ -667,6 +667,65 @@ SIMPLE_TESTS = [
       'DEFAULT\n',
      )
     ),
+    ('del_existing_variable',
+     ([],
+      '#:set X = 12\n$:defined("X")\n#:del X\n$:defined("X")\n',
+      'True\nFalse\n',
+     )
+    ),
+    ('del_nonexisting_variable',
+     ([],
+      '$:defined("X")\n#:del X\n$:defined("X")\n',
+      'False\nFalse\n',
+     )
+    ),
+    ('del_variable_tuple',
+     ([],
+      '#:set X = 1\n#:set Y = 2\n${defined("X")}$${defined("Y")}$\n'\
+      '#:del X, Y\n${defined("X")}$${defined("Y")}$\n',
+      'TrueTrue\nFalseFalse\n',
+     )
+    ),
+    ('del_variable_local_scope',
+     ([],
+      '#:set X = 1\n#:call lambda s: s\n$:X\n#:set X = 2\n$:X\n#:del X\n$:X\n'\
+      '#:endcall\n$:X\n',
+      '1\n2\n1\n1\n',
+     )
+    ),
+    ('del_macro',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n$:defined("mymacro")\n'\
+      '$:mymacro("A")\n#:del mymacro\n$:defined("mymacro")\n',
+      'True\n|A|\nFalse\n',
+     )
+    ),
+    ('del_inline',
+     ([],
+      '#:set X = 12\n$:defined("X")\n#{del X}#${defined("X")}$\n',
+      'True\nFalse\n',
+     )
+    ),
+    ('del_inline_tuple',
+     ([],
+      '#:set X = 1\n#:set Y = 2\n${defined("X")}$${defined("Y")}$\n'\
+      '#{del X, Y}#${defined("X")}$${defined("Y")}$\n',
+      'TrueTrue\nFalseFalse\n',
+     )
+    ),
+    ('delvar_function',
+     ([],
+      '#:set X = 12\n$:defined("X")\n$:delvar("X")\n$:defined("X")\n',
+      'True\n\nFalse\n',
+     )
+    ),
+    ('delvar_function_tuple',
+     ([],
+      '#:set X = 1\n#:set Y = 2\n${defined("X")}$${defined("Y")}$\n'\
+      '$:delvar("X, Y")\n${defined("X")}$${defined("Y")}$\n',
+      'TrueTrue\n\nFalseFalse\n',
+     )
+    ),
     ('mute',
      ([],
       'A\n#:mute\nB\n#:set VAR = 2\n#:endmute\nVAR=${VAR}$\n',
@@ -1492,6 +1551,18 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
+    ('missing_del_name',
+     ([],
+      '#:del\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('invalid_del_name',
+     ([],
+      '#:del [a, b]\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
     #
     # Builder errors
     #
@@ -1893,6 +1964,20 @@ EXCEPTION_TESTS = [
     ('invalid_lhs_tuple2',
      ([],
       '#:set a, b) = (1, 2)\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
+     )
+    ),
+    ('invalid_del_tuple1',
+     ([],
+      '#:del (a, b\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
+     )
+    ),
+    ('invalid_del_tuple2',
+     ([],
+      '#:del a, b)\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )

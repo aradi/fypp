@@ -140,6 +140,9 @@ _SET_PARAM_REGEXP = re.compile(
     r'^(?P<name>(?:[(]\s*)?\w+(?:\s*,\s*\w+)*(?:\s*[)])?)'\
     r'(?:(?:(?P<equal>\s*=\s*)|\s+)(?P<expr>.*))?$')
 
+_DEL_PARAM_REGEXP = re.compile(
+    r'^(?:[(]\s*)?\w+(?:\s*,\s*\w+)*(?:\s*[)])?$')
+
 _FOR_PARAM_REGEXP = re.compile(
     r'^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)$')
 
@@ -157,7 +160,7 @@ _UNESCAPE_REGEXP3 = re.compile(r'(@)\\(\\*)([:@])')
 
 _RESERVED_PREFIX = '__'
 
-_RESERVED_NAMES = ('defined', 'setvar', 'getvar', '_LINE_', '_FILE_',
+_RESERVED_NAMES = ('defined', 'setvar', 'getvar', 'delvar', '_LINE_', '_FILE_',
                    '_THIS_FILE_', '_THIS_LINE_', '_TIME_', '_DATE_')
 
 _LINENUM_NEW_FILE = 1
@@ -354,6 +357,18 @@ class Parser:
             name (str): Name found after the enddef directive.
         '''
         self._log_event('enddef', span, name=name)
+
+    
+    def handle_del(self, span, name):
+        '''Called when parser encounters a del directive.
+
+        It is a dummy method and should be overriden for actual use.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+            name (str): Name of the variable to delete.
+        '''
+        self._log_event('del', span, name=name)
 
 
     def handle_if(self, span, cond):
@@ -625,6 +640,9 @@ class Parser:
         elif directive == 'set':
             self._check_param_presence(True, 'set', param, span)
             self._process_set(param, span)
+        elif directive == 'del':
+            self._check_param_presence(True, 'del', param, span)
+            self._process_del(param, span)
         elif directive == 'for':
             self._check_param_presence(True, 'for', param, span)
             self._process_for(param, span)
@@ -727,6 +745,14 @@ class Parser:
                     msg = 'missing equal sign in set directive'
                 raise FyppFatalError(msg, self._curfile, span)
         self.handle_set(span, match.group('name'), match.group('expr'))
+
+
+    def _process_del(self, param, span):
+        match = _DEL_PARAM_REGEXP.search(param)
+        if not match:
+            msg = "invalid variable specification '{0}'".format(param)
+            raise FyppFatalError(msg, self._curfile, span)
+        self.handle_del(span, param)
 
 
     def _process_for(self, param, span):
@@ -1104,6 +1130,16 @@ class Builder:
         self._curnode.append(('set', self._curfile, span, name, expr))
 
 
+    def handle_del(self, span, name):
+        '''Should be called to signalize a del directive.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+            name (str): Name of the variable(s) to delete.
+        '''
+        self._curnode.append(('del', self._curfile, span, name))
+
+
     def handle_eval(self, span, expr):
         '''Should be called to signalize an eval directive.
 
@@ -1289,6 +1325,8 @@ class Renderer:
             elif cmd == 'set':
                 result = self._define_variable(*node[1:5])
                 output.append(result)
+            elif cmd == 'del':
+                self._delete_variable(*node[1:4])
             elif cmd == 'for':
                 out, ieval, peval = self._get_iterated_content(*node[1:6])
                 eval_inds += _shiftinds(ieval, len(output))
@@ -1482,6 +1520,19 @@ class Renderer:
         except Exception as exc:
             msg = "exception occured when setting variable(s) {0} to {1}"\
                 .format(name, valstr)
+            raise FyppFatalError(msg, fname, span, exc)
+        multiline = (span[0] != span[1])
+        if self._linenums and not self._diversions and multiline:
+            result = linenumdir(span[1], fname)
+        return result
+
+
+    def _delete_variable(self, fname, span, name):
+        result = ''
+        try:
+            self._evaluator.undefine(name)
+        except Exception as exc:
+            msg = "exception occured when deleting variable(s) {0}".format(name)
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
         if self._linenums and not self._diversions and multiline:
@@ -1781,6 +1832,7 @@ class Evaluator:
         builtindict['defined'] = self._func_defined
         builtindict['setvar'] = self._func_setvar
         builtindict['getvar'] = self._func_getvar
+        builtindict['delvar'] = self._func_delvar
 
         # Permitted builtins when evaluating expressions
         self._globals['__builtins__'] = builtindict
@@ -1819,28 +1871,30 @@ class Evaluator:
             FyppFatalError: If name starts with the reserved prefix or if it is
                 a reserved name.
         '''
-        lpar = name.startswith('(')
-        rpar = name.endswith(')')
-        if lpar != rpar:
-            msg = "unbalanced paranthesis around variable name(s) in '{0}'"\
-                .format(name)
-            raise FyppFatalError(msg, None, None)
-        if lpar:
-            name = name[1:-1]
-        varnames = [s.strip() for s in name.split(',')]
+        varnames = self._get_variable_names(name)
         if len(varnames) == 1:
             value = (value,)
         for ind, varname in enumerate(varnames):
-            if varname.startswith(_RESERVED_PREFIX):
-                msg = "Name '{0}' starts with reserved prefix '{1}'"\
-                    .format(varname, _RESERVED_PREFIX)
-                raise FyppFatalError(msg, None, None)
-            if varname in _RESERVED_NAMES:
-                msg = "Name '{0}' is reserved and can not be redefined"\
-                    .format(varname)
-                raise FyppFatalError(msg, None, None)
+            self._check_variable_name(varname)
             self._scope[varname] = value[ind]
 
+
+    def undefine(self, name):
+        '''Undefine a Python entity.
+
+        Args:
+            name (str): Name of the entity to undefine.
+
+        Raises:
+            FyppFatalError: If name starts with the reserved prefix or if it is
+                a reserved name.
+        '''
+        varnames = self._get_variable_names(name)
+        for varname in varnames:
+            self._check_variable_name(varname)
+            if varname in self._scope:
+                del self._scope[varname]
+            
 
     def updatescope(self, globalscope=False, **vardict):
         '''Update (or create) variables in the local or global scope.
@@ -1914,6 +1968,32 @@ class Evaluator:
         return bidict
 
 
+    @staticmethod
+    def _get_variable_names(varexpr):
+        lpar = varexpr.startswith('(')
+        rpar = varexpr.endswith(')')
+        if lpar != rpar:
+            msg = "unbalanced paranthesis around variable varexpr(s) in '{0}'"\
+                .format(varexpr)
+            raise FyppFatalError(msg, None, None)
+        if lpar:
+            varexpr = varexpr[1:-1]
+        varnames = [s.strip() for s in varexpr.split(',')]
+        return varnames
+        
+
+    @staticmethod
+    def _check_variable_name(varname):
+        if varname.startswith(_RESERVED_PREFIX):
+            msg = "Name '{0}' starts with reserved prefix '{1}'"\
+                .format(varname, _RESERVED_PREFIX)
+            raise FyppFatalError(msg, None, None)
+        if varname in _RESERVED_NAMES:
+            msg = "Name '{0}' is reserved and can not be redefined"\
+                .format(varname)
+            raise FyppFatalError(msg, None, None)
+
+
     def _func_defined(self, var):
         defined = var in self._globals
         if not defined and self._locals is not None:
@@ -1933,7 +2013,6 @@ class Evaluator:
 
     def _func_setvar(self, name, value):
         self.define(name, value)
-        return ''
 
 
     def _func_getvar(self, name, defvalue):
@@ -1943,6 +2022,11 @@ class Evaluator:
             return self._locals[name]
         else:
             return defvalue
+
+
+    def _func_delvar(self, name):
+        self.undefine(name)
+
 
 
 class _Macro:
@@ -2052,6 +2136,7 @@ class Processor:
         self._parser.handle_def = self._builder.handle_def
         self._parser.handle_enddef = self._builder.handle_enddef
         self._parser.handle_set = self._builder.handle_set
+        self._parser.handle_del = self._builder.handle_del
         self._parser.handle_for = self._builder.handle_for
         self._parser.handle_endfor = self._builder.handle_endfor
         self._parser.handle_call = self._builder.handle_call
