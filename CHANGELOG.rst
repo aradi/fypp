@@ -13,6 +13,8 @@ Added
 
 * Allow names in enddef and endcall directives.
 
+* Del directive.
+
 * Assert directive.
 
 * Default values for macro arguments.
