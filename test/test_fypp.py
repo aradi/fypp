@@ -571,15 +571,29 @@ SIMPLE_TESTS = [
     ),
     ('call_no_param_inline',
      ([],
-      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
+      '#:def mymacro()\n||\n#:enddef mymacro\n'\
       '#{call mymacro}##{endcall}#\n',
       '||\n'
      )
     ),
     ('call_no_param',
      ([],
-      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
+      '#:def mymacro()\n||\n#:enddef mymacro\n'\
       '#:call mymacro\n#:endcall\n',
+      '||\n'
+     )
+    ),
+    ('call_empty_param_inline',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
+      '#{call mymacro}# #{endcall}#\n',
+      '||\n'
+     )
+    ),
+    ('call_empty_param',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
+      '#:call mymacro\n\n#:endcall\n',
       '||\n'
      )
     ),

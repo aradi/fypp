@@ -946,6 +946,36 @@ to code being hard to read, it should be usually avoided::
 If the arguments are short, the more compact direct call directive can be also
 used as an alternative to the line form (see next section).
 
+If a rendered argument ends with a space or newline character, it will be
+removed before it is passed to the callable. If the call block does not contain
+a `nextarg` directive, passing no content (not even a whitespace character)
+indicates a call without any argument::
+
+  #:def macro_without_args()
+  NOARGS
+  #:enddef macro_without_args
+
+  #:call macro_without_args
+  #:endcall macro_without_args
+
+  #{call macro_without_args}##{endcall macro_without_args}#
+
+In order to call a macro with the emtpy string as parameter, one whitespace
+character should be passed as argument (which will be removed during rendering)::
+
+  #:def macro_with_one_arg(ARG)
+  |${ARG}$|
+  #:enddef macro_with_one_arg
+
+  #! Both calls below should return '||'
+
+  #:call macro_with_one_arg
+
+  #:endcall macro_with_one_arg
+
+  #{call macro_with_one_arg}# #{endcall macro_with_one_arg}#
+
+
 The callables are not restricted to macros only, but can be arbitrary Python
 expressions, which are either directly callables or after evaluation yield a
 callable. Using the `lambda` construct of Python, such callables can be easily

@@ -110,8 +110,9 @@ _LINE_DIRECTIVES_PATTERN = r'''
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 |
 # direct call directive (with optional continuation lines)
-^[ \t]*@:[ \t]*(?P<callexpr>[^ \t\n]+)
-(?:[ \t]+(?P<callparams>[^ \t\n].*?(?:&[ \t]*\n[ \t]*&.*?)*))?[ \t]*\n
+^[ \t]*@:[ \t]*(?P<callexpr>[^ \t\n\(]+)
+(?:(?P<dcparopen>[ \t]|\()
+(?P<callparams>[^ \t\n].*?(?:&[ \t]*\n[ \t]*&.*?)*)\)?)?[ \t]*\n
 '''
 
 _INLINE_DIRECTIVES_PATTERN = r'''
@@ -158,6 +159,8 @@ _UNESCAPE_REGEXP2 = re.compile(r'(\})\\(\\*)([$#])')
 
 _UNESCAPE_REGEXP3 = re.compile(r'(@)\\(\\*)([:@])')
 
+_INLINE_DIR_REGION_REGEXP = re.compile(r'(#|\$){.*?}\1')
+
 _RESERVED_PREFIX = '__'
 
 _RESERVED_NAMES = ('defined', 'setvar', 'getvar', 'delvar', '_LINE_', '_FILE_',
@@ -166,6 +169,16 @@ _RESERVED_NAMES = ('defined', 'setvar', 'getvar', 'delvar', '_LINE_', '_FILE_',
 _LINENUM_NEW_FILE = 1
 
 _LINENUM_RETURN_TO_FILE = 2
+
+_OPENING_QUOTES_FORTRAN = '\'"'
+
+_CLOSING_QUOTES_FORTRAN = '\'"'
+
+_OPENING_BRACES_FORTRAN = '{(['
+
+_CLOSING_BRACES_FORTRAN = '})]'
+
+_ARGUMENT_SPLIT_CHAR_FORTRAN = ','
 
 
 class FyppError(Exception):
@@ -358,7 +371,7 @@ class Parser:
         '''
         self._log_event('enddef', span, name=name)
 
-    
+
     def handle_del(self, span, name):
         '''Called when parser encounters a del directive.
 
@@ -598,7 +611,7 @@ class Parser:
             elif linedirs and groups['callexpr'] is not None:
                 self._process_directcall(
                     groups['callexpr'], groups['callparams'],
-                    (linenr, endlinenr))
+                    groups['dcparopen'], (linenr, endlinenr))
             else:
                 msg = 'internal error: unknown matching pattern'
                 raise FyppFatalError(msg, self._curfile, (linenr, endlinenr))
@@ -691,17 +704,26 @@ class Parser:
         self.handle_eval(span, expr)
 
 
-    def _process_directcall(self, callname, callparams, span):
+    def _process_directcall(self, callname, callparams, paropen, span):
         match = _CALLABLE_NAME_REGEXP.match(callname)
         if not match:
             msg = "invalid callable name '{0}' in direct call".format(callname)
             raise FyppFatalError(msg, self._curfile, span)
+        fortran_args = (paropen == '(')
         self._process_call(callname, span)
-        if callparams is not None:
-            callparams = _CONTLINE_REGEXP.sub('', callparams)
-            args = [arg.strip() for arg in callparams.split('@@')]
+        if fortran_args:
+            if callparams is None or callparams[-1] != ')':
+                msg = "missing ')' at the end of the direct call"
+                raise FyppFatalError(msg, self._curfile, span)
+            callparams = callparams[:-1]
+        if callparams is None:
+            args = [] if fortran_args else [' ']
         else:
-            args = []
+            callparams = _CONTLINE_REGEXP.sub('', callparams)
+            if fortran_args:
+                args = [arg.strip() for arg in _argsplit_fortran(callparams)]
+            else:
+                args = [arg.strip() for arg in callparams.split('@@')]
         if len(args):
             linenr = span[0]
             self._parse(args[0], linenr=linenr, linedirs=False)
@@ -1082,10 +1104,10 @@ class Builder:
         self._check_for_open_block(span, 'nextarg')
         block = self._open_blocks[-1]
         directive, _, spans = block[0:3]
-        self._check_if_matches_last(directive, 'call', spans[-1], span,
-                                    'endcall')
-        contents = block[5]
-        contents.append(self._curnode)
+        self._check_if_matches_last(
+            directive, 'call', spans[-1], span, 'nextarg')
+        args = block[5]
+        args.append(self._curnode)
         spans.append(span)
         self._curnode = []
 
@@ -1103,7 +1125,7 @@ class Builder:
         directive, fname, spans = block[0:3]
         self._check_if_matches_last(directive, 'call', spans[-1], span,
                                     'endcall')
-        callexpr, callname, contents = block[3:6]
+        callexpr, callname, args = block[3:6]
         if name is not None and callname is None:
             msg = 'name not allowed for this endcall directive'
             raise FyppFatalError(msg, fname, span)
@@ -1111,9 +1133,12 @@ class Builder:
             msg = "wrong name in endcall directive "\
                   "(expected '{0}', got '{1}')".format(callname, name)
             raise FyppFatalError(msg, fname, span)
-        contents.append(self._curnode)
+        args.append(self._curnode)
+        # If first and only argument is empty, make a call without any arguments
+        if len(args) == 1 and not len(args[0]):
+            args = []
         spans.append(span)
-        block = (directive, fname, spans, callexpr, contents)
+        block = (directive, fname, spans, callexpr, args)
         self._curnode = self._path.pop(-1)
         self._curnode.append(block)
 
@@ -1441,7 +1466,7 @@ class Renderer:
             self._evaluator.openscope()
             rendered = self.render(content)
             self._evaluator.closescope()
-            if len(rendered) and rendered[-1] == '\n':
+            if len(rendered) and (rendered[-1] == '\n' or rendered[-1] == ' '):
                 rendered = rendered[:-1]
             args.append(rendered)
         self._undivert()
@@ -1894,7 +1919,7 @@ class Evaluator:
             self._check_variable_name(varname)
             if varname in self._scope:
                 del self._scope[varname]
-            
+
 
     def updatescope(self, globalscope=False, **vardict):
         '''Update (or create) variables in the local or global scope.
@@ -1980,7 +2005,7 @@ class Evaluator:
             varexpr = varexpr[1:-1]
         varnames = [s.strip() for s in varexpr.split(',')]
         return varnames
-        
+
 
     @staticmethod
     def _check_variable_name(varname):
@@ -2722,6 +2747,48 @@ if sys.version_info[0] >= 3 and sys.version_info[1] >= 3:
     _get_args_and_defaults = _get_args_and_defaults_py3
 else:
     _get_args_and_defaults = _get_args_and_defaults_py2
+
+
+def _blank_match(match):
+    size = match.end() - match.start()
+    return " " * size
+
+def _argsplit_fortran(argtxt):
+    argtxt = _INLINE_DIR_REGION_REGEXP.sub(_blank_match, argtxt)
+    splitpos = []
+    closing_quote = ''
+    closing_braces = ''
+    for ind, char in enumerate(argtxt):
+        if char == closing_quote:
+            closing_quote = ''
+            continue
+        if closing_quote:
+            continue
+        if closing_braces and char == closing_braces[-1]:
+            closing_braces = closing_braces[:-1]
+            continue
+        if closing_braces:
+            continue
+        pos = _OPENING_QUOTES_FORTRAN.find(char)
+        if pos != -1:
+            closing_quote = _CLOSING_QUOTES_FORTRAN[pos]
+            continue
+        pos = _OPENING_BRACES_FORTRAN.find(char)
+        if pos != -1:
+            closing_braces += _CLOSING_BRACES_FORTRAN[pos]
+            continue
+        if char == _ARGUMENT_SPLIT_CHAR_FORTRAN:
+            splitpos.append(ind)
+
+    if splitpos:
+        fragments = [argtxt[0:splitpos[0]]]
+        for ind in range(len(splitpos) - 1):
+            fragments.append(argtxt[splitpos[ind] + 1 : splitpos[ind + 1]])
+        fragments.append(argtxt[splitpos[-1] + 1:])
+    else:
+        fragments = [argtxt]
+    return fragments
+
 
 
 def _formatted_exception(exc):
