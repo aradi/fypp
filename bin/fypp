@@ -4,7 +4,7 @@
 #
 # fypp -- Python powered Fortran preprocessor
 #
-# Copyright (c) 2016-2017, Bálint Aradi, Universität Bremen
+# Copyright (c) 2017, Bálint Aradi, Universität Bremen
 #
 # All rights reserved.
 #
@@ -110,9 +110,7 @@ _LINE_DIRECTIVES_PATTERN = r'''
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 |
 # direct call directive (with optional continuation lines)
-^[ \t]*@:[ \t]*(?P<callexpr>[^ \t\n\(]+)
-(?:(?P<dcparopen>[ \t]|\()
-(?P<callparams>[^ \t\n].*?(?:&[ \t]*\n[ \t]*&.*?)*)\)?)?[ \t]*\n
+^[ \t]*@:[ \t]*(?P<callexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 '''
 
 _INLINE_DIRECTIVES_PATTERN = r'''
@@ -129,6 +127,17 @@ _INLINE_DIRECTIVES_REGEXP = re.compile(
 _ALL_DIRECTIVES_REGEXP = re.compile(
     _LINE_DIRECTIVES_PATTERN + '|' + _INLINE_DIRECTIVES_PATTERN,
     re.VERBOSE | re.MULTILINE)
+
+_DIRECT_CALL_REGEXP = re.compile(r'''
+(?P<callname>\w+)
+(?P<callarg>
+  (?:[ \t]+(?P<freeparams>.+(?:&[ \t]*\n[ \t]*&.*?)*)?)
+|
+  (?:(?P<dcopen>\{)
+  (?P<enclosedparams>.+(?:&[ \t]*\n[ \t]*&.*?)*)?
+  (?P<dcclose>\}))
+)?$
+''', re.VERBOSE)
 
 _DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>\w+)\(\s*(?P<args>.+)?\s*\)$')
@@ -153,11 +162,13 @@ _COMMENTLINE_REGEXP = re.compile(r'^[ \t]*!.*$')
 
 _CONTLINE_REGEXP = re.compile(r'&[ \t]*\n(?:[ \t]*&)?')
 
-_UNESCAPE_REGEXP1 = re.compile(r'([$#])\\(\\*)([{:])')
+_UNESCAPE_TEXT_REGEXP1 = re.compile(r'([$#@])\\(\\*)([{:])')
 
-_UNESCAPE_REGEXP2 = re.compile(r'(\})\\(\\*)([$#])')
+_UNESCAPE_TEXT_REGEXP2 = re.compile(r'(\})\\(\\*)([$#@])')
 
-_UNESCAPE_REGEXP3 = re.compile(r'(@)\\(\\*)([:@])')
+_UNESCAPE_FREE_ARG_REGEXP = re.compile(r'(@)\\(\\*)(@)')
+
+_UNESCAPE_BLOCK_ARG_REGEXP = re.compile(r'(\})\\(\\*)(\{)')
 
 _INLINE_DIR_REGION_REGEXP = re.compile(r'(#|\$){.*?}\1')
 
@@ -169,16 +180,6 @@ _RESERVED_NAMES = ('defined', 'setvar', 'getvar', 'delvar', '_LINE_', '_FILE_',
 _LINENUM_NEW_FILE = 1
 
 _LINENUM_RETURN_TO_FILE = 2
-
-_OPENING_QUOTES_FORTRAN = '\'"'
-
-_CLOSING_QUOTES_FORTRAN = '\'"'
-
-_OPENING_BRACES_FORTRAN = '{(['
-
-_CLOSING_BRACES_FORTRAN = '})]'
-
-_ARGUMENT_SPLIT_CHAR_FORTRAN = ','
 
 
 class FyppError(Exception):
@@ -466,7 +467,7 @@ class Parser:
             name (str): Name of the callable (without any optional arguments)
                 which can be used in the corresponding endcall directive.
         '''
-        self._log_event('call', span, callexpr=callexpr)
+        self._log_event('call', span, callexpr=callexpr, name=name)
 
 
     def handle_nextarg(self, span):
@@ -610,14 +611,13 @@ class Parser:
                 self.handle_comment((linenr, endlinenr))
             elif linedirs and groups['callexpr'] is not None:
                 self._process_directcall(
-                    groups['callexpr'], groups['callparams'],
-                    groups['dcparopen'], (linenr, endlinenr))
+                    groups['callexpr'], (linenr, endlinenr))
             else:
                 msg = 'internal error: unknown matching pattern'
                 raise FyppFatalError(msg, self._curfile, (linenr, endlinenr))
             pos = end
             linenr = endlinenr
-        if pos < len(txt):
+        if pos <= len(txt):
             endlinenr = linenr + txt.count('\n', pos)
             self._process_text(txt[pos:], (linenr, endlinenr))
 
@@ -704,26 +704,32 @@ class Parser:
         self.handle_eval(span, expr)
 
 
-    def _process_directcall(self, callname, callparams, paropen, span):
-        match = _CALLABLE_NAME_REGEXP.match(callname)
+    def _process_directcall(self, callexpr, span):
+        match = _DIRECT_CALL_REGEXP.match(callexpr)
         if not match:
-            msg = "invalid callable name '{0}' in direct call".format(callname)
+            msg = "invalid direct call expression"
             raise FyppFatalError(msg, self._curfile, span)
-        fortran_args = (paropen == '(')
+        callname = match.group('callname')
         self._process_call(callname, span)
-        if fortran_args:
-            if callparams is None or callparams[-1] != ')':
-                msg = "missing ')' at the end of the direct call"
-                raise FyppFatalError(msg, self._curfile, span)
-            callparams = callparams[:-1]
+        if match.group('callarg') is None:
+            callparams = None
+            block_args = False
+        elif match.group('dcopen') is not None:
+            callparams = match.group('enclosedparams')
+            block_args = True
+        else:
+            callparams = match.group('freeparams')
+            block_args = False
         if callparams is None:
-            args = [] if fortran_args else [' ']
+            args = [] if block_args else ['']
         else:
             callparams = _CONTLINE_REGEXP.sub('', callparams)
-            if fortran_args:
-                args = [arg.strip() for arg in _argsplit_fortran(callparams)]
+            if block_args:
+                args = [_UNESCAPE_BLOCK_ARG_REGEXP.sub(r'\1\2\3', arg.strip())
+                        for arg in callparams.split('}{')]
             else:
-                args = [arg.strip() for arg in callparams.split('@@')]
+                args = [_UNESCAPE_FREE_ARG_REGEXP.sub(r'\1\2\3', arg.strip())
+                        for arg in callparams.split('@@')]
         if len(args):
             linenr = span[0]
             self._parse(args[0], linenr=linenr, linedirs=False)
@@ -855,9 +861,8 @@ class Parser:
 
     @staticmethod
     def _unescape(txt):
-        txt = _UNESCAPE_REGEXP1.sub(r'\1\2\3', txt)
-        txt = _UNESCAPE_REGEXP2.sub(r'\1\2\3', txt)
-        txt = _UNESCAPE_REGEXP3.sub(r'\1\2\3', txt)
+        txt = _UNESCAPE_TEXT_REGEXP1.sub(r'\1\2\3', txt)
+        txt = _UNESCAPE_TEXT_REGEXP2.sub(r'\1\2\3', txt)
         return txt
 
 
@@ -1462,13 +1467,24 @@ class Renderer:
             raise FyppFatalError(msg, fname, spans[0], exc)
         self._divert()
         args = []
-        for content in contents:
-            self._evaluator.openscope()
-            rendered = self.render(content)
-            self._evaluator.closescope()
-            if len(rendered) and (rendered[-1] == '\n' or rendered[-1] == ' '):
-                rendered = rendered[:-1]
-            args.append(rendered)
+        # if only one argument is provided which only consists of a text element
+        # containing whitespaces only: remove one whitespace. 
+        if len(contents) == 1:
+            content = contents[0]
+            if len(content) == 1:
+                tag = content[0]
+                if tag[0] == 'txt':
+                    txt = tag[3]
+                    if not len(txt.strip(' ')):
+                        args = [txt[:-1]]
+        if not args:
+            for content in contents:
+                self._evaluator.openscope()
+                rendered = self.render(content)
+                self._evaluator.closescope()
+                if rendered.endswith('\n'):
+                    rendered = rendered[:-1]
+                args.append(rendered)
         self._undivert()
         # Since callobj uses the evaluators scope, the globals must be updated
         # before calling it.
@@ -2747,48 +2763,6 @@ if sys.version_info[0] >= 3 and sys.version_info[1] >= 3:
     _get_args_and_defaults = _get_args_and_defaults_py3
 else:
     _get_args_and_defaults = _get_args_and_defaults_py2
-
-
-def _blank_match(match):
-    size = match.end() - match.start()
-    return " " * size
-
-def _argsplit_fortran(argtxt):
-    argtxt = _INLINE_DIR_REGION_REGEXP.sub(_blank_match, argtxt)
-    splitpos = []
-    closing_quote = ''
-    closing_braces = ''
-    for ind, char in enumerate(argtxt):
-        if char == closing_quote:
-            closing_quote = ''
-            continue
-        if closing_quote:
-            continue
-        if closing_braces and char == closing_braces[-1]:
-            closing_braces = closing_braces[:-1]
-            continue
-        if closing_braces:
-            continue
-        pos = _OPENING_QUOTES_FORTRAN.find(char)
-        if pos != -1:
-            closing_quote = _CLOSING_QUOTES_FORTRAN[pos]
-            continue
-        pos = _OPENING_BRACES_FORTRAN.find(char)
-        if pos != -1:
-            closing_braces += _CLOSING_BRACES_FORTRAN[pos]
-            continue
-        if char == _ARGUMENT_SPLIT_CHAR_FORTRAN:
-            splitpos.append(ind)
-
-    if splitpos:
-        fragments = [argtxt[0:splitpos[0]]]
-        for ind in range(len(splitpos) - 1):
-            fragments.append(argtxt[splitpos[ind] + 1 : splitpos[ind + 1]])
-        fragments.append(argtxt[splitpos[-1] + 1:])
-    else:
-        fragments = [argtxt]
-    return fragments
-
 
 
 def _formatted_exception(exc):
