@@ -188,12 +188,6 @@ SIMPLE_TESTS = [
       'FalseDone'
      )
     ),
-    ('exprsub',
-     ([_defvar('TESTVAR', 0)],
-      '<${TESTVAR}$ x ${ 2 - 3 }$>',
-      '<0 x -1>'
-     )
-    ),
     ('linesub_eol',
      ([_defvar('TESTVAR', 1)],
       'A\n$: TESTVAR + 1\nB\n',
@@ -346,6 +340,13 @@ SIMPLE_TESTS = [
       'A=1,B=2\n'
       )
     ),
+    ('optarg_macro_direct_call_all_args_inline',
+     ([],
+      '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '@{mymacro(1, 2)}@',
+      'A=1,B=2'
+      )
+    ),
     ('optarg_macro_direct_call_missing_args',
      ([],
       '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
@@ -353,10 +354,17 @@ SIMPLE_TESTS = [
       'A=1,B=2\n'
       )
     ),
+    ('optarg_macro_direct_call_missing_args_inline',
+     ([],
+      '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '|@{mymacro(1)}@|',
+      '|A=1,B=2|'
+      )
+    ),
     ('optarg_macro_tuple_as_default',
      ([],
       '#:def macro(X, Y=2, Z=(1,2==3))\nX=${X}$,Y=${Y}$,Z=${Z[0]}$,${Z[1]}$\n'\
-      '#:enddef\n@:macro 1\n',
+      '#:enddef\n@:macro(1)\n',
       'X=1,Y=2,Z=1,False\n'
       )
     ),
@@ -493,11 +501,25 @@ SIMPLE_TESTS = [
       '|a < b|\n',
      )
     ),
+    ('direct_call_inline',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '@{mymacro(a < b)}@',
+      '|a < b|',
+     )
+    ),
     ('direct_call2',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '@:mymacro(a < b )\n',
       '|a < b|\n',
+     )
+    ),
+    ('direct_call2_inline',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '@{mymacro(a < b )}@',
+      '|a < b|',
      )
     ),
     ('direct_call3',
@@ -507,11 +529,25 @@ SIMPLE_TESTS = [
       '|a < b|\n',
      )
     ),
+    ('direct_call3_inline',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '@{mymacro( a < b)}@',
+      '|a < b|',
+     )
+    ),
     ('direct_call4',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '@:mymacro(a < b)\n',
       '|a < b|\n',
+     )
+    ),
+    ('direct_call4_inline',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '@{mymacro(a < b)}@',
+      '|a < b|',
      )
     ),
     ('direct_call_contline_old',
@@ -542,6 +578,13 @@ SIMPLE_TESTS = [
       '|"""L1"""|\n',
      )
     ),
+    ('direct_call_quotation_inline',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '@{mymacro( """L1""" )}@',
+      '|"""L1"""|',
+     )
+    ),
     ('direct_call_backslash_escape1_old',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
@@ -554,6 +597,13 @@ SIMPLE_TESTS = [
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '@:mymacro(L1\\n)\n',
       '|L1\\n|\n',
+     )
+    ),
+    ('direct_call_backslash_escape1_inline',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '@{mymacro(L1\\n)}@',
+      '|L1\\n|',
      )
     ),
     ('direct_call_backslash_escape2_old',
@@ -570,6 +620,13 @@ SIMPLE_TESTS = [
       '|L1\\"a\\"\\n|\n',
      )
     ),
+    ('direct_call_backslash_escape2_inline',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '@{mymacro(L1\\"a\\"\\n)}@',
+      '|L1\\"a\\"\\n|',
+     )
+    ),
     ('direct_call_2_args_old',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
@@ -582,6 +639,13 @@ SIMPLE_TESTS = [
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@:mymacro("""L1""", L2)\n',
       '|"""L1"""|L2|\n',
+     )
+    ),
+    ('direct_call_2_args_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro("""L1""", L2)}@',
+      '|"""L1"""|L2|',
      )
     ),
     ('direct_call_2_args_escape_old',
@@ -598,11 +662,25 @@ SIMPLE_TESTS = [
       '|"""L1"""","L2|L3|\n',
      )
     ),
+    ('direct_call_2_args_escape1_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro("""L1"""","L2, L3)}@',
+      '|"""L1"""","L2|L3|',
+     )
+    ),
     ('direct_call_2_args_escape2',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@:mymacro((L1, L2), L3)\n',
       '|(L1, L2)|L3|\n',
+     )
+    ),
+    ('direct_call_2_args_escape2_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro((L1, L2), L3)}@',
+      '|(L1, L2)|L3|',
      )
     ),
     ('direct_call_2_args_escape3',
@@ -612,32 +690,67 @@ SIMPLE_TESTS = [
       '|{L1, L2}|L3|\n',
      )
     ),
-    ('direct_call_2_args_escape3',
+    ('direct_call_2_args_escape3_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro({L1, L2}, L3)}@',
+      '|{L1, L2}|L3|',
+     )
+    ),
+    ('direct_call_2_args_escape4',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@:mymacro([L1, L2], L3)\n',
       '|[L1, L2]|L3|\n',
      )
     ),
-    ('direct_call_2_args_escape4',
+    ('direct_call_2_args_escape4_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro([L1, L2], L3)}@',
+      '|[L1, L2]|L3|',
+     )
+    ),
+    ('direct_call_2_args_escape5',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@:mymacro("L1, L2", L3)\n',
       '|"L1, L2"|L3|\n',
      )
     ),
-    ('direct_call_2_args_escape5',
+    ('direct_call_2_args_escape5_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro("L1, L2", L3)}@',
+      '|"L1, L2"|L3|',
+     )
+    ),
+    ('direct_call_2_args_escape6',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@:mymacro(\'L1, L2\', L3)\n',
       '|\'L1, L2\'|L3|\n',
      )
     ),
-    ('direct_call_2_args_escape6',
+    ('direct_call_2_args_escape6_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro(\'L1, L2\', L3)}@',
+      '|\'L1, L2\'|L3|',
+     )
+    ),
+    ('direct_call_2_args_escape7',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@:mymacro(L1 ${2, 2}$, L3)\n',
       '|L1 (2, 2)|L3|\n',
+     )
+    ),
+    ('direct_call_2_args_escape7_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro(L1 ${2, 2}$, L3)}@',
+      '|L1 (2, 2)|L3|',
      )
     ),
     ('direct_call_control_noparse',
@@ -645,6 +758,13 @@ SIMPLE_TESTS = [
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@:mymacro(L1 #{if True}#2, 2#{endif}#)\n',
       '|L1 #{if True}#2|2#{endif}#|\n',
+     )
+    ),
+    ('direct_call_control_noparse_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro(L1 #{if True}#2, 2#{endif}#)}@',
+      '|L1 #{if True}#2|2#{endif}#|',
      )
     ),
     ('direct_call_varsubs_old',
@@ -661,6 +781,13 @@ SIMPLE_TESTS = [
       '|2x2=4|\n',
      )
     ),
+    ('direct_call_varsubs_inline',
+     ([],
+      '#:def mymacro(val1)\n|${val1}$|\n#:enddef\n'\
+      '@{mymacro(2x2=${2*2}$)}@',
+      '|2x2=4|',
+     )
+    ),
     ('direct_call_varsubs_2_args_old',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
@@ -673,6 +800,13 @@ SIMPLE_TESTS = [
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@:mymacro(${2*1}$, ${2*2}$)\n',
       '|2|4|\n',
+     )
+    ),
+    ('direct_call_varsubs_2_args_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro(${2*1}$, ${2*2}$)}@',
+      '|2|4|',
      )
     ),
     ('direct_call_varsubs_2_args_escape_old',
@@ -689,6 +823,13 @@ SIMPLE_TESTS = [
       '|(2, 4)|6|\n',
      )
     ),
+    ('direct_call_varsubs_2_args_escape_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro((${2*1}$, ${2*2}$), ${2*3}$)}@',
+      '|(2, 4)|6|',
+     )
+    ),
     ('direct_call_no_param_old',
      ([],
       '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n@:mymacro\n',
@@ -702,11 +843,25 @@ SIMPLE_TESTS = [
       '||\n'
      )
     ),
+    ('direct_call_no_param_inline',
+     ([],
+      '#:def mymacro()\n||\n#:enddef mymacro\n'\
+      '@{mymacro()}@',
+      '||'
+     )
+    ),
     ('direct_call_no_param2',
      ([],
       '#:def mymacro()\n||\n#:enddef mymacro\n'\
       '@:mymacro( )\n',
       '||\n'
+     )
+    ),
+    ('direct_call_no_param2_inline',
+     ([],
+      '#:def mymacro()\n||\n#:enddef mymacro\n'\
+      '@{mymacro( )}@',
+      '||'
      )
     ),
     ('call_empty_param_inline',
@@ -924,6 +1079,12 @@ SIMPLE_TESTS = [
      ([],
       '@\\:assertTrue(x > y)\n',
       '@:assertTrue(x > y)\n'
+     )
+    ),
+    ('escape_direct_call_inline',
+     ([],
+      '@\\{assertTrue(x > y)}@',
+      '@{assertTrue(x > y)}@'
      )
     ),
     ('fold_lines',
@@ -1559,7 +1720,7 @@ INCLUDE_TESTS = [
        + _linenum(1, flag=_RETURN_TO_FILE))
      )
     ),
-    ('nested_include_in_folder_of_incfile',
+    ('nested_include_in_folder_of_incfile2',
      ([_LINENUM_FLAG, _incdir('include')],
       '#:include "subfolder/include_fypp2.inc"\n',
       (_linenum(0, flag=_NEW_FILE)
@@ -1709,10 +1870,22 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
+    ('invalid_direct_call_expr_inline',
+     ([],
+      '#:def macro()\n#:enddef\n@{macro{}}@\n',
+      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
+     )
+    ),
     ('invalid_direct_call_expr2',
      ([],
       '#:def macro()\n#:enddef\n@:macro(\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+     )
+    ),
+    ('invalid_direct_call_expr2_inline',
+     ([],
+      '#:def macro()\n#:enddef\n@{macro(}@\n',
+      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
      )
     ),
     #
@@ -2336,10 +2509,15 @@ class _TestContainer(unittest.TestCase):
             methodfactory (function): Functions which turns the tuples in
                 tests into methods, which can be then attached to the test case.
         '''
+        already_added = set()
         for itest, test in enumerate(tests):
             name = test[0]
+            if name in already_added:
+                msg = "multiple occurance of test name '{0}'".format(name)
+                raise ValueError(msg)
+            already_added.add(name)
             testargs = test[1]
-            methodname = 'test{0}_{1}'.format(itest + 1, name)
+            methodname = 'test_' + name
             if len(test) < 3:
                 addtest = True
             else:

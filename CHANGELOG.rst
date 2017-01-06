@@ -11,6 +11,8 @@ Added
 
 * Direct call format resembling ordinary function call.
 
+* Inline direct call directive.
+
 * Equal sign as separator in set directive for better readability.
 
 * Allow names in enddef and endcall directives.
@@ -50,7 +52,7 @@ Changed
   Fypp do not accept the optional argument env any more. Method updateenv() of
   Evaluator has been renamed to updatescope() for more consistency.
 
-* Marking setvar directive and old style direct call as deprecated in the
+* Marked setvar directive and old style direct call as deprecated in the
   documentation.
 
 

@@ -110,7 +110,7 @@ _LINE_DIRECTIVES_PATTERN = r'''
 ^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 |
 # direct call directive (with optional continuation lines)
-^[ \t]*@:[ \t]*(?P<callexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
+^[ \t]*@:[ \t]*(?P<lcallexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
 '''
 
 _INLINE_EVAL_PATTERN = r'''
@@ -118,16 +118,19 @@ _INLINE_EVAL_PATTERN = r'''
 \$\{[ \t]*(?P<iexpr>.*?)[ \t]*\}\$
 '''
 
-_INLINE_CONTROL_PATTERN = r'''
+_INLINE_NON_EVAL_PATTERN = r'''
 # inline control directive
 \#\{[ \t]*(?P<idirective>[^ \t\n]+?)(?:[ \t]+(?P<param>[^ \t\n].*?))?[ \t]*\}\#
+|
+# inline direct call directive
+@\{[ \t]*(?P<icallexpr>.*?)[ \t]*\}@
 '''
 
 _INLINE_EVAL_REGEXP = re.compile(
     _INLINE_EVAL_PATTERN, re.VERBOSE | re.MULTILINE)
 
 _ALL_DIRECTIVES_PATTERN = (_LINE_DIRECTIVES_PATTERN + '|' + _INLINE_EVAL_PATTERN
-                           + '|' + _INLINE_CONTROL_PATTERN)
+                           + '|' + _INLINE_NON_EVAL_PATTERN)
 
 _ALL_DIRECTIVES_REGEXP = re.compile(
     _ALL_DIRECTIVES_PATTERN, re.VERBOSE | re.MULTILINE)
@@ -171,8 +174,6 @@ _UNESCAPE_TEXT_REGEXP1 = re.compile(r'([$#@])\\(\\*)([{:])')
 _UNESCAPE_TEXT_REGEXP2 = re.compile(r'(\})\\(\\*)([$#@])')
 
 _UNESCAPE_FREE_ARG_REGEXP = re.compile(r'(@)\\(\\*)(@)')
-
-_UNESCAPE_BLOCK_ARG_REGEXP = re.compile(r'(\})\\(\\*)(\{)')
 
 _INLINE_EVAL_REGION_REGEXP = re.compile(r'\${.*?}\$')
 
@@ -620,6 +621,12 @@ class Parser:
                 if groups['lexpr'] is not None:
                     self._process_lexpreval(
                         groups['lexpr'], (linenr, endlinenr))
+                elif groups['lcallexpr'] is not None:
+                    self._process_directcall(
+                        groups['lcallexpr'], (linenr, endlinenr))
+                elif groups['icallexpr'] is not None:
+                    self._process_directcall(
+                        groups['icallexpr'], (linenr, endlinenr))
                 elif groups['ldirective'] is not None:
                     self._process_directive(
                         groups['ldirective'], groups['lparam'],
@@ -630,9 +637,6 @@ class Parser:
                         (linenr, endlinenr))
                 elif groups['comment'] is not None:
                     self.handle_comment((linenr, endlinenr))
-                elif groups['callexpr'] is not None:
-                    self._process_directcall(
-                        groups['callexpr'], (linenr, endlinenr))
             pos = end
             linenr = endlinenr
         if pos < len(txt):

@@ -318,10 +318,15 @@ an inline form:
 
       print *, "Compilation date: ${time.strftime('%Y-%m-%d')}$"
 
-* Direct call directive, only available as line form, starting with ``@:`` (at
-  colon)::
+* Direct call directive
 
-    @:mymacro(a < b)
+  * Line form, starting with ``@:`` (at colon)::
+
+      @:mymacro(a < b)
+
+  * Inline form, enclosed between ``@{`` and ``}@``::
+
+      print *, @{mymacro(a < b)}@
 
 The line form must always start at the beginning of a line (preceded by optional
 whitespace characters only) and it ends at the end of the line. The inline form
@@ -372,9 +377,8 @@ Preprocessor directives can be arbitrarily nested::
 
 Every open directive must be closed before the end of the file is reached.
 
-In all control directives and in the direct call directive, the whitespace
-separating the name of the directive or the name of the callable from the
-following parameters is obligatory. Therefore, the following example is
+In all control directives, the whitespace separating the name of the directive
+from the following parameter is obligatory. Therefore, the following example is
 syntactically incorrect::
 
   #! Incorrect due to missing whitespace after 'if'
@@ -943,6 +947,9 @@ to code being hard to read, it should be usually avoided::
   ! This form is more readable
   print *, ${choose_code('a(:)', 'size(a)')}$
 
+  ! Alternatively, you can use the direct call (next section)
+  print *, @{choose_code(a(:), size(a))}@
+
 If the arguments are short, the more compact direct call directive can be also
 used as an alternative (see next section).
 
@@ -1024,8 +1031,8 @@ directive::
 
 The direct call directive starts with ``@:`` followed by the name of a Python
 callable and an opening paranthesis (``(``). Everything after that up to the
-closing paranthesis (``)``) is treated as argument to the callable. The closing
-paranthesis may only be followed by whitespace characters.
+closing paranthesis (``)``) is treated as string argument for the callable. The
+closing paranthesis may only be followed by whitespace characters.
 
 When the callable needs more than one argument, the arguments must be separated
 by a comma (``,``)::
@@ -1044,15 +1051,16 @@ The direct call directive can contain continuation lines::
   @:assertEqual(size(coords, dim=2), &
       & size(types))
 
-The arguments are parsed for further inline eval directives (but not for control
-directives), making variable substitutions in the arguments possible::
+The arguments are parsed for further inline eval directives (but not for any
+inline control or direct call directives), making variable substitutions in the
+arguments possible::
 
   #:set MYSIZE = 2
   @:assertEqual(size(coords, dim=2), ${MYSIZE}$)
 
 .. note:: In order to be able to split the arguments of a direct call correctly,
           Fypp assumes that all provided arguments represent expressions with
-          balanced brackets and quotations. The inline directives are not
+          balanced brackets and quotations. The inline eval directives are not
           considered when splitting the arguments, and are evaluated only at a
           later stage.
 
@@ -1074,6 +1082,11 @@ of the last section could be realized as follows::
 
   @:lower("THIS WILL BE CONVERTED TO LOWERCASE")
   @:upper("this will be converted to uppercase")
+
+The direct call directive can also be used in its inline form::
+
+  #! Using choose_code() macro defined in previous section
+  print *, @{choose_code(a(:), size(a))}@
 
 For backwards compatibility reasons, direct calls without enclosing parantheses
 and ``@@`` as argument seperator are also accepted by Fypp. Their usage is not
