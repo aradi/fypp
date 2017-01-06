@@ -60,7 +60,7 @@ more in detail in the individual sections further down.
     #:enddef assertTrue
 
     ! Invoked via direct call (needs no quotation)
-    @:assertTrue size(myArray) > 0
+    @:assertTrue(size(myArray) > 0)
 
     ! Invoked as Python expression (needs quotation)
     $:assertTrue('size(myArray) > 0')
@@ -318,10 +318,15 @@ an inline form:
 
       print *, "Compilation date: ${time.strftime('%Y-%m-%d')}$"
 
-* Direct call directive, only available as line form, starting with ``@:`` (at
-  colon)::
+* Direct call directive
 
-    @:mymacro a < b
+  * Line form, starting with ``@:`` (at colon)::
+
+      @:mymacro(a < b)
+
+  * Inline form, enclosed between ``@{`` and ``}@``::
+
+      print *, @{mymacro(a < b)}@
 
 The line form must always start at the beginning of a line (preceded by optional
 whitespace characters only) and it ends at the end of the line. The inline form
@@ -372,9 +377,8 @@ Preprocessor directives can be arbitrarily nested::
 
 Every open directive must be closed before the end of the file is reached.
 
-In all control directives and in the direct call directive, the whitespace
-separating the name of the directive or the name of the callable from the
-following parameters is obligatory. Therefore, the following example is
+In all control directives, the whitespace separating the name of the directive
+from the following parameter is obligatory. Therefore, the following example is
 syntactically incorrect::
 
   #! Incorrect due to missing whitespace after 'if'
@@ -474,8 +478,8 @@ initialization files are executed, as once all initialization files have been
 processed, module imports are not possible any more.
 
 
-Predefined variables and functions
-==================================
+Predefined entities
+===================
 
 Variables
 ---------
@@ -616,7 +620,7 @@ Similar to the line form, the separating equal sign is optional here as well.
 For backwards compatibility reason, also a `setvar` directive is recognized by
 Fypp. It has identical syntax and functionality to the `set` directive, but the
 equal sign between variable and value must be omitted. Its usage is not
-recommended, as it may become obsolated in the future.
+recommended, though, as this feature may be removed from Fypp in the future.
 
 
 `del` directive
@@ -646,10 +650,10 @@ The `del` directive can also be used to delete macro defintions::
   #:def echo(TXT)
   ${TXT}$
   #:enddef
-  @:echo HELLO
+  @:echo(HELLO)
   #:del echo
   #! Following line throws an error as macro echo is not available any more
-  @:echo HELLO
+  @:echo(HELLO)
 
 The `del` directive can be also used in the inline form::
 
@@ -794,7 +798,7 @@ the following three calls ::
   x > y
   #:endcall assertTrue
 
-  @:assertTrue x > y
+  @:assertTrue(x > y)
 
 would all yield ::
 
@@ -943,13 +947,16 @@ to code being hard to read, it should be usually avoided::
   ! This form is more readable
   print *, ${choose_code('a(:)', 'size(a)')}$
 
+  ! Alternatively, you can use the direct call (next section)
+  print *, @{choose_code(a(:), size(a))}@
+
 If the arguments are short, the more compact direct call directive can be also
-used as an alternative to the line form (see next section).
+used as an alternative (see next section).
 
 The callables are not restricted to macros only, but can be arbitrary Python
 expressions, which are either directly callables or after evaluation yield a
 callable. Using the `lambda` construct of Python, such callables can be easily
-generated during preprocessing. The following example shows how to create a
+generated also during preprocessing. The following example shows how to create a
 callable, which converts its argument to lower case::
 
   #:call lambda s: s.lower()
@@ -1020,13 +1027,15 @@ directive::
   #:endif
   #:enddef assertTrue
 
-  @:assertTrue size(aa) >= size(bb)
+  @:assertTrue(size(aa) >= size(bb))
 
 The direct call directive starts with ``@:`` followed by the name of a Python
-callable. Everything between the callable name and the end of the line is
-treated as argument to the callable. (Similar to the `call` directive, the
-callable must have at least one argument.) When the callable needs more than one
-argument, the arguments must be separated by the character sequence ``@@``::
+callable and an opening paranthesis (``(``). Everything after that up to the
+closing paranthesis (``)``) is treated as string argument for the callable. The
+closing paranthesis may only be followed by whitespace characters.
+
+When the callable needs more than one argument, the arguments must be separated
+by a comma (``,``)::
 
   #:def assertEqual(lhs, rhs)
   if (${lhs}$ /= ${rhs}$) then
@@ -1035,18 +1044,32 @@ argument, the arguments must be separated by the character sequence ``@@``::
   end if
   #:enddef assertEqual
 
-  @:assertEqual size(coords, dim=2) @@ size(types)
+  @:assertEqual(size(coords, dim=2), size(types))
 
 The direct call directive can contain continuation lines::
 
-  @:assertEqual size(coords, dim=2) &
-      & @@ size(types)
+  @:assertEqual(size(coords, dim=2), &
+      & size(types))
 
-The arguments are parsed for further directives, so the inline form of the
-eval and control directives can be used::
+The arguments are parsed for further inline eval directives (but not for any
+inline control or direct call directives), making variable substitutions in the
+arguments possible::
 
   #:set MYSIZE = 2
-  @:assertEqual size(coords, dim=2) @@ ${MYSIZE}$
+  @:assertEqual(size(coords, dim=2), ${MYSIZE}$)
+
+.. note:: In order to be able to split the arguments of a direct call correctly,
+          Fypp assumes that all provided arguments represent expressions with
+          balanced brackets and quotations. The inline eval directives are not
+          considered when splitting the arguments, and are evaluated only at a
+          later stage.
+
+The whitespaces around the arguments of the direct call are stripped before
+parsed. In contrast to the ``call`` directive, the direct call can be also used
+for callables without any arguments::
+
+  #! Passes no arguments
+  @:macro_without_args()
 
 The direct call directive needs the name of an existing callable and does not
 allow for on the fly callable-generation. However, it is possible to store the
@@ -1057,9 +1080,17 @@ of the last section could be realized as follows::
   #:set lower = CaseConverter('l')
   #:set upper = CaseConverter('u')
 
-  @:lower THIS WILL BE CONVERTED TO LOWERCASE
-  @:upper this will be converted to uppercase
-  
+  @:lower("THIS WILL BE CONVERTED TO LOWERCASE")
+  @:upper("this will be converted to uppercase")
+
+The direct call directive can also be used in its inline form::
+
+  #! Using choose_code() macro defined in previous section
+  print *, @{choose_code(a(:), size(a))}@
+
+For backwards compatibility reasons, direct calls without enclosing parantheses
+and ``@@`` as argument seperator are also accepted by Fypp. Their usage is not
+recommended, though, as this feature may be removed from Fypp in the future.
   
 
 `include` directive
@@ -1518,8 +1549,8 @@ after including ``checks.fypp``::
       integer, intent(in) :: ind
       character, intent(in) :: uplo
   
-      @:ensure ind > 0
-      @:ensure uplo == 'U' .or. uplo == 'L'
+      @:ensure(ind > 0)
+      @:ensure(uplo == 'U' .or. uplo == 'L')
   
       ! Do something useful here
       ! :
