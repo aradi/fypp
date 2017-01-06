@@ -57,6 +57,9 @@ Changed
 * Marked setvar directive and old style direct call as deprecated in the
   documentation.
 
+* Removed builtins callable() and memoryview() from restricted environment as they
+  are not available in all supported Python versions.
+
 
 Fixed
 -----

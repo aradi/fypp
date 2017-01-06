@@ -2019,17 +2019,10 @@ class Evaluator:
     @classmethod
     def _get_restricted_builtins(cls):
         bidict = cls._RESTRICTED_BUILTINS
-        major, minor = sys.version_info[0:2]
+        major = sys.version_info[0]
         if major == 2:
             bidict['True'] = True
             bidict['False'] = False
-            bidict['callable'] = builtins.callable
-            if minor >= 7:
-                bidict['memoryview'] = builtins.memoryview
-        elif major == 3:
-            bidict['memoryview'] = builtins.memoryview
-            if minor >= 2:
-                bidict['callable'] = builtins.callable
         return bidict
 
 
