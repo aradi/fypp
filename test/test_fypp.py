@@ -342,14 +342,14 @@ SIMPLE_TESTS = [
     ('optarg_macro_direct_call_all_args',
      ([],
       '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
-      '@:mymacro{ 1 }{ 2 }\n',
+      '@:mymacro(1, 2)\n',
       'A=1,B=2\n'
       )
     ),
     ('optarg_macro_direct_call_missing_args',
      ([],
       '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
-      '@:mymacro{ 1 }\n',
+      '@:mymacro(1)\n',
       'A=1,B=2\n'
       )
     ),
@@ -489,28 +489,28 @@ SIMPLE_TESTS = [
     ('direct_call',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro{ a < b }\n',
+      '@:mymacro(a < b)\n',
       '|a < b|\n',
      )
     ),
     ('direct_call2',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro{a < b }\n',
+      '@:mymacro(a < b )\n',
       '|a < b|\n',
      )
     ),
     ('direct_call3',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro{ a < b}\n',
+      '@:mymacro( a < b)\n',
       '|a < b|\n',
      )
     ),
     ('direct_call4',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro{a < b}\n',
+      '@:mymacro(a < b)\n',
       '|a < b|\n',
      )
     ),
@@ -524,7 +524,7 @@ SIMPLE_TESTS = [
     ('direct_call_contline',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro{ a &\n    &< b&\n    &}\n',
+      '@:mymacro(a &\n    &< b&\n    &)\n',
       '|a < b|\n',
      )
     ),
@@ -538,7 +538,7 @@ SIMPLE_TESTS = [
     ('direct_call_quotation',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro{ """L1""" }\n',
+      '@:mymacro( """L1""" )\n',
       '|"""L1"""|\n',
      )
     ),
@@ -552,7 +552,7 @@ SIMPLE_TESTS = [
     ('direct_call_backslash_escape1',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro{L1\\n}\n',
+      '@:mymacro(L1\\n)\n',
       '|L1\\n|\n',
      )
     ),
@@ -566,7 +566,7 @@ SIMPLE_TESTS = [
     ('direct_call_backslash_escape2',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro{L1\\"a\\"\\n}\n',
+      '@:mymacro(L1\\"a\\"\\n)\n',
       '|L1\\"a\\"\\n|\n',
      )
     ),
@@ -580,7 +580,7 @@ SIMPLE_TESTS = [
     ('direct_call_2_args',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-      '@:mymacro{ """L1""" }{ L2 }\n',
+      '@:mymacro("""L1""", L2)\n',
       '|"""L1"""|L2|\n',
      )
     ),
@@ -591,11 +591,60 @@ SIMPLE_TESTS = [
       '|"""L1""" @@ L2|L3|\n',
      )
     ),
-    ('direct_call_2_args_escape',
+    ('direct_call_2_args_escape1',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-      '@:mymacro{"""L1""" }\\{ L2 }{ L3 }\n',
-      '|"""L1""" }{ L2|L3|\n',
+      '@:mymacro("""L1"""","L2, L3)\n',
+      '|"""L1"""","L2|L3|\n',
+     )
+    ),
+    ('direct_call_2_args_escape2',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@:mymacro((L1, L2), L3)\n',
+      '|(L1, L2)|L3|\n',
+     )
+    ),
+    ('direct_call_2_args_escape3',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@:mymacro({L1, L2}, L3)\n',
+      '|{L1, L2}|L3|\n',
+     )
+    ),
+    ('direct_call_2_args_escape3',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@:mymacro([L1, L2], L3)\n',
+      '|[L1, L2]|L3|\n',
+     )
+    ),
+    ('direct_call_2_args_escape4',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@:mymacro("L1, L2", L3)\n',
+      '|"L1, L2"|L3|\n',
+     )
+    ),
+    ('direct_call_2_args_escape5',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@:mymacro(\'L1, L2\', L3)\n',
+      '|\'L1, L2\'|L3|\n',
+     )
+    ),
+    ('direct_call_2_args_escape6',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@:mymacro(L1 ${2, 2}$, L3)\n',
+      '|L1 (2, 2)|L3|\n',
+     )
+    ),
+    ('direct_call_control_noparse',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@:mymacro(L1 #{if True}#2, 2#{endif}#)\n',
+      '|L1 #{if True}#2|2#{endif}#|\n',
      )
     ),
     ('direct_call_varsubs_old',
@@ -608,21 +657,7 @@ SIMPLE_TESTS = [
     ('direct_call_varsubs',
      ([],
       '#:def mymacro(val1)\n|${val1}$|\n#:enddef\n'\
-      '@:mymacro{2x2=${2*2}$}\n',
-      '|2x2=4|\n',
-     )
-    ),
-    ('direct_call_if_old',
-     ([],
-      '#:def mymacro(val1)\n|${val1}$|\n#:enddef\n'\
-      '@:mymacro 2x2=#{if False}#${2*1}$#{else}#${2*2}$#{endif}#\n',
-      '|2x2=4|\n',
-     )
-    ),
-    ('direct_call_if',
-     ([],
-      '#:def mymacro(val1)\n|${val1}$|\n#:enddef\n'\
-      '@:mymacro{2x2=#{if False}#${2*1}$#{else}#${2*2}$#{endif}#}\n',
+      '@:mymacro(2x2=${2*2}$)\n',
       '|2x2=4|\n',
      )
     ),
@@ -636,7 +671,7 @@ SIMPLE_TESTS = [
     ('direct_call_varsubs_2_args',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-      '@:mymacro{${2*1}$}{${2*2}$}\n',
+      '@:mymacro(${2*1}$, ${2*2}$)\n',
       '|2|4|\n',
      )
     ),
@@ -650,8 +685,8 @@ SIMPLE_TESTS = [
     ('direct_call_varsubs_2_args_escape',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-      '@:mymacro{${2*1}$ }\\{ ${2*2}$ }{ ${2*3}$}\n',
-      '|2 }{ 4|6|\n',
+      '@:mymacro((${2*1}$, ${2*2}$), ${2*3}$)\n',
+      '|(2, 4)|6|\n',
      )
     ),
     ('direct_call_no_param_old',
@@ -663,34 +698,21 @@ SIMPLE_TESTS = [
     ('direct_call_no_param',
      ([],
       '#:def mymacro()\n||\n#:enddef mymacro\n'\
-      '@:mymacro{}\n',
+      '@:mymacro()\n',
       '||\n'
      )
     ),
-    ('call_no_param_inline',
+    ('direct_call_no_param2',
      ([],
       '#:def mymacro()\n||\n#:enddef mymacro\n'\
-      '#{call mymacro}##{endcall}#\n',
-      '||\n'
-     )
-    ),
-    ('call_no_param',
-     ([],
-      '#:def mymacro()\n||\n#:enddef mymacro\n'\
-      '#:call mymacro\n#:endcall\n',
-      '||\n'
-     )
-    ),
-    ('direct_call_empty_param',
-     ([],
-      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n@:mymacro{ }\n',
+      '@:mymacro( )\n',
       '||\n'
      )
     ),
     ('call_empty_param_inline',
      ([],
       '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
-      '#{call mymacro}# #{endcall}#\n',
+      '#{call mymacro}##{endcall}#\n',
       '||\n'
      )
     ),
@@ -900,8 +922,8 @@ SIMPLE_TESTS = [
     ),
     ('escape_direct_call',
      ([],
-      '@\\:assertTrue{x > y}\n',
-      '@:assertTrue{x > y}\n'
+      '@\\:assertTrue(x > y)\n',
+      '@:assertTrue(x > y)\n'
      )
     ),
     ('fold_lines',
@@ -1444,14 +1466,14 @@ LINENUM_TESTS = [
     ('direct_call',
      ([_LINENUM_FLAG],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro{ a < b }\n',
+      '@:mymacro( a < b )\n',
       _linenum(0, flag=_NEW_FILE) + _linenum(3) + '|a < b|\n',
      )
     ),
     ('direct_call_contline',
      ([_LINENUM_FLAG],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro{a &\n    &< b&\n    &}\nDone\n',
+      '@:mymacro(a &\n    &< b&\n    &)\nDone\n',
       _linenum(0, flag=_NEW_FILE) + _linenum(3) + '|a < b|\n' + _linenum(6)
       + 'Done\n',
      )
@@ -1683,13 +1705,13 @@ EXCEPTION_TESTS = [
     ),
     ('invalid_direct_call_expr',
      ([],
-      '#:def macro()\n#:enddef\n@:macro()\n',
+      '#:def macro()\n#:enddef\n@:macro{}\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),
     ('invalid_direct_call_expr2',
      ([],
-      '#:def macro()\n#:enddef\n@:macro{\n',
+      '#:def macro()\n#:enddef\n@:macro(\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
      )
     ),

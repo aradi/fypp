@@ -60,7 +60,7 @@ more in detail in the individual sections further down.
     #:enddef assertTrue
 
     ! Invoked via direct call (needs no quotation)
-    @:assertTrue{ size(myArray) > 0 }
+    @:assertTrue(size(myArray) > 0)
 
     ! Invoked as Python expression (needs quotation)
     $:assertTrue('size(myArray) > 0')
@@ -321,7 +321,7 @@ an inline form:
 * Direct call directive, only available as line form, starting with ``@:`` (at
   colon)::
 
-    @:mymacro a < b
+    @:mymacro(a < b)
 
 The line form must always start at the beginning of a line (preceded by optional
 whitespace characters only) and it ends at the end of the line. The inline form
@@ -613,11 +613,10 @@ The `set` directive can be also used in the inline form::
 
 Similar to the line form, the separating equal sign is optional here as well.
   
-.. note:: For backwards compatibility reason, also a `setvar` directive is
-          recognized by Fypp. It has identical syntax and functionality to the
-          `set` directive, but the equal sign between variable and value must be
-          omitted. Its usage is not recommended, as it may become obsolate in
-          the future.
+For backwards compatibility reason, also a `setvar` directive is recognized by
+Fypp. It has identical syntax and functionality to the `set` directive, but the
+equal sign between variable and value must be omitted. Its usage is not
+recommended, though, as this feature may be removed from Fypp in the future.
 
 
 `del` directive
@@ -647,10 +646,10 @@ The `del` directive can also be used to delete macro defintions::
   #:def echo(TXT)
   ${TXT}$
   #:enddef
-  @:echo{ HELLO }
+  @:echo(HELLO)
   #:del echo
   #! Following line throws an error as macro echo is not available any more
-  @:echo{ HELLO }
+  @:echo(HELLO)
 
 The `del` directive can be also used in the inline form::
 
@@ -795,7 +794,7 @@ the following three calls ::
   x > y
   #:endcall assertTrue
 
-  @:assertTrue{ x > y }
+  @:assertTrue(x > y)
 
 would all yield ::
 
@@ -883,9 +882,9 @@ The `def` directive can also be used in its short form::
 `call` directive
 ================
 
-When a Python callable (regular Python function, macro etc.) is called with
-string argument(s) only (e.g. source code), it can be called using the `call`
-directive to avoid extra quoting of the arguments::
+When a Python callable (regular Python function, macro etc.) with at least one
+argument is called with string argument(s) only (e.g. source code), it can be
+called using the `call` directive to avoid extra quoting of the arguments::
 
   #:def debug_code(code)
     #:if DEBUG > 0
@@ -946,36 +945,6 @@ to code being hard to read, it should be usually avoided::
 
 If the arguments are short, the more compact direct call directive can be also
 used as an alternative (see next section).
-
-If a rendered argument ends with a space or a newline character, that will be
-removed before it is passed to the callable. If the call block has no content
-(the ``endcall`` directive immediately follows the ``call`` directive), the
-callable will be called without any arguments::
-
-  #:def macro_without_args()
-  NOARGS
-  #:enddef macro_without_args
-
-  #:call macro_without_args
-  #:endcall macro_without_args
-
-  #{call macro_without_args}##{endcall macro_without_args}#
-
-In order to call a macro with the emtpy string as argument, one should pass one
-whitespace character as argument to the ``call`` directive (which will be
-removed during rendering, as mentioned above)::
-
-  #:def macro_with_one_arg(ARG)
-  |${ARG}$|
-  #:enddef macro_with_one_arg
-
-  #! Both calls below should return '||'
-
-  #:call macro_with_one_arg
-
-  #:endcall macro_with_one_arg
-
-  #{call macro_with_one_arg}# #{endcall macro_with_one_arg}#
 
 The callables are not restricted to macros only, but can be arbitrary Python
 expressions, which are either directly callables or after evaluation yield a
@@ -1051,15 +1020,15 @@ directive::
   #:endif
   #:enddef assertTrue
 
-  @:assertTrue{ size(aa) >= size(bb) }
+  @:assertTrue(size(aa) >= size(bb))
 
 The direct call directive starts with ``@:`` followed by the name of a Python
-callable and an opening curly brace (``{``). Everything after that up to the
-closing curly brace (``}``) is treated as argument to the callable. The closing
-brace may only be followed by whitespace characters.
+callable and an opening paranthesis (``(``). Everything after that up to the
+closing paranthesis (``)``) is treated as argument to the callable. The closing
+paranthesis may only be followed by whitespace characters.
 
 When the callable needs more than one argument, the arguments must be separated
-by the character sequence ``}{``::
+by a comma (``,``)::
 
   #:def assertEqual(lhs, rhs)
   if (${lhs}$ /= ${rhs}$) then
@@ -1068,30 +1037,31 @@ by the character sequence ``}{``::
   end if
   #:enddef assertEqual
 
-  @:assertEqual{ size(coords, dim=2) }{ size(types) }
+  @:assertEqual(size(coords, dim=2), size(types))
 
 The direct call directive can contain continuation lines::
 
-  @:assertEqual{ size(coords, dim=2) }&
-      &{ size(types) }
+  @:assertEqual(size(coords, dim=2), &
+      & size(types))
 
-The arguments are parsed for further directives, so the inline form of the
-eval and control directives can be used::
+The arguments are parsed for further inline eval directives (but not for control
+directives), making variable substitutions in the arguments possible::
 
   #:set MYSIZE = 2
-  @:assertEqual{ size(coords, dim=2) }{ ${MYSIZE}$ }
+  @:assertEqual(size(coords, dim=2), ${MYSIZE}$)
+
+.. note:: In order to be able to split the arguments of a direct call correctly,
+          Fypp assumes that all provided arguments represent expressions with
+          balanced brackets and quotations. The inline directives are not
+          considered when splitting the arguments, and are evaluated only at a
+          later stage.
 
 The whitespaces around the arguments of the direct call are stripped before
-parsed for further directives and passed to the callable. Similar to the
-``call`` directive, a direct call with empty content invokes the callable
-without argument. If a single space character is passed as the only argument,
-the callable is invoked with the empty string as argument::
+parsed. In contrast to the ``call`` directive, the direct call can be also used
+for callables without any arguments::
 
   #! Passes no arguments
-  @:macro_without_args{}
-
-  #! Passes empty string as argument
-  @:macro_with_one_arg{ }
+  @:macro_without_args()
 
 The direct call directive needs the name of an existing callable and does not
 allow for on the fly callable-generation. However, it is possible to store the
@@ -1102,13 +1072,12 @@ of the last section could be realized as follows::
   #:set lower = CaseConverter('l')
   #:set upper = CaseConverter('u')
 
-  @:lower{ THIS WILL BE CONVERTED TO LOWERCASE }
-  @:upper{ this will be converted to uppercase }
+  @:lower("THIS WILL BE CONVERTED TO LOWERCASE")
+  @:upper("this will be converted to uppercase")
 
-.. note:: For backwards compatibility reasons, direct calls without enclosing
-          braces and with ``@@`` as argument seperator are also accepted by
-          Fypp. Their usage is not recommended, as they may become obsolate in
-          the future.
+For backwards compatibility reasons, direct calls without enclosing parantheses
+and ``@@`` as argument seperator are also accepted by Fypp. Their usage is not
+recommended, though, as this feature may be removed from Fypp in the future.
   
 
 `include` directive
@@ -1567,8 +1536,8 @@ after including ``checks.fypp``::
       integer, intent(in) :: ind
       character, intent(in) :: uplo
   
-      @:ensure{ ind > 0 }
-      @:ensure{ uplo == 'U' .or. uplo == 'L' }
+      @:ensure(ind > 0)
+      @:ensure(uplo == 'U' .or. uplo == 'L')
   
       ! Do something useful here
       ! :
