@@ -45,6 +45,7 @@ more in detail in the individual sections further down.
     #:endif
 
     #:set LOGLEVEL = 2
+    print *, "LOGLEVEL: ${LOGLEVEL}$"
 
     #:del LOGLEVEL
 
@@ -59,12 +60,11 @@ more in detail in the individual sections further down.
     #:endif
     #:enddef assertTrue
 
-    ! Invoked via direct call (needs no quotation)
+    ! Invoked via direct call (argument needs no quotation)
     @:assertTrue(size(myArray) > 0)
 
-    ! Invoked as Python expression (needs quotation)
+    ! Invoked as Python expression (argument needs quotation)
     $:assertTrue('size(myArray) > 0')
-
 
 * Conditional output::
 
@@ -87,7 +87,7 @@ more in detail in the individual sections further down.
 
 * Inline directives::
 
-    logical, parameter :: hasMpi = #{if defined('MPI')}#.true.#{else}#.false.#{endif}#
+    logical, parameter :: hasMpi = #{if defined('MPI')}# .true. #{else}# .false. #{endif}#
 
 * Insertion of arbitrary Python expressions::
 
@@ -167,6 +167,8 @@ more in detail in the individual sections further down.
 
   when variable ``MPI`` is defined and Fypp was instructed to generate line
   markers.
+
+* Automatic folding of generated lines exceeding line length limit
 
 
 ***************
@@ -382,7 +384,7 @@ from the following parameter is obligatory. Therefore, the following example is
 syntactically incorrect::
 
   #! Incorrect due to missing whitespace after 'if'
-  #:if(1 > 2)  
+  #:if(1 > 2)
 
 
 Expression evaluation
@@ -522,7 +524,7 @@ later). For example, the input ::
 
 yields after being processed by Fypp::
 
-  GLOBAL: _THIS_LINE_=5, _LINE_=5 | IN MACRO: _THIS_LINE_=2, _LINE_=5    
+  GLOBAL: _THIS_LINE_=5, _LINE_=5 | IN MACRO: _THIS_LINE_=2, _LINE_=5
 
 
 Functions
@@ -558,7 +560,7 @@ Following predefined functions are available:
 * ``delvar(VARNAME)``: Removes a variable or a macro definition from the local
   scope. It is identical to the ``#:del`` control directive. The variable name
   must be provided as string::
-    
+
     $:delvar('i')
 
   Analogous to the ``setvar`` function, also variable tuples can be deleted::
@@ -616,7 +618,7 @@ The `set` directive can be also used in the inline form::
   #{set X = 2}#print *, ${X}$
 
 Similar to the line form, the separating equal sign is optional here as well.
-  
+
 For backwards compatibility reason, also a `setvar` directive is recognized by
 Fypp. It has identical syntax and functionality to the `set` directive, but the
 equal sign between variable and value must be omitted. Its usage is not
@@ -634,7 +636,7 @@ A variable (or macro) definition can be removed from the current scope by the
   :
   #:del X
   #! X not available any more
-  
+
 The variable name expression syntax is identical to the one used for the `set`
 directive, so that also variable tuples can be deleted::
 
@@ -776,8 +778,8 @@ Parametrized macros can be defined with the `def` directive. This defines a
 regular Python callable, which returns the rendered content of the macro body
 when called. The macro arguments are converted to local variables containing the
 actual arguments as values. The macro can be either called from within an
-eval-directive, via the `call` control directive or its abreviated form, the
-direct call.
+eval-directive, via the `call` control directive and via its abreviated form,
+the direct call.
 
 Given the macro definition ::
 
@@ -826,9 +828,18 @@ called, missing positional arguments will be replaced by their default value::
 
   #:def macro(X, Y=2, Z=3)
   X=${X}$, Y=${Y}$, Z=${Z}$
-  #:enddef
+  #:enddef macro
 
   $:macro(1)   #! Returns "X=1, Y=2, Z=3"
+
+Similar to Python, it is also possible to define macros with a variable number
+of positional arguments::
+
+  #:def macro(X, *VARARGS)
+  X=${X}$, VARARGS=#{for ARG in VARARGS}#${ARG}$#{endfor}#
+  #:enddef macro
+
+  $:macro(1, 2, 3)   #! Returns "X=1, VARARGS=23"
 
 Scopes in general follow the Python convention: Within the macro, all variables
 from the encompassing scope are available (as `DEBUG` in the example above), and
@@ -860,7 +871,7 @@ would result in ::
 
 For better readability, you can repeat the name of the macro (but not its
 argument list) at the corresponding enddef directive::
-  
+
   #:def assertTrue(cond)
     #:if DEBUG > 0
       if (.not. (${cond}$)) then
@@ -1091,7 +1102,7 @@ The direct call directive can also be used in its inline form::
 For backwards compatibility reasons, direct calls without enclosing parantheses
 and ``@@`` as argument seperator are also accepted by Fypp. Their usage is not
 recommended, though, as this feature may be removed from Fypp in the future.
-  
+
 
 `include` directive
 ===================
@@ -1422,30 +1433,30 @@ scope, from which the macro is being called. The following snippet demonstrates
 this::
 
   #! GLOBAL SCOPE
-  
+
   #:call lambda s: s.upper()
   #! LOCAL SCOPE 1
-  
+
   #:def macro1()
   #! LOCAL SCOPE 2A
   value of x: ${X}$
   #:enddef macro1
-  
+
   #! LOCAL SCOPE 1
-  
+
   #:def macro2()
   #! LOCAL SCOPE 2B
   #:set X = 2
   $:macro1()
   #:enddef macro2
-  
+
   #! LOCAL SCOPE 1
   #:set X = 1
   $:macro2()
   #:endcall
-  
+
   #! GLOBAL SCOPE
-  
+
 After processing the code above one obtains ``VALUE OF X: 1``. Although in the
 local scope 2B, from where the macro ``macro1()`` is called, the value of X is
 defined to be ``2``, the relevant scopes for the lookup of X during the macro
@@ -1488,11 +1499,11 @@ be removed in the production code.
 First, we create an include file (``checks.fypp``) with the appropriate macros::
 
   #:mute
-  
+
   #! Enable debug feature if the preprocessor variable DEBUG has been defined
   #:set DEBUG = defined('DEBUG')
-  
-  
+
+
   #! Stops the code, if the condition passed to it is not fulfilled
   #! Only included in debug mode.
   #:def ensure(cond)
@@ -1506,15 +1517,15 @@ First, we create an include file (``checks.fypp``) with the appropriate macros::
   end if
     #:endif
   #:enddef ensure
-  
-  
+
+
   #! Includes code if in debug mode.
   #:def debug_code(code)
     #:if DEBUG
   $:code
     #:endif
   #:enddef debug_code
-  
+
   #:endmute
 
 Remarks:
@@ -1539,29 +1550,29 @@ With the definitions above, we can use the functionality in any Fortran source
 after including ``checks.fypp``::
 
   #:include 'checks.fypp'
-  
+
   module testmod
     implicit none
-  
+
   contains
-  
+
     subroutine someFunction(ind, uplo)
       integer, intent(in) :: ind
       character, intent(in) :: uplo
-  
+
       @:ensure(ind > 0)
       @:ensure(uplo == 'U' .or. uplo == 'L')
-  
+
       ! Do something useful here
       ! :
-  
+
     #:call debug_code
       print *, 'We are in debug mode'
       print *, 'The value of ind is', ind
     #:endcall debug_code
-  
+
     end subroutine someFunction
-  
+
   end module testmod
 
 Now, the file ``testmod.fpp`` can be preprocessed with Fypp. When the variable
@@ -1594,7 +1605,7 @@ the run-time checks and the debug code will be there::
     subroutine someFunction(ind, uplo)
       integer, intent(in) :: ind
       character, intent(in) :: uplo
-  
+
   if (.not. (ind > 0)) then
     write(*,*) 'Run-time check failed'
     write(*,*) 'Condition: ind > 0'
@@ -1609,13 +1620,13 @@ the run-time checks and the debug code will be there::
     write(*,*) 'Line: ', 13
     stop
   end if
-  
+
       ! Do something useful here
       ! :
-  
+
       print *, 'We are in debug mode'
       print *, 'The value of ind is', ind
-  
+
     end subroutine someFunction
 
 

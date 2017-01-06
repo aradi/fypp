@@ -179,8 +179,9 @@ _INLINE_EVAL_REGION_REGEXP = re.compile(r'\${.*?}\$')
 
 _RESERVED_PREFIX = '__'
 
-_RESERVED_NAMES = ('defined', 'setvar', 'getvar', 'delvar', '_LINE_', '_FILE_',
-                   '_THIS_FILE_', '_THIS_LINE_', '_TIME_', '_DATE_')
+_RESERVED_NAMES = set(['defined', 'setvar', 'getvar', 'delvar', '_LINE_',
+                       '_FILE_', '_THIS_FILE_', '_THIS_LINE_', '_TIME_',
+                       '_DATE_'])
 
 _LINENUM_NEW_FILE = 1
 
@@ -1541,6 +1542,7 @@ class Renderer:
         if argexpr is None:
             args = []
             defaults = {}
+            varargs = None
         else:
             # Try to create a lambda function with the argument expression
             self._evaluator.openscope()
@@ -1553,14 +1555,19 @@ class Renderer:
                 raise FyppFatalError(msg, fname, spans[0], exc)
             self._evaluator.closescope()
             try:
-                args, defaults = _get_args_and_defaults(func)
+                args, defaults, varargs = _get_callable_argspec(func)
             except Exception as exc:
                 msg = "invalid argument expression '{0}'".format(argexpr)
                 raise FyppFatalError(msg, fname, spans[0], exc)
+            named_args = args if varargs is None else args + [varargs]
+            for arg in named_args:
+                if arg in _RESERVED_NAMES or arg.startswith(_RESERVED_PREFIX):
+                    msg = "invalid argument name '{0}'".format(arg)
+                    raise FyppFatalError(msg, fname, spans[0])
         result = ''
         try:
-            macro = _Macro(name, fname, spans, args, defaults, content, self,
-                           self._evaluator.localscope)
+            macro = _Macro(name, fname, spans, args, defaults, varargs,
+                           content, self, self._evaluator.localscope)
             self._define(name, macro)
         except Exception as exc:
             msg = "exception occured when defining macro '{0}'"\
@@ -2099,6 +2106,7 @@ class _Macro:
         fname (str): The file where the macro was defined.
         spans (str): Line spans of macro defintion.
         argnames (list of str): Macro dummy arguments.
+        varargs (str): Name of variable positional arguments or None.
         content (list): Content of the macro as tree.
         renderer (Renderer): Renderer to use for evaluating macro content.
         localscope (dict): Dictionary with local variables, which should be used
@@ -2106,13 +2114,14 @@ class _Macro:
             local scope).
     '''
 
-    def __init__(self, name, fname, spans, argnames, defaults, content,
+    def __init__(self, name, fname, spans, argnames, defaults, varargs, content,
                  renderer, localscope=None):
         self._name = name
         self._fname = fname
         self._spans = spans
         self._argnames = argnames
         self._defaults = defaults
+        self._varargs = varargs
         self._content = content
         self._renderer = renderer
         self._localscope = localscope if localscope is not None else {}
@@ -2135,16 +2144,29 @@ class _Macro:
 
     def _process_arguments(self, args, keywords):
         argdict = {}
-        if len(args) > len(self._argnames):
-            msg = "macro '{0}' called with too many positional arguments "\
-                  "(expected: {1}, received: {2})"\
-                  .format(self._name, len(self._argnames), len(args))
+        nargs = min(len(args), len(self._argnames))
+        for iarg in range(nargs):
+            argdict[self._argnames[iarg]] = args[iarg]
+        if nargs < len(args):
+            if self._varargs is None:
+                msg = "macro '{0}' called with too many positional arguments "\
+                      "(expected: {1}, received: {2})"\
+                      .format(self._name, len(self._argnames), len(args))
+                raise FyppFatalError(msg, self._fname, self._spans[0])
+            else:
+                argdict[self._varargs] = tuple(args[nargs:])
+        elif self._varargs is not None:
+            argdict[self._varargs] = ()
+        for argname in self._argnames[:nargs]:
+            if argname in keywords:
+                msg = "got multiple values for argument '{0}'".format(argname)
+                raise FyppFatalError(msg, self._fname, self._spans[0])
+        if self._varargs is not None and self._varargs in keywords:
+            msg = "got unexpected keyword argument '{0}'".format(self._varargs)
             raise FyppFatalError(msg, self._fname, self._spans[0])
-        for iarg, arg in enumerate(args):
-            argdict[self._argnames[iarg]] = arg
         argdict.update(keywords)
-        if len(args) < len(self._argnames):
-            for argname in self._argnames[len(args):]:
+        if nargs < len(self._argnames):
+            for argname in self._argnames[nargs:]:
                 if argname in argdict:
                     pass
                 elif argname in self._defaults:
@@ -2728,16 +2750,13 @@ def _open_output_file(outfile, create_parents=False):
     return outfp
 
 
-def _get_args_and_defaults_py2(func):
+def _get_callable_argspec_py2(func):
     argspec = inspect.getargspec(func)
-    if argspec.varargs is not None:
-        msg = "variable length positional argument '{0}' found"\
-            .format(argspec.varargs)
-        raise FyppFatalError(msg)
-    elif argspec.keywords is not None:
+    if argspec.keywords is not None:
         msg = "variable length keyword argument '{0}' found"\
             .format(argspec.keywords)
         raise FyppFatalError(msg)
+    vararg = argspec.varargs
     args = argspec.args
     tuplearg = False
     for elem in args:
@@ -2750,37 +2769,33 @@ def _get_args_and_defaults_py2(func):
         for ind, default in enumerate(argspec.defaults):
             iarg = len(args) - len(argspec.defaults) + ind
             defaults[args[iarg]] = default
-    return args, defaults
+    return args, defaults, vararg
 
 
-def _get_args_and_defaults_py3(func):
+def _get_callable_argspec_py3(func):
     sig = inspect.signature(func)
     args = []
     defaults = {}
+    vararg = None
     for param in sig.parameters.values():
-        if param.kind == param.VAR_POSITIONAL:
-            msg = "variable length positional argument '{0}' found"\
-                  .format(param.name)
+        if param.kind == param.POSITIONAL_OR_KEYWORD:
+            args.append(param.name)
+            if param.default != param.empty:
+                defaults[param.name] = param.default
+        elif param.kind == param.VAR_POSITIONAL:
+            vararg = param.name
+        else:
+            msg = "argument '{0}' has invalid argument type".format(param.name)
             raise FyppFatalError(msg)
-        elif param.kind == param.KEYWORD_ONLY:
-            msg = "keyword only argument '{0}' found".format(param.name)
-            raise FyppFatalError(msg)
-        elif param.kind == param.VAR_KEYWORD:
-            msg = "variable length keyword argument '{0}' found"\
-                  .format(param.name)
-            raise FyppFatalError(msg)
-        args.append(param.name)
-        if param.default != param.empty:
-            defaults[param.name] = param.default
-    return args, defaults
+    return args, defaults, vararg
 
 
 # Signature objects are available from Python 3.3 (and deprecated from 3.5)
 
 if sys.version_info[0] >= 3 and sys.version_info[1] >= 3:
-    _get_args_and_defaults = _get_args_and_defaults_py3
+    _get_callable_argspec = _get_callable_argspec_py3
 else:
-    _get_args_and_defaults = _get_args_and_defaults_py2
+    _get_callable_argspec = _get_callable_argspec_py2
 
 
 def _blank_match(match):
