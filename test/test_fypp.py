@@ -368,6 +368,62 @@ SIMPLE_TESTS = [
       'X=1,Y=2,Z=1,False\n'
       )
     ),
+    ('macro_vararg_no_varargs',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
+      '$:macro(1, 2)\n',
+      '|12()|\n'
+     )
+    ),
+    ('macro_vararg_one_vararg',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
+      '$:macro(1, 2, 3)\n',
+      '|12(3,)|\n'
+     )
+    ),
+    ('macro_vararg_two_varargs',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
+      '$:macro(1, 2, 3, 4)\n',
+      '|12(3, 4)|\n'
+     )
+    ),
+    ('macro_vararg_named_arguments',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
+      '$:macro(y=2, x=1)\n',
+      '|12()|\n'
+     )
+    ),
+    ('macro_vararg_mixed_arguments',
+     ([],
+      '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '$:macro(1, z=3, y=2)\n',
+      '|123()|\n'
+     )
+    ),
+    ('macro_vararg_keyword_arguments',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '$:macro(1, 2, z=3)\n',
+      '|123()|\n'
+     )
+    ),
+    ('macro_vararg_keyword_arguments2',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '$:macro(1, 2, 4, 5, z=3)\n',
+      '|123(4, 5)|\n'
+     )
+    ),
+    ('macro_missing_',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '$:macro(1, 2, 4, 5, z=3)\n',
+      '|123(4, 5)|\n'
+     )
+    ),
     ('for',
      ([],
       '#:for i in (1, 2, 3)\n${i}$\n#:endfor\n',
@@ -2183,13 +2239,6 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
-    ('macrodef_var_arg',
-     ([],
-      '#:def mymacro(A, *B)\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
-       (fypp.FyppFatalError, None, None)]
-     )
-    ),
     ('macrodef_var_keyword_arg',
      ([],
       '#:def mymacro(A, **B)\n#:enddef\n',
@@ -2230,6 +2279,26 @@ EXCEPTION_TESTS = [
       '#:def defined(x)\n#:enddef\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
+     )
+    ),
+    ('macro_double_defined_arg',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
+      '$:macro(1, 2, x=1)\n',
+      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
+       (fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('macro_invalid_argument_name',
+     ([],
+      '#:def macro(x, __y, *vararg)\n#:enddef\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('macro_invalid_varargument_name',
+     ([],
+      '#:def macro(x, y, *__vararg)\n#:enddef\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
     ('invalid_variable_prefix',

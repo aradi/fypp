@@ -13,15 +13,17 @@ Added
 
 * Inline direct call directive.
 
+* Macros with variable number of arguments.
+
+* Default values for macro arguments.
+
 * Equal sign as separator in set directive for better readability.
 
-* Allow names in enddef and endcall directives.
+* Allow names in enddef and endcall directives for better readability.
 
 * Del directive.
 
 * Assert directive.
-
-* Default values for macro arguments.
 
 * Generalized call directive with any Python expression yielding a callable.
 
