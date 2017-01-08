@@ -667,6 +667,7 @@ class Parser:
             self.handle_endif(span)
         elif directive == 'def':
             self._check_param_presence(True, 'def', param, span)
+            self._check_not_inline_directive('def', span)
             self._process_def(param, span)
         elif directive == 'enddef':
             self._process_enddef(param, span)
@@ -689,7 +690,7 @@ class Parser:
             self._check_param_presence(True, 'call', param, span)
             self._process_call(param, span)
         elif directive == 'nextarg':
-            self._check_param_presence(False, 'nextcall', param, span)
+            self._check_param_presence(False, 'nextarg', param, span)
             self.handle_nextarg(span)
         elif directive == 'endcall':
             self._process_endcall(param, span)

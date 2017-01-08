@@ -42,6 +42,8 @@ Added
 Changed
 -------
 
+* Inline form of def directive not allowed any more. [Backwards incompatible!]
+
 * Reverse order exception printing, exception first occuring printed as last.
 
 * Command line tool formats error messages in GNU-like format.
@@ -50,9 +52,9 @@ Changed
 
 * Search paths for module imports behave more Python-like.
 
-* Slight backwards incompatibilities in API: process_* methods of Processor and
-  Fypp do not accept the optional argument env any more. Method updateenv() of
-  Evaluator has been renamed to updatescope() for more consistency.
+* API changes : process_* methods of Processor and Fypp do not accept the
+  optional argument env any more. Method updateenv() of Evaluator has been
+  renamed to updatescope() for more consistency. [Backwards incompatible!]
 
 * Marked setvar directive and old style direct call as deprecated in the
   documentation.

@@ -882,9 +882,7 @@ argument list) at the corresponding enddef directive::
   #:enddef assertTrue
 
 
-The `def` directive can also be used in its short form::
-
-  #{def l2(x)}#log(log(${x}$))#{enddef}#
+The `def` directive has no inline form.
 
 .. warning:: The content of macros is usually inserted via an eval directive and
      is accordingly subject to eventual line folding. Macros should,

@@ -267,18 +267,6 @@ SIMPLE_TESTS = [
       'MACRO|2-4|'
      )
     ),
-    ('inline_macrodef',
-     ([],
-      '#{def f(x)}#${x}$^2#{enddef}#\n$: f(20)\nDone\n',
-      '\n20^2\nDone\n'
-     )
-    ),
-    ('inline_macrodef_named_enddef',
-     ([],
-      '#{def f(x)}#${x}$^2#{enddef f}#\n$: f(20)\nDone\n',
-      '\n20^2\nDone\n'
-     )
-    ),
     ('macro_trailing_newlines',
      ([],
       '#:def macro()\nL1\n\n#:enddef\n$: macro()\n',
@@ -1920,6 +1908,12 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
+    ('inline_def',
+     ([],
+      '#{def macro()}#TEST#{enddef}#',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+     )
+    ),
     ('invalid_direct_call_expr',
      ([],
       '#:def macro()\n#:enddef\n@:macro{}\n',
@@ -2043,12 +2037,6 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
      )
     ),
-    ('inline_def_line_enddef',
-     ([],
-      '#{def alma(x)}#Empty\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
-     )
-    ),
     ('loose_enddef',
      ([],
       '#:enddef\n',
@@ -2071,12 +2059,6 @@ EXCEPTION_TESTS = [
      ([],
       '#:def macro(var)\nMACRO|${var}$|\n#:enddef nonsense\n${macro(1)}$',
       [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
-     )
-    ),
-    ('inline_enddef_name_mismatch',
-     ([],
-      '#{def macro(var)}#MACRO|${var}$|#{enddef nonsense}#${macro(1)}$',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
     ('endcall_name_mismatch',
