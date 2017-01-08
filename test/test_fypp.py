@@ -797,20 +797,6 @@ SIMPLE_TESTS = [
       '|L1 (2, 2)|L3|',
      )
     ),
-    ('direct_call_control_noparse',
-     ([],
-      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-      '@:mymacro(L1 #{if True}#2, 2#{endif}#)\n',
-      '|L1 #{if True}#2|2#{endif}#|\n',
-     )
-    ),
-    ('direct_call_control_noparse_inline',
-     ([],
-      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-      '@{mymacro(L1 #{if True}#2, 2#{endif}#)}@',
-      '|L1 #{if True}#2|2#{endif}#|',
-     )
-    ),
     ('direct_call_varsubs_old',
      ([],
       '#:def mymacro(val1)\n|${val1}$|\n#:enddef\n'\
@@ -1936,6 +1922,44 @@ EXCEPTION_TESTS = [
      ([],
       '#:def macro()\n#:enddef\n@{macro(}@\n',
       [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
+     )
+    ),
+    ('direct_call_non_eval_dir',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@:mymacro(L1 #{if True}#2, 2#{endif}#)\n',
+      [(fypp.FyppFatalError, fypp.STRING, (3, 3))]
+     )
+    ),
+    ('direct_call_non_eval_dir_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro(L1 #{if True}#2, 2#{endif}#)}@',
+      [(fypp.FyppFatalError, fypp.STRING, (3, 3))]
+     )
+    ),
+    ('missing_line_dir_content',
+     ([],
+      '#:\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('missing_line_dir_content2',
+     ([],
+      '#: \n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('missing_inline_dir_content',
+     ([],
+      '#{}#',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+     )
+    ),
+    ('missing_inline_dir_content2',
+     ([],
+      '#{ }#',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),
     #

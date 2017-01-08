@@ -98,51 +98,30 @@ ERROR_EXIT_CODE = 1
 
 USER_ERROR_EXIT_CODE = 2
 
-_LINE_DIRECTIVES_PATTERN = r'''
+_ALL_DIRECTIVES_PATTERN = r'''
 # comment block
 (?P<comment>(?:^[ \t]*\#!.*\n)+)
 |
-# line control directive (with optional continuation lines)
-^[ \t]*\#:[ \t]*(?P<ldirective>[^ \t\n]+)
-(?:[ \t]+(?P<lparam>[^ \t\n].*?(?:&[ \t]*\n[ \t]*&.*?)*))?[ \t]*\n
+# line directive (with optional continuation lines)
+^[ \t]*(?P<ldirtype>[\#\$@]):[ \t]*
+(?P<ldir>.+?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)?[ \t]*\n
 |
-# line eval directive (with optional continuation lines)
-^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
-|
-# direct call directive (with optional continuation lines)
-^[ \t]*@:[ \t]*(?P<lcallexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
-'''
-
-_INLINE_EVAL_PATTERN = r'''
 # inline eval directive
-\$\{[ \t]*(?P<iexpr>.*?)[ \t]*\}\$
+(?P<idirtype>[$\#@])\{[ \t]*(?P<idir>.+?)?[ \t]*\}(?P=idirtype)
 '''
-
-_INLINE_NON_EVAL_PATTERN = r'''
-# inline control directive
-\#\{[ \t]*(?P<idirective>[^ \t\n]+?)(?:[ \t]+(?P<param>[^ \t\n].*?))?[ \t]*\}\#
-|
-# inline direct call directive
-@\{[ \t]*(?P<icallexpr>.*?)[ \t]*\}@
-'''
-
-_INLINE_EVAL_REGEXP = re.compile(
-    _INLINE_EVAL_PATTERN, re.VERBOSE | re.MULTILINE)
-
-_ALL_DIRECTIVES_PATTERN = (_LINE_DIRECTIVES_PATTERN + '|' + _INLINE_EVAL_PATTERN
-                           + '|' + _INLINE_NON_EVAL_PATTERN)
 
 _ALL_DIRECTIVES_REGEXP = re.compile(
     _ALL_DIRECTIVES_PATTERN, re.VERBOSE | re.MULTILINE)
 
+_CONTROL_DIR_REGEXP = re.compile(
+    r'(?P<dir>\w+)[ \t]*(?:[ \t]+(?P<param>[^ \t].*))?$')
+
 _DIRECT_CALL_REGEXP = re.compile(r'''
 (?P<callname>\w+)
 (?P<callarg>
-  (?:[ \t]+(?P<freeparams>.+(?:&[ \t]*\n[ \t]*&.*?)*)?)
+  (?:[ \t]+(?P<freeparams>.+)?)
 |
-  (?:(?P<dcopen>\()
-  (?P<enclosedparams>.+(?:&[ \t]*\n[ \t]*&.*?)*)?
-  (?P<dcclose>\)))
+  (?:(?P<dcopen>\()(?P<enclosedparams>.+)?(?P<dcclose>\)))
 )?$
 ''', re.VERBOSE)
 
@@ -601,43 +580,42 @@ class Parser:
         print()
 
 
-    def _parse(self, txt, linenr=0, restricted=False):
-        alldirs = not restricted
+    def _parse(self, txt, linenr=0, directcall=False):
         pos = 0
-        if alldirs:
-            regexp = _ALL_DIRECTIVES_REGEXP
-        else:
-            regexp = _INLINE_EVAL_REGEXP
-        for match in regexp.finditer(txt):
-            groups = match.groupdict()
+        for match in _ALL_DIRECTIVES_REGEXP.finditer(txt):
             start, end = match.span()
             if start > pos:
                 endlinenr = linenr + txt.count('\n', pos, start)
                 self._process_text(txt[pos:start], (linenr, endlinenr))
                 linenr = endlinenr
             endlinenr = linenr + txt.count('\n', start, end)
-            if groups['iexpr'] is not None:
-                self._process_iexpreval(groups['iexpr'], (linenr, endlinenr))
-            if alldirs:
-                if groups['lexpr'] is not None:
-                    self._process_lexpreval(
-                        groups['lexpr'], (linenr, endlinenr))
-                elif groups['lcallexpr'] is not None:
-                    self._process_directcall(
-                        groups['lcallexpr'], (linenr, endlinenr))
-                elif groups['icallexpr'] is not None:
-                    self._process_directcall(
-                        groups['icallexpr'], (linenr, endlinenr))
-                elif groups['ldirective'] is not None:
-                    self._process_directive(
-                        groups['ldirective'], groups['lparam'],
-                        (linenr, endlinenr))
-                elif groups['idirective'] is not None:
-                    self._process_directive(
-                        groups['idirective'], groups['param'],
-                        (linenr, endlinenr))
-                elif groups['comment'] is not None:
-                    self.handle_comment((linenr, endlinenr))
+            span = (linenr, endlinenr)
+            comment, ldirtype, ldir, idirtype, idir = match.groups()
+            if directcall and (idirtype is None or idirtype != '$'):
+                msg = 'only inline eval directives allowed in direct calls'
+                raise FyppFatalError(msg, self._curfile, span)
+            elif idirtype is not None:
+                if idir is None:
+                    msg = 'missing inline directive content'
+                    raise FyppFatalError(msg, self._curfile, span)
+                dirtype = idirtype
+                content = idir
+            elif ldirtype is not None:
+                if ldir is None:
+                    msg = 'missing line directive content'
+                    raise FyppFatalError(msg, self._curfile, span)
+                dirtype = ldirtype
+                content = _CONTLINE_REGEXP.sub('', ldir)
+            else:
+                dirtype = None
+            if dirtype == '$':
+                self.handle_eval(span, content)
+            elif dirtype == '#':
+                self._process_control_dir(content, span)
+            elif dirtype == '@':
+                self._process_direct_call(content, span)
+            else:
+                self.handle_comment(span)
             pos = end
             linenr = endlinenr
         if pos < len(txt):
@@ -650,9 +628,12 @@ class Parser:
         self.handle_text(span, escaped_txt)
 
 
-    def _process_directive(self, directive, param, span):
-        if param is not None:
-            param = _CONTLINE_REGEXP.sub('', param)
+    def _process_control_dir(self, content, span):
+        match = _CONTROL_DIR_REGEXP.match(content)
+        if not match:
+            msg = "invalid control directive content '{0}'".format(content)
+            raise FyppFatalError(msg, self._curfile, span)
+        directive, param = match.groups()
         if directive == 'if':
             self._check_param_presence(True, 'if', param, span)
             self.handle_if(span, param)
@@ -719,16 +700,7 @@ class Parser:
             raise FyppFatalError(msg, self._curfile, span)
 
 
-    def _process_lexpreval(self, expr, span):
-        expr = _CONTLINE_REGEXP.sub('', expr)
-        self.handle_eval(span, expr)
-
-
-    def _process_iexpreval(self, expr, span):
-        self.handle_eval(span, expr)
-
-
-    def _process_directcall(self, callexpr, span):
+    def _process_direct_call(self, callexpr, span):
         match = _DIRECT_CALL_REGEXP.match(callexpr)
         if not match:
             msg = "invalid direct call expression"
@@ -761,10 +733,10 @@ class Parser:
                         for arg in callparams.split('@@')]
         if args:
             linenr = span[0]
-            self._parse(args[0], linenr=linenr, restricted=True)
+            self._parse(args[0], linenr=linenr, directcall=True)
             for arg in args[1:]:
                 self.handle_nextarg(span)
-                self._parse(arg, linenr=linenr, restricted=True)
+                self._parse(arg, linenr=linenr, directcall=True)
         self.handle_endcall(span, callname)
 
 
