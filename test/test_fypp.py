@@ -387,6 +387,13 @@ SIMPLE_TESTS = [
       '|12()|\n'
      )
     ),
+    ('macro_vararg_named_arguments_directcall',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
+      '@:macro(y=2, x=1)\n',
+      '|12()|\n'
+     )
+    ),
     ('macro_vararg_named_arguments_call',
      ([],
       '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
@@ -405,6 +412,13 @@ SIMPLE_TESTS = [
      ([],
       '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
       '$:macro(1, z=3, y=2)\n',
+      '|123()|\n'
+     )
+    ),
+    ('macro_vararg_mixed_arguments_directcall',
+     ([],
+      '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '@:macro(1, z=3, y=2)\n',
       '|123()|\n'
      )
     ),
@@ -727,14 +741,14 @@ SIMPLE_TESTS = [
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@:mymacro({L1, L2}, L3)\n',
-      '|{L1, L2}|L3|\n',
+      '|L1, L2|L3|\n',
      )
     ),
     ('direct_call_2_args_escape3_inline',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@{mymacro({L1, L2}, L3)}@',
-      '|{L1, L2}|L3|',
+      '|L1, L2|L3|',
      )
     ),
     ('direct_call_2_args_escape4',
@@ -791,6 +805,20 @@ SIMPLE_TESTS = [
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@{mymacro(L1 ${2, 2}$, L3)}@',
       '|L1 (2, 2)|L3|',
+     )
+    ),
+    ('direct_call_2_args_escape8',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@:mymacro({{L1, L2}}, L3)\n',
+      '|{L1, L2}|L3|\n',
+     )
+    ),
+    ('direct_call_2_args_escape8_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '@{mymacro({{L1, L2}}, L3)}@',
+      '|{L1, L2}|L3|',
      )
     ),
     ('direct_call_varsubs',
@@ -889,6 +917,20 @@ SIMPLE_TESTS = [
       '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
       '#:call mymacro\n\n#:endcall\n',
       '||\n'
+     )
+    ),
+    ('call_empty_param_directcall',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
+      '@:mymacro({})\n',
+      '||\n'
+     )
+    ),
+    ('call_whitespace_param_directcall',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
+      '@:mymacro({ })\n',
+      '| |\n'
      )
     ),
     ('comment_single',

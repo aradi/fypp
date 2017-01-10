@@ -896,7 +896,7 @@ The `def` directive has no inline form.
 ================
 
 When a Python callable (regular Python function, macro etc.) is called with
-string argument(s) only (e.g. source code), it can be called using the `call`
+*string argument(s)* only (e.g. source code), it can be called using the `call`
 directive to avoid extra quoting of the arguments and to enable passing of
 multiline arguments in a comfortable way::
 
@@ -1084,25 +1084,58 @@ directive::
 
 The direct call directive starts with ``@:`` followed by the name of a Python
 callable and an opening paranthesis (``(``). Everything after that up to the
-closing paranthesis (``)``) is treated as string argument for the callable. The
+closing paranthesis (``)``) is passed as *string argument* to the callable. The
 closing paranthesis may only be followed by whitespace characters.
 
 When the callable needs more than one argument, the arguments must be separated
 by a comma (``,``)::
 
-  #:def assertEqual(lhs, rhs)
-  if (${lhs}$ /= ${rhs}$) then
-    print *, "assertEqual failed (${lhs}$ /= ${rhs}$)!"
+  #:def assertEqual(received, expected)
+  if (${received}$ /= ${expected}$) then
+    print *, "assertEqual failed (${received}$ /= ${expected}$)!"
     error stop
   end if
   #:enddef assertEqual
 
-  @:assertEqual(size(coords, dim=2), size(types))
+  @:assertEqual(size(coords, dim=2), size(atomtypes))
 
-The direct call directive can contain continuation lines::
+.. note:: In order to be able to split the argument string of a direct call
+          correctly, Fypp assumes that all provided arguments represent valid
+          Fortran expressions with balanced quotes (``'`` or ``"``) and balanced
+          brackets (``()``, ``[]`` and ``{}``) outside of quoted regions. The
+          argument string is only split around commas which are outside of any
+          quoted or bracketed regions.
+
+Arguments can be optionally enclosed within curly braces in order to avoid
+argument splitting at unwanted places or to improve readability. The outermost
+curly braces will be removed from the arguments before they are passed to the
+callable::
+
+  #! Passes "a**2 + b**2" and "c**2" as string arguments to assertEqual
+  @:assertEqual({a**2 + b**2}, c**2)
+
+Keywords arguments can be passed by prefixing them with the keyword name
+and an equal sign::
+
+  @:assertEqual(expected=size(atomtypes), received=size(coords, dim=2))
+  @:assertEqual(expected=c**2, received={a**2 + b**2})
+
+If the equal sign is followed immediately by an other equal sign or by the
+greater sign (``>``), it will be not recognized as keyword argument. This
+exception allows for passing valid Fortran code containing the comparison
+operator (``==``) or a pointer assignment (``=>``) without the need for special
+bracketing::
+
+  #! Passes string "a == b" as first positional argument
+  @:assertTrue(a == b)
+
+  #! Passes string "=b" as keyword argument "a"
+  @:assertTrue(a={=b})
+
+The direct call directive may contain continuation lines::
 
   @:assertEqual(size(coords, dim=2), &
-      & size(types))
+      & size(atomtypes))
 
 The arguments are parsed for further inline eval directives (but not for any
 inline control or direct call directives), making variable substitutions in the
@@ -1111,18 +1144,20 @@ arguments possible::
   #:set MYSIZE = 2
   @:assertEqual(size(coords, dim=2), ${MYSIZE}$)
 
-.. note:: In order to be able to split the arguments of a direct call correctly,
-          Fypp assumes that all provided arguments represent expressions with
-          balanced brackets and quotations. The inline eval directives are not
-          considered when splitting the arguments, and are evaluated only at a
-          later stage.
+Whitespaces around the arguments of the direct call are stripped, but not the
+whitespaces within the optional curly braces around the argument::
 
-The whitespaces around the arguments of the direct call are stripped before
-parsed. In contrast to the ``call`` directive, the direct call can be also used
-for callables without any arguments::
-
-  #! Passes no arguments
+  #! Calls a macro without arguments
   @:macro_without_args()
+
+  #! Calls a macro with no arguments (whitespace between () is stripped):
+  @:macro_without_args( )
+
+  #! Calls a macro with empty string as argument
+  @:macro_with_one_arg({})
+
+  #! Calls a macro with one space as argument
+  @:macro_with_one_arg({ })
 
 The direct call directive needs the name of an existing callable and does not
 allow for on the fly callable-generation. However, it is possible to store the
@@ -1140,10 +1175,6 @@ The direct call directive can also be used in its inline form::
 
   #! Using choose_code() macro defined in previous section
   print *, @{choose_code(a(:), size(a))}@
-
-For backwards compatibility reasons, direct calls without enclosing parantheses
-and ``@@`` as argument seperator are also accepted by Fypp. Their usage is not
-recommended, though, as this feature may be removed from Fypp in the future.
 
 
 `include` directive
@@ -1553,16 +1584,19 @@ First, we create an include file (``checks.fypp``) with the appropriate macros::
 
   #! Stops the code, if the condition passed to it is not fulfilled
   #! Only included in debug mode.
-  #:def ensure(cond)
-    #:if DEBUG
+  #:def ensure(cond, msg=None)
+  #:if DEBUG
   if (.not. (${cond}$)) then
     write(*,*) 'Run-time check failed'
     write(*,*) 'Condition: ${cond.replace("'", "''")}$'
+    #:if msg is not None
+    write(*,*) 'Message: ', ${msg}$
+    #:endif
     write(*,*) 'File: ${_FILE_}$'
     write(*,*) 'Line: ', ${_LINE_}$
     stop
   end if
-    #:endif
+  #:endif
   #:enddef ensure
 
 
@@ -1607,7 +1641,7 @@ after including ``checks.fypp``::
       integer, intent(in) :: ind
       character, intent(in) :: uplo
 
-      @:ensure(ind > 0)
+      @:ensure(ind > 0, msg="Index must be positive")
       @:ensure(uplo == 'U' .or. uplo == 'L')
 
       ! Do something useful here
@@ -1656,6 +1690,7 @@ the run-time checks and the debug code will be there::
   if (.not. (ind > 0)) then
     write(*,*) 'Run-time check failed'
     write(*,*) 'Condition: ind > 0'
+    write(*,*) 'Message: ', "Index must be positive"
     write(*,*) 'File: testmod.fpp'
     write(*,*) 'Line: ', 12
     stop

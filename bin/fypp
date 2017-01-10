@@ -114,27 +114,30 @@ _ALL_DIRECTIVES_REGEXP = re.compile(
     _ALL_DIRECTIVES_PATTERN, re.VERBOSE | re.MULTILINE)
 
 _CONTROL_DIR_REGEXP = re.compile(
-    r'(?P<dir>\w+)[ \t]*(?:[ \t]+(?P<param>[^ \t].*))?$')
+    r'(?P<dir>[a-zA-Z_]\w*)[ \t]*(?:[ \t]+(?P<param>[^ \t].*))?$')
 
 _DIRECT_CALL_REGEXP = re.compile(
-    r'(?P<callname>\w+)\((?P<callparams>.+?)?\)$', re.VERBOSE)
+    r'(?P<callname>[a-zA-Z_]\w*)\((?P<callparams>.+?)?\)$', re.VERBOSE)
+
+_DIRECT_CALL_KWARG_REGEXP = re.compile(
+    r'(?:(?P<kwname>[a-zA-Z_]\w*)\s*=(?=[^>=]|$))?')
 
 _DEF_PARAM_REGEXP = re.compile(
-    r'^(?P<name>\w+)\(\s*(?P<args>.+)?\s*\)$')
+    r'^(?P<name>[a-zA-Z_]\w*)\(\s*(?P<args>.+)?\s*\)$')
 
-_SIMPLE_CALLABLE_REGEXP = re.compile(r'^(?P<name>\w+)\s*(?:\(.*\))?$')
+_SIMPLE_CALLABLE_REGEXP = re.compile(r'^(?P<name>[a-zA-Z_]\w*)\s*(?:\(.*\))?$')
 
-_IDENTIFIER_NAME_REGEXP = re.compile(r'^(?P<name>\w+)$')
+_IDENTIFIER_NAME_REGEXP = re.compile(r'^(?P<name>[a-zA-Z_]\w*)$')
 
 _SET_PARAM_REGEXP = re.compile(
-    r'^(?P<name>(?:[(]\s*)?\w+(?:\s*,\s*\w+)*(?:\s*[)])?)'\
+    r'^(?P<name>(?:[(]\s*)?[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*(?:\s*[)])?)'\
     r'(?:(?:(?P<equal>\s*=\s*)|\s+)(?P<expr>.*))?$')
 
 _DEL_PARAM_REGEXP = re.compile(
-    r'^(?:[(]\s*)?\w+(?:\s*,\s*\w+)*(?:\s*[)])?$')
+    r'^(?:[(]\s*)?[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*(?:\s*[)])?$')
 
 _FOR_PARAM_REGEXP = re.compile(
-    r'^(?P<loopexpr>\w+(\s*,\s*\w+)*)\s+in\s+(?P<iter>.+)$')
+    r'^(?P<loopexpr>[a-zA-Z_]\w*(\s*,\s*[a-zA-Z_]\w*)*)\s+in\s+(?P<iter>.+)$')
 
 _INCLUDE_PARAM_REGEXP = re.compile(r'^(\'|")(?P<fname>.*?)\1$')
 
@@ -145,8 +148,6 @@ _CONTLINE_REGEXP = re.compile(r'&[ \t]*\n(?:[ \t]*&)?')
 _UNESCAPE_TEXT_REGEXP1 = re.compile(r'([$#@])\\(\\*)([{:])')
 
 _UNESCAPE_TEXT_REGEXP2 = re.compile(r'(\})\\(\\*)([$#@])')
-
-_UNESCAPE_FREE_ARG_REGEXP = re.compile(r'(@)\\(\\*)(@)')
 
 _INLINE_EVAL_REGION_REGEXP = re.compile(r'\${.*?}\$')
 
@@ -702,13 +703,20 @@ class Parser:
         if callparams is None or not callparams.strip():
             args = []
         else:
-            args = [arg.strip() for arg in _argsplit_fortran(callparams)]
-        if args:
-            linenr = span[0]
-            self._parse(args[0], linenr=linenr, directcall=True)
-            for arg in args[1:]:
-                self.handle_nextarg(span, None)
-                self._parse(arg, linenr=linenr, directcall=True)
+            try:
+                args = [arg.strip() for arg in _argsplit_fortran(callparams)]
+            except Exception as exc:
+                msg = 'unable to split direct call arguments'
+                raise FyppFatalError(msg, self._curfile, span, exc)
+        for arg in args:
+            match = _DIRECT_CALL_KWARG_REGEXP.match(arg)
+            argval = arg[match.end():].strip()
+            # Remove enclosing braces if present
+            if argval.startswith('{'):
+                argval = argval[1:-1]
+            keyword = match.group('kwname')
+            self.handle_nextarg(span, keyword)
+            self._parse(argval, linenr=span[0], directcall=True)
         self.handle_endcall(span, callname)
 
 
@@ -1484,7 +1492,7 @@ class Renderer:
             for iargname, argname in enumerate(argnames):
                 ind = offset + iargname
                 if argname in kwargs:
-                    msg = "keyword argument '{0}' has been already defined"\
+                    msg = "keyword argument '{0}' already defined"\
                         .format(argname)
                     raise FyppFatalError(msg, fname, spans[ind + 1])
                 kwargs[argname] = args[ind]
