@@ -1293,11 +1293,14 @@ class Renderer:
             defaults to False.
         contlinenums (bool, optional): Whether linenums for continuation
             should be generated, defaults to False.
+        linenumformat (str, optional): If set to "gfortran5", a workaround
+            for broken gfortran versions (version 5.1 and above) is applied when
+            emitting line numbering directives.
         linefolder (callable): Callable to use when folding a line.
     '''
 
     def __init__(self, evaluator=None, linenums=False, contlinenums=False,
-                 linefolder=None):
+                 linenumformat=None, linefolder=None):
         # Evaluator to use for Python expressions
         self._evaluator = Evaluator() if evaluator is None else evaluator
 
@@ -1309,6 +1312,9 @@ class Renderer:
 
         # Whether line numbering directives in continuation lines are needed.
         self._contlinenums = contlinenums
+
+        # Whether to use the fix for GFortran in the line numbering directives
+        self._linenum_gfortran5 = (linenumformat == 'gfortran5')
 
         # Callable to be used for folding lines
         if linefolder is None:
@@ -1500,13 +1506,17 @@ class Renderer:
 
 
     def _get_included_content(self, fname, spans, includefname, content):
+        includefile = spans[0] is not None
         out = []
         if self._linenums and not self._diversions:
-            out += linenumdir(0, includefname, _LINENUM_NEW_FILE)
+            if includefile or self._linenum_gfortran5:
+                out += linenumdir(0, includefname, _LINENUM_NEW_FILE)
+            else:
+                out += linenumdir(0, includefname)
         outcont, ieval, peval = self._render(content)
         ieval = _shiftinds(ieval, len(out))
         out += outcont
-        if self._linenums and not self._diversions and spans[0] is not None:
+        if self._linenums and not self._diversions and includefile:
             out += linenumdir(spans[0][1], fname, _LINENUM_RETURN_TO_FILE)
         return out, ieval, peval
 
@@ -2308,7 +2318,7 @@ class Fypp:
         self._create_parent_folder = options.create_parent_folder
         renderer = Renderer(
             evaluator, linenums=linenums, contlinenums=contlinenums,
-            linefolder=linefolder)
+            linenumformat=options.line_marker_format, linefolder=linefolder)
         self._preprocessor = Processor(parser, builder, renderer)
 
 
@@ -2437,6 +2447,9 @@ class FyppOptions(optparse.Values):
             in the output. Default: False
         line_numbering_mode (str): Line numbering mode 'full' or 'nocontlines'.
             Default: 'full'.
+        line_marker_format (str): Line marker format. Currently 'cpp' and
+            'gfortran5' are supported. Later fixes the line marker handling bug
+            introduced in GFortran 5. Default: 'cpp'.
         line_length (int): Length of output lines. Default: 132.
         folding_mode (str): Folding mode 'smart', 'simple' or 'brute'. Default:
             'smart'.
@@ -2457,6 +2470,7 @@ class FyppOptions(optparse.Values):
         self.includes = []
         self.line_numbering = False
         self.line_numbering_mode = 'full'
+        self.line_marker_format = 'cpp'
         self.line_length = 132
         self.folding_mode = 'smart'
         self.no_folding = False
@@ -2611,16 +2625,21 @@ def get_option_parser():
     msg = 'add directory to the search paths for include files'
     parser.add_option('-I', '--include', action='append', dest='includes',
                       metavar='INCDIR', help=msg)
-    msg = 'put line numbering directives to the output'
+    msg = 'emit line numbering markers'
     parser.add_option('-n', '--line-numbering', action='store_true',
                       default=False, help=msg)
     msg = 'line numbering mode, \'full\' (default): line numbering '\
-          'directives generated whenever source and output lines are out '\
-          'of sync, \'nocontlines\': line numbering directives omitted '\
+          'markers generated whenever source and output lines are out '\
+          'of sync, \'nocontlines\': line numbering markers omitted '\
           'for continuation lines'
     parser.add_option('-N', '--line-numbering-mode', metavar='MODE',
                       choices=['full', 'nocontlines'], default='full',
                       help=msg)
+    msg = 'line numbering marker format, \'cpp\' (default): GNU cpp format, '\
+          '\'gfortran5\': modified markers to work around bug in GFortran 5 '\
+          'and above'
+    parser.add_option('--line-marker-format', metavar='FMT',
+                      choices=['cpp', 'gfortran5'], default=False, help=msg)
     msg = 'maximal line length (default: 132), lines modified by the '\
           'preprocessor are folded if becoming longer'
     parser.add_option('-l', '--line-length', type=int, default=132,

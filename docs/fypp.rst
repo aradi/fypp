@@ -16,7 +16,7 @@ Fypp was inspired by the `pyratemp
 <http://www.simple-is-better.org/template/pyratemp.html>`_ templating engine
 [#]_. Although it shares many concepts with pyratemp, it was written from
 scratch focusing on the special needs when preprocessing source code. Fypp
-natively supports the output of line numbering directives, which are used by
+natively supports the output of line numbering markers, which are used by
 many compilers to generate compiler messages with correct line numbers. Unlike
 most cpp/fpp-like preprocessors or the coco preprocessor, Fypp also supports
 iterations, multiline macros, continuation lines in preprocessor directives and
@@ -148,7 +148,7 @@ more in detail in the individual sections further down.
       :
     #:enddef mymacro
 
-* Line numbering directives in output::
+* Line numbering markers in output::
 
     program test
     #:if defined('MPI')
@@ -1307,8 +1307,8 @@ backslash between the delimiter characters in the output. If you put more than
 one backslash between the delimiters, only one will be removed.
 
 
-Line numbering directives
-=========================
+Line numbering markers
+======================
 
 In order to support compilers in emitting messages with correct line numbers
 with respect to the original source file, Fypp can put line number directives
@@ -1352,6 +1352,11 @@ accepts following mode arguments:
 * ``nocontlines``: Same as full, but line numbering directives are ommitted
   before continuation lines. (Some compilers, like the NAG Fortran compiler,
   have difficulties with line numbering directives before continuation lines).
+
+Note: Due to a bug introduced in GFortran 5 (being also present in major
+versions 6), a workaround is needed for obtaining correct error messages when
+compiling preprocessed files with those compilers. Please use the command line
+option ``--line-marker-format 'gfortran5'`` in those cases.
 
 
 Scopes
