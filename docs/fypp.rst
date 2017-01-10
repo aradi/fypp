@@ -895,9 +895,10 @@ The `def` directive has no inline form.
 `call` directive
 ================
 
-When a Python callable (regular Python function, macro etc.) with at least one
-argument is called with string argument(s) only (e.g. source code), it can be
-called using the `call` directive to avoid extra quoting of the arguments::
+When a Python callable (regular Python function, macro etc.) is called with
+string argument(s) only (e.g. source code), it can be called using the `call`
+directive to avoid extra quoting of the arguments and to enable passing of
+multiline arguments in a comfortable way::
 
   #:def debug_code(code)
     #:if DEBUG > 0
@@ -925,15 +926,15 @@ argument to the callable. The name of the callable can be repeated in the
 If the callable has more than one arguments, the `nextarg` directive can be used
 to separate the arguments from each other::
 
-  #:def choose_code(code_debug, code_nondebug)
+  #:def choose_code(debug_code, nondebug_code)
     #:if DEBUG > 0
-      $:code_debug
+      $:debug_code
     #:else
-      $:code_nondebug
+      $:nondebug_code
     #:endif
   #:enddef choose_code
 
-  #:call chose_code
+  #:call choose_code
     if (a < b) then
         print *, "DEBUG: a is less than b"
     end if
@@ -947,6 +948,45 @@ directive will be a local variable existing only during the evaluation of that
 branch of the directive (and not being available when the callable is called
 with the evaluated text as argument).
 
+The `nextarg` directive may be followed by an optional argument name. In that
+case the text following will be passed as keyword argument to the callable. If
+the first argument should be also passed as keyword argument, it should be also
+preceeded by a named `nextarg` directive declared in the line immediately
+following the `call` directive. If an argument is passed as a keyword argument,
+all following arguments must be passed as keyword arguments as well::
+
+  #:call choose_code
+  #:nextarg nondebug_code
+    print *, "No debugging"
+  #:nextarg debug_code
+    if (a < b) then
+        print *, "DEBUG: a is less than b"
+    end if
+  #:endcall choose_code
+
+Callables without arguments can also be called with the `call` directive,
+provided the `endcall` directive immediately follows the `call` directive. If
+there are empty lines between the `call` and the `endcall` directive, they will
+be interpreted as a positional argument::
+
+  #:def macro_noarg()
+  NOARGS
+  #:enddef macro_noarg
+
+  #:def macro_arg1(arg1)
+  ARG1:${arg1}$
+  #:enddef macro_arg1
+
+  #! Calling macro without arguments
+  #:call macro_noarg
+  #:endcall macro_noarg
+
+  #! Calling macro with one positional (empty) argument
+  #! Note the empty line between call and endcall
+  #:call macro_arg1
+  
+  #:endcall macro_arg1
+  
 The `call` directive can also be used in its inline form. As this easily leads
 to code being hard to read, it should be usually avoided::
 
@@ -961,6 +1001,10 @@ to code being hard to read, it should be usually avoided::
 
 If the arguments are short, the more compact direct call directive can be also
 used as an alternative (see next section).
+
+
+Generating callables
+--------------------
 
 The callables are not restricted to macros only, but can be arbitrary Python
 expressions, which are either directly callables or after evaluation yield a

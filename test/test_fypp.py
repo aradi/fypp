@@ -380,18 +380,60 @@ SIMPLE_TESTS = [
       '|12(3, 4)|\n'
      )
     ),
-    ('macro_vararg_named_arguments',
+    ('macro_vararg_named_arguments_eval',
      ([],
       '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
       '$:macro(y=2, x=1)\n',
       '|12()|\n'
      )
     ),
-    ('macro_vararg_mixed_arguments',
+    ('macro_vararg_named_arguments_call',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
+      '#:call macro\n#:nextarg y\n2\n#:nextarg x\n1\n#:endcall\n',
+      '|12()|\n'
+     )
+    ),
+    ('macro_vararg_named_arguments_inline_call',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
+      '#{call macro}##{nextarg y}#2#{nextarg x}#1#{endcall}#',
+      '|12()|'
+     )
+    ),
+    ('macro_vararg_mixed_arguments_eval',
      ([],
       '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
       '$:macro(1, z=3, y=2)\n',
       '|123()|\n'
+     )
+    ),
+    ('macro_vararg_mixed_arguments_call',
+     ([],
+      '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '#:call macro\n1\n#:nextarg z\n3\n#:nextarg y\n2\n#:endcall\n',
+      '|123()|\n'
+     )
+    ),
+    ('macro_vararg_mixed_arguments_call2',
+     ([],
+      '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '#:call macro\n#:nextarg\n1\n#:nextarg z\n3\n#:nextarg y\n2\n#:endcall\n',
+      '|123()|\n'
+     )
+    ),
+    ('macro_vararg_mixed_arguments_inline_call',
+     ([],
+      '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '#{call macro}#1#{nextarg z}#3#{nextarg y}#2#{endcall}#',
+      '|123()|'
+     )
+    ),
+    ('macro_vararg_mixed_arguments_inline_call2',
+     ([],
+      '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '#{call macro}##{nextarg}#1#{nextarg z}#3#{nextarg y}#2#{endcall}#',
+      '|123()|'
      )
     ),
     ('macro_vararg_keyword_arguments',
@@ -821,11 +863,25 @@ SIMPLE_TESTS = [
       '||'
      )
     ),
+    ('call_no_param_inline',
+     ([],
+      '#:def mymacro()\n||\n#:enddef mymacro\n'\
+      '#{call mymacro}##{endcall}#\n',
+      '||\n'
+     )
+    ),
+    ('call_no_param',
+     ([],
+      '#:def mymacro()\n||\n#:enddef mymacro\n'\
+      '#:call mymacro\n#:endcall\n',
+      '||\n'
+     )
+    ),
     ('call_empty_param_inline',
      ([],
       '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
-      '#{call mymacro}##{endcall}#\n',
-      '||\n'
+      '#{call mymacro}# #{endcall}#\n',
+      '| |\n'
      )
     ),
     ('call_empty_param',
