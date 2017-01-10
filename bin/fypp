@@ -4,7 +4,7 @@
 #
 # fypp -- Python powered Fortran preprocessor
 #
-# Copyright (c) 2016-2017, Bálint Aradi, Universität Bremen
+# Copyright (c) 2016-2017 Bálint Aradi, Universität Bremen
 #
 # All rights reserved.
 #
@@ -98,36 +98,32 @@ ERROR_EXIT_CODE = 1
 
 USER_ERROR_EXIT_CODE = 2
 
-_LINE_DIRECTIVES_PATTERN = r'''
+_ALL_DIRECTIVES_PATTERN = r'''
 # comment block
 (?P<comment>(?:^[ \t]*\#!.*\n)+)
 |
-# line control directive (with optional continuation lines)
-^[ \t]*\#:[ \t]*(?P<ldirective>[^ \t\n]+)
-(?:[ \t]+(?P<lparam>[^ \t\n].*?(?:&[ \t]*\n[ \t]*&.*?)*))?[ \t]*\n
-|
-# line eval directive (with optional continuation lines)
-^[ \t]*\$:[ \t]*(?P<lexpr>.*?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)[ \t]*\n
-|
-# direct call directive (with optional continuation lines)
-^[ \t]*@:[ \t]*(?P<callexpr>[^ \t\n]+)
-(?:[ \t]+(?P<callparams>[^ \t\n].*?(?:&[ \t]*\n[ \t]*&.*?)*))?[ \t]*\n
-'''
-
-_INLINE_DIRECTIVES_PATTERN = r'''
-# inline control directive
-\#\{[ \t]*(?P<idirective>[^ \t\n]+?)(?:[ \t]+(?P<param>[^ \t\n].*?))?[ \t]*\}\#
+# line directive (with optional continuation lines)
+^[ \t]*(?P<ldirtype>[\#\$@]):[ \t]*
+(?P<ldir>.+?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)?[ \t]*\n
 |
 # inline eval directive
-\$\{[ \t]*(?P<iexpr>.*?)[ \t]*\}\$
+(?P<idirtype>[$\#@])\{[ \t]*(?P<idir>.+?)?[ \t]*\}(?P=idirtype)
 '''
 
-_INLINE_DIRECTIVES_REGEXP = re.compile(
-    _INLINE_DIRECTIVES_PATTERN, re.VERBOSE | re.MULTILINE)
-
 _ALL_DIRECTIVES_REGEXP = re.compile(
-    _LINE_DIRECTIVES_PATTERN + '|' + _INLINE_DIRECTIVES_PATTERN,
-    re.VERBOSE | re.MULTILINE)
+    _ALL_DIRECTIVES_PATTERN, re.VERBOSE | re.MULTILINE)
+
+_CONTROL_DIR_REGEXP = re.compile(
+    r'(?P<dir>\w+)[ \t]*(?:[ \t]+(?P<param>[^ \t].*))?$')
+
+_DIRECT_CALL_REGEXP = re.compile(r'''
+(?P<callname>\w+)
+(?P<callarg>
+  (?:[ \t]+(?P<freeparams>.+)?)
+|
+  (?:(?P<dcopen>\()(?P<enclosedparams>.+)?(?P<dcclose>\)))
+)?$
+''', re.VERBOSE)
 
 _DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>\w+)\(\s*(?P<args>.+)?\s*\)$')
@@ -152,20 +148,33 @@ _COMMENTLINE_REGEXP = re.compile(r'^[ \t]*!.*$')
 
 _CONTLINE_REGEXP = re.compile(r'&[ \t]*\n(?:[ \t]*&)?')
 
-_UNESCAPE_REGEXP1 = re.compile(r'([$#])\\(\\*)([{:])')
+_UNESCAPE_TEXT_REGEXP1 = re.compile(r'([$#@])\\(\\*)([{:])')
 
-_UNESCAPE_REGEXP2 = re.compile(r'(\})\\(\\*)([$#])')
+_UNESCAPE_TEXT_REGEXP2 = re.compile(r'(\})\\(\\*)([$#@])')
 
-_UNESCAPE_REGEXP3 = re.compile(r'(@)\\(\\*)([:@])')
+_UNESCAPE_FREE_ARG_REGEXP = re.compile(r'(@)\\(\\*)(@)')
+
+_INLINE_EVAL_REGION_REGEXP = re.compile(r'\${.*?}\$')
 
 _RESERVED_PREFIX = '__'
 
-_RESERVED_NAMES = ('defined', 'setvar', 'getvar', 'delvar', '_LINE_', '_FILE_',
-                   '_THIS_FILE_', '_THIS_LINE_', '_TIME_', '_DATE_')
+_RESERVED_NAMES = set(['defined', 'setvar', 'getvar', 'delvar', '_LINE_',
+                       '_FILE_', '_THIS_FILE_', '_THIS_LINE_', '_TIME_',
+                       '_DATE_'])
 
 _LINENUM_NEW_FILE = 1
 
 _LINENUM_RETURN_TO_FILE = 2
+
+_OPENING_QUOTES_FORTRAN = '\'"'
+
+_CLOSING_QUOTES_FORTRAN = '\'"'
+
+_OPENING_BRACES_FORTRAN = '{(['
+
+_CLOSING_BRACES_FORTRAN = '})]'
+
+_ARGUMENT_SPLIT_CHAR_FORTRAN = ','
 
 
 class FyppError(Exception):
@@ -358,7 +367,7 @@ class Parser:
         '''
         self._log_event('enddef', span, name=name)
 
-    
+
     def handle_del(self, span, name):
         '''Called when parser encounters a del directive.
 
@@ -442,7 +451,7 @@ class Parser:
         self._log_event('endfor', span)
 
 
-    def handle_call(self, span, callexpr, name):
+    def handle_call(self, span, callexpr, name, directcall):
         '''Called when parser encounters a call directive.
 
         It is a dummy method and should be overriden for actual use.
@@ -452,8 +461,11 @@ class Parser:
             callexpr (str): Expression to evaluate and call.
             name (str): Name of the callable (without any optional arguments)
                 which can be used in the corresponding endcall directive.
+            directcall (bool): Whether the call is a direct (one-liner) call.
+                Default: False
         '''
-        self._log_event('call', span, callexpr=callexpr)
+        self._log_event('call', span, callexpr=callexpr, name=name,
+                        directcall=directcall)
 
 
     def handle_nextarg(self, span):
@@ -568,40 +580,42 @@ class Parser:
         print()
 
 
-    def _parse(self, txt, linenr=0, linedirs=True):
+    def _parse(self, txt, linenr=0, directcall=False):
         pos = 0
-        if linedirs:
-            regexp = _ALL_DIRECTIVES_REGEXP
-        else:
-            regexp = _INLINE_DIRECTIVES_REGEXP
-        for match in regexp.finditer(txt):
-            groups = match.groupdict()
+        for match in _ALL_DIRECTIVES_REGEXP.finditer(txt):
             start, end = match.span()
             if start > pos:
                 endlinenr = linenr + txt.count('\n', pos, start)
                 self._process_text(txt[pos:start], (linenr, endlinenr))
                 linenr = endlinenr
             endlinenr = linenr + txt.count('\n', start, end)
-            if linedirs and groups['ldirective'] is not None:
-                self._process_directive(
-                    groups['ldirective'], groups['lparam'],
-                    (linenr, endlinenr))
-            elif linedirs and groups['lexpr'] is not None:
-                self._process_lexpreval(groups['lexpr'], (linenr, endlinenr))
-            elif groups['idirective'] is not None:
-                self._process_directive(groups['idirective'], groups['param'],
-                                        (linenr, endlinenr))
-            elif groups['iexpr'] is not None:
-                self._process_iexpreval(groups['iexpr'], (linenr, endlinenr))
-            elif linedirs and groups['comment'] is not None:
-                self.handle_comment((linenr, endlinenr))
-            elif linedirs and groups['callexpr'] is not None:
-                self._process_directcall(
-                    groups['callexpr'], groups['callparams'],
-                    (linenr, endlinenr))
+            span = (linenr, endlinenr)
+            comment, ldirtype, ldir, idirtype, idir = match.groups()
+            if directcall and (idirtype is None or idirtype != '$'):
+                msg = 'only inline eval directives allowed in direct calls'
+                raise FyppFatalError(msg, self._curfile, span)
+            elif idirtype is not None:
+                if idir is None:
+                    msg = 'missing inline directive content'
+                    raise FyppFatalError(msg, self._curfile, span)
+                dirtype = idirtype
+                content = idir
+            elif ldirtype is not None:
+                if ldir is None:
+                    msg = 'missing line directive content'
+                    raise FyppFatalError(msg, self._curfile, span)
+                dirtype = ldirtype
+                content = _CONTLINE_REGEXP.sub('', ldir)
             else:
-                msg = 'internal error: unknown matching pattern'
-                raise FyppFatalError(msg, self._curfile, (linenr, endlinenr))
+                dirtype = None
+            if dirtype == '$':
+                self.handle_eval(span, content)
+            elif dirtype == '#':
+                self._process_control_dir(content, span)
+            elif dirtype == '@':
+                self._process_direct_call(content, span)
+            else:
+                self.handle_comment(span)
             pos = end
             linenr = endlinenr
         if pos < len(txt):
@@ -614,9 +628,12 @@ class Parser:
         self.handle_text(span, escaped_txt)
 
 
-    def _process_directive(self, directive, param, span):
-        if param is not None:
-            param = _CONTLINE_REGEXP.sub('', param)
+    def _process_control_dir(self, content, span):
+        match = _CONTROL_DIR_REGEXP.match(content)
+        if not match:
+            msg = "invalid control directive content '{0}'".format(content)
+            raise FyppFatalError(msg, self._curfile, span)
+        directive, param = match.groups()
         if directive == 'if':
             self._check_param_presence(True, 'if', param, span)
             self.handle_if(span, param)
@@ -631,6 +648,7 @@ class Parser:
             self.handle_endif(span)
         elif directive == 'def':
             self._check_param_presence(True, 'def', param, span)
+            self._check_not_inline_directive('def', span)
             self._process_def(param, span)
         elif directive == 'enddef':
             self._process_enddef(param, span)
@@ -653,7 +671,7 @@ class Parser:
             self._check_param_presence(True, 'call', param, span)
             self._process_call(param, span)
         elif directive == 'nextarg':
-            self._check_param_presence(False, 'nextcall', param, span)
+            self._check_param_presence(False, 'nextarg', param, span)
             self.handle_nextarg(span)
         elif directive == 'endcall':
             self._process_endcall(param, span)
@@ -682,32 +700,43 @@ class Parser:
             raise FyppFatalError(msg, self._curfile, span)
 
 
-    def _process_lexpreval(self, expr, span):
-        expr = _CONTLINE_REGEXP.sub('', expr)
-        self.handle_eval(span, expr)
-
-
-    def _process_iexpreval(self, expr, span):
-        self.handle_eval(span, expr)
-
-
-    def _process_directcall(self, callname, callparams, span):
-        match = _CALLABLE_NAME_REGEXP.match(callname)
+    def _process_direct_call(self, callexpr, span):
+        match = _DIRECT_CALL_REGEXP.match(callexpr)
         if not match:
-            msg = "invalid callable name '{0}' in direct call".format(callname)
+            msg = "invalid direct call expression"
             raise FyppFatalError(msg, self._curfile, span)
-        self._process_call(callname, span)
-        if callparams is not None:
-            callparams = _CONTLINE_REGEXP.sub('', callparams)
-            args = [arg.strip() for arg in callparams.split('@@')]
+        callname = match.group('callname')
+        if match.group('callarg') is None:
+            callparams = None
+            fortran_args = False
+        elif match.group('dcopen') is not None:
+            callparams = match.group('enclosedparams')
+            fortran_args = True
         else:
-            args = []
-        if len(args):
+            callparams = match.group('freeparams')
+            fortran_args = False
+        # Old style direct call is reported as normal call, as it empty
+        # argument convention works like in normal calls.
+        self.handle_call(span, callname, callname, fortran_args)
+        if callparams is None:
+            args = [] if fortran_args else ['']
+        else:
+            callparams = _CONTLINE_REGEXP.sub('', callparams)
+            if fortran_args:
+                if not callparams.split():
+                    args = []
+                else:
+                    args = [arg.strip()
+                            for arg in _argsplit_fortran(callparams)]
+            else:
+                args = [_UNESCAPE_FREE_ARG_REGEXP.sub(r'\1\2\3', arg.strip())
+                        for arg in callparams.split('@@')]
+        if args:
             linenr = span[0]
-            self._parse(args[0], linenr=linenr, linedirs=False)
+            self._parse(args[0], linenr=linenr, directcall=True)
             for arg in args[1:]:
                 self.handle_nextarg(span)
-                self._parse(arg, linenr=linenr, linedirs=False)
+                self._parse(arg, linenr=linenr, directcall=True)
         self.handle_endcall(span, callname)
 
 
@@ -771,7 +800,7 @@ class Parser:
             name = match.group('name')
         else:
             name = None
-        self.handle_call(span, param, name)
+        self.handle_call(span, param, name, False)
 
 
     def _process_endcall(self, param, span):
@@ -833,9 +862,8 @@ class Parser:
 
     @staticmethod
     def _unescape(txt):
-        txt = _UNESCAPE_REGEXP1.sub(r'\1\2\3', txt)
-        txt = _UNESCAPE_REGEXP2.sub(r'\1\2\3', txt)
-        txt = _UNESCAPE_REGEXP3.sub(r'\1\2\3', txt)
+        txt = _UNESCAPE_TEXT_REGEXP1.sub(r'\1\2\3', txt)
+        txt = _UNESCAPE_TEXT_REGEXP2.sub(r'\1\2\3', txt)
         return txt
 
 
@@ -1058,7 +1086,7 @@ class Builder:
         self._curnode.append(block)
 
 
-    def handle_call(self, span, callexpr, name):
+    def handle_call(self, span, callexpr, name, directcall):
         '''Should be called to signalize a call directive.
 
         Args:
@@ -1066,11 +1094,12 @@ class Builder:
             callexpr (str): Expression, which after evaluation can be called.
             name (str): Name of callable (the same name must appear in
                 the corresponding endcall directive).
+            directcall (bool): Whether the call is a direct (one-liner) call.
         '''
         self._path.append(self._curnode)
         self._curnode = []
         self._open_blocks.append(('call', self._curfile, [span], callexpr, name,
-                                  []))
+                                  directcall, []))
 
 
     def handle_nextarg(self, span):
@@ -1082,10 +1111,10 @@ class Builder:
         self._check_for_open_block(span, 'nextarg')
         block = self._open_blocks[-1]
         directive, _, spans = block[0:3]
-        self._check_if_matches_last(directive, 'call', spans[-1], span,
-                                    'endcall')
-        contents = block[5]
-        contents.append(self._curnode)
+        self._check_if_matches_last(
+            directive, 'call', spans[-1], span, 'nextarg')
+        args = block[6]
+        args.append(self._curnode)
         spans.append(span)
         self._curnode = []
 
@@ -1103,7 +1132,7 @@ class Builder:
         directive, fname, spans = block[0:3]
         self._check_if_matches_last(directive, 'call', spans[-1], span,
                                     'endcall')
-        callexpr, callname, contents = block[3:6]
+        callexpr, callname, directcall, args = block[3:7]
         if name is not None and callname is None:
             msg = 'name not allowed for this endcall directive'
             raise FyppFatalError(msg, fname, span)
@@ -1111,9 +1140,12 @@ class Builder:
             msg = "wrong name in endcall directive "\
                   "(expected '{0}', got '{1}')".format(callname, name)
             raise FyppFatalError(msg, fname, span)
-        contents.append(self._curnode)
+        args.append(self._curnode)
+        # If first and only argument is empty, make a call without any arguments
+        if directcall and len(args) == 1 and not len(args[0]):
+            args = []
         spans.append(span)
-        block = (directive, fname, spans, callexpr, contents)
+        block = (directive, fname, spans, callexpr, args)
         self._curnode = self._path.pop(-1)
         self._curnode.append(block)
 
@@ -1447,7 +1479,7 @@ class Renderer:
             self._evaluator.openscope()
             rendered = self.render(content)
             self._evaluator.closescope()
-            if len(rendered) and rendered[-1] == '\n':
+            if rendered.endswith('\n'):
                 rendered = rendered[:-1]
             args.append(rendered)
         self._undivert()
@@ -1493,6 +1525,7 @@ class Renderer:
         if argexpr is None:
             args = []
             defaults = {}
+            varargs = None
         else:
             # Try to create a lambda function with the argument expression
             self._evaluator.openscope()
@@ -1505,14 +1538,19 @@ class Renderer:
                 raise FyppFatalError(msg, fname, spans[0], exc)
             self._evaluator.closescope()
             try:
-                args, defaults = _get_args_and_defaults(func)
+                args, defaults, varargs = _get_callable_argspec(func)
             except Exception as exc:
                 msg = "invalid argument expression '{0}'".format(argexpr)
                 raise FyppFatalError(msg, fname, spans[0], exc)
+            named_args = args if varargs is None else args + [varargs]
+            for arg in named_args:
+                if arg in _RESERVED_NAMES or arg.startswith(_RESERVED_PREFIX):
+                    msg = "invalid argument name '{0}'".format(arg)
+                    raise FyppFatalError(msg, fname, spans[0])
         result = ''
         try:
-            macro = _Macro(name, fname, spans, args, defaults, content, self,
-                           self._evaluator.localscope)
+            macro = _Macro(name, fname, spans, args, defaults, varargs,
+                           content, self, self._evaluator.localscope)
             self._define(name, macro)
         except Exception as exc:
             msg = "exception occured when defining macro '{0}'"\
@@ -1904,7 +1942,7 @@ class Evaluator:
             self._check_variable_name(varname)
             if varname in self._scope:
                 del self._scope[varname]
-            
+
 
     def updatescope(self, globalscope=False, **vardict):
         '''Update (or create) variables in the local or global scope.
@@ -1964,17 +2002,10 @@ class Evaluator:
     @classmethod
     def _get_restricted_builtins(cls):
         bidict = cls._RESTRICTED_BUILTINS
-        major, minor = sys.version_info[0:2]
+        major = sys.version_info[0]
         if major == 2:
             bidict['True'] = True
             bidict['False'] = False
-            bidict['callable'] = builtins.callable
-            if minor >= 7:
-                bidict['memoryview'] = builtins.memoryview
-        elif major == 3:
-            bidict['memoryview'] = builtins.memoryview
-            if minor >= 2:
-                bidict['callable'] = builtins.callable
         return bidict
 
 
@@ -1990,7 +2021,7 @@ class Evaluator:
             varexpr = varexpr[1:-1]
         varnames = [s.strip() for s in varexpr.split(',')]
         return varnames
-        
+
 
     @staticmethod
     def _check_variable_name(varname):
@@ -2051,6 +2082,7 @@ class _Macro:
         fname (str): The file where the macro was defined.
         spans (str): Line spans of macro defintion.
         argnames (list of str): Macro dummy arguments.
+        varargs (str): Name of variable positional arguments or None.
         content (list): Content of the macro as tree.
         renderer (Renderer): Renderer to use for evaluating macro content.
         localscope (dict): Dictionary with local variables, which should be used
@@ -2058,13 +2090,14 @@ class _Macro:
             local scope).
     '''
 
-    def __init__(self, name, fname, spans, argnames, defaults, content,
+    def __init__(self, name, fname, spans, argnames, defaults, varargs, content,
                  renderer, localscope=None):
         self._name = name
         self._fname = fname
         self._spans = spans
         self._argnames = argnames
         self._defaults = defaults
+        self._varargs = varargs
         self._content = content
         self._renderer = renderer
         self._localscope = localscope if localscope is not None else {}
@@ -2087,16 +2120,29 @@ class _Macro:
 
     def _process_arguments(self, args, keywords):
         argdict = {}
-        if len(args) > len(self._argnames):
-            msg = "macro '{0}' called with too many positional arguments "\
-                  "(expected: {1}, received: {2})"\
-                  .format(self._name, len(self._argnames), len(args))
+        nargs = min(len(args), len(self._argnames))
+        for iarg in range(nargs):
+            argdict[self._argnames[iarg]] = args[iarg]
+        if nargs < len(args):
+            if self._varargs is None:
+                msg = "macro '{0}' called with too many positional arguments "\
+                      "(expected: {1}, received: {2})"\
+                      .format(self._name, len(self._argnames), len(args))
+                raise FyppFatalError(msg, self._fname, self._spans[0])
+            else:
+                argdict[self._varargs] = tuple(args[nargs:])
+        elif self._varargs is not None:
+            argdict[self._varargs] = ()
+        for argname in self._argnames[:nargs]:
+            if argname in keywords:
+                msg = "got multiple values for argument '{0}'".format(argname)
+                raise FyppFatalError(msg, self._fname, self._spans[0])
+        if self._varargs is not None and self._varargs in keywords:
+            msg = "got unexpected keyword argument '{0}'".format(self._varargs)
             raise FyppFatalError(msg, self._fname, self._spans[0])
-        for iarg, arg in enumerate(args):
-            argdict[self._argnames[iarg]] = arg
         argdict.update(keywords)
-        if len(args) < len(self._argnames):
-            for argname in self._argnames[len(args):]:
+        if nargs < len(self._argnames):
+            for argname in self._argnames[nargs:]:
                 if argname in argdict:
                     pass
                 elif argname in self._defaults:
@@ -2189,19 +2235,6 @@ class Processor:
         output = self._renderer.render(self._builder.tree)
         self._builder.reset()
         return ''.join(output)
-
-
-def linenumdir(linenr, fname, flag=None):
-    '''Returns a line numbering directive.
-
-    Args:
-        linenr (int): Line nr (starting with 0).
-        fname (str): File name.
-    '''
-    if flag is None:
-        return '# {0} "{1}"\n'.format(linenr + 1, fname)
-    else:
-        return '# {0} "{1}" {2}\n'.format(linenr + 1, fname, flag)
 
 
 class Fypp:
@@ -2568,6 +2601,7 @@ class DummyLineFolder:
         '''
         return [line]
 
+
 def get_option_parser():
     '''Returns an option parser for the Fypp command line tool.
 
@@ -2656,6 +2690,19 @@ def run_fypp():
         sys.exit(ERROR_EXIT_CODE)
 
 
+def linenumdir(linenr, fname, flag=None):
+    '''Returns a line numbering directive.
+
+    Args:
+        linenr (int): Line nr (starting with 0).
+        fname (str): File name.
+    '''
+    if flag is None:
+        return '# {0} "{1}"\n'.format(linenr + 1, fname)
+    else:
+        return '# {0} "{1}" {2}\n'.format(linenr + 1, fname, flag)
+
+
 def _shiftinds(inds, shift):
     return [ind + shift for ind in inds]
 
@@ -2688,16 +2735,13 @@ def _open_output_file(outfile, create_parents=False):
     return outfp
 
 
-def _get_args_and_defaults_py2(func):
+def _get_callable_argspec_py2(func):
     argspec = inspect.getargspec(func)
-    if argspec.varargs is not None:
-        msg = "variable length positional argument '{0}' found"\
-            .format(argspec.varargs)
-        raise FyppFatalError(msg)
-    elif argspec.keywords is not None:
+    if argspec.keywords is not None:
         msg = "variable length keyword argument '{0}' found"\
             .format(argspec.keywords)
         raise FyppFatalError(msg)
+    vararg = argspec.varargs
     args = argspec.args
     tuplearg = False
     for elem in args:
@@ -2710,37 +2754,75 @@ def _get_args_and_defaults_py2(func):
         for ind, default in enumerate(argspec.defaults):
             iarg = len(args) - len(argspec.defaults) + ind
             defaults[args[iarg]] = default
-    return args, defaults
+    return args, defaults, vararg
 
 
-def _get_args_and_defaults_py3(func):
+def _get_callable_argspec_py3(func):
     sig = inspect.signature(func)
     args = []
     defaults = {}
+    vararg = None
     for param in sig.parameters.values():
-        if param.kind == param.VAR_POSITIONAL:
-            msg = "variable length positional argument '{0}' found"\
-                  .format(param.name)
+        if param.kind == param.POSITIONAL_OR_KEYWORD:
+            args.append(param.name)
+            if param.default != param.empty:
+                defaults[param.name] = param.default
+        elif param.kind == param.VAR_POSITIONAL:
+            vararg = param.name
+        else:
+            msg = "argument '{0}' has invalid argument type".format(param.name)
             raise FyppFatalError(msg)
-        elif param.kind == param.KEYWORD_ONLY:
-            msg = "keyword only argument '{0}' found".format(param.name)
-            raise FyppFatalError(msg)
-        elif param.kind == param.VAR_KEYWORD:
-            msg = "variable length keyword argument '{0}' found"\
-                  .format(param.name)
-            raise FyppFatalError(msg)
-        args.append(param.name)
-        if param.default != param.empty:
-            defaults[param.name] = param.default
-    return args, defaults
+    return args, defaults, vararg
 
 
 # Signature objects are available from Python 3.3 (and deprecated from 3.5)
 
 if sys.version_info[0] >= 3 and sys.version_info[1] >= 3:
-    _get_args_and_defaults = _get_args_and_defaults_py3
+    _get_callable_argspec = _get_callable_argspec_py3
 else:
-    _get_args_and_defaults = _get_args_and_defaults_py2
+    _get_callable_argspec = _get_callable_argspec_py2
+
+
+def _blank_match(match):
+    size = match.end() - match.start()
+    return " " * size
+
+
+def _argsplit_fortran(argtxt):
+    txt = _INLINE_EVAL_REGION_REGEXP.sub(_blank_match, argtxt)
+    splitpos = []
+    closing_quote = ''
+    closing_braces = ''
+    for ind, char in enumerate(txt):
+        if char == closing_quote:
+            closing_quote = ''
+            continue
+        if closing_quote:
+            continue
+        if closing_braces and char == closing_braces[-1]:
+            closing_braces = closing_braces[:-1]
+            continue
+        if closing_braces:
+            continue
+        pos = _OPENING_QUOTES_FORTRAN.find(char)
+        if pos != -1:
+            closing_quote = _CLOSING_QUOTES_FORTRAN[pos]
+            continue
+        pos = _OPENING_BRACES_FORTRAN.find(char)
+        if pos != -1:
+            closing_braces += _CLOSING_BRACES_FORTRAN[pos]
+            continue
+        if char == _ARGUMENT_SPLIT_CHAR_FORTRAN:
+            splitpos.append(ind)
+
+    if splitpos:
+        fragments = [argtxt[0:splitpos[0]]]
+        for ind in range(len(splitpos) - 1):
+            fragments.append(argtxt[splitpos[ind] + 1 : splitpos[ind + 1]])
+        fragments.append(argtxt[splitpos[-1] + 1:])
+    else:
+        fragments = [argtxt]
+    return fragments
 
 
 def _formatted_exception(exc):

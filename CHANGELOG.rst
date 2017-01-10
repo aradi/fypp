@@ -9,15 +9,21 @@ Change Log
 Added
 -----
 
+* Direct call format resembling ordinary function call.
+
+* Inline direct call directive.
+
+* Macros with variable number of arguments.
+
+* Default values for macro arguments.
+
 * Equal sign as separator in set directive for better readability.
 
-* Allow names in enddef and endcall directives.
+* Allow names in enddef and endcall directives for better readability.
 
 * Del directive.
 
 * Assert directive.
-
-* Default values for macro arguments.
 
 * Generalized call directive with any Python expression yielding a callable.
 
@@ -36,6 +42,8 @@ Added
 Changed
 -------
 
+* Inline form of def directive not allowed any more. [Backwards incompatible!]
+
 * Reverse order exception printing, exception first occuring printed as last.
 
 * Command line tool formats error messages in GNU-like format.
@@ -44,15 +52,21 @@ Changed
 
 * Search paths for module imports behave more Python-like.
 
-* Slight backwards incompatibilities in API: process_* methods of Processor and
-  Fypp do not accept the optional argument env any more. Method updateenv() of
-  Evaluator has been renamed to updatescope() for more consistency.
+* API changes : process_* methods of Processor and Fypp do not accept the
+  optional argument env any more. Method updateenv() of Evaluator has been
+  renamed to updatescope() for more consistency. [Backwards incompatible!]
+
+* Marked setvar directive and old style direct call as deprecated in the
+  documentation.
+
+* Removed builtins callable() and memoryview() from restricted environment as they
+  are not available in all supported Python versions.
 
 
 Fixed
 -----
 
-* The new line numbering with flags fixes gfortrans confusion with line numbers.
+* Line numbering with flags fixes gfortrans confusion with line numbers.
 
 
 1.2

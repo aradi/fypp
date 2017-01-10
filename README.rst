@@ -13,7 +13,7 @@ emphasis on robustness and on neat integration into developing toolchains.
 The project is `hosted on bitbucket <http://bitbucket.org/aradi/fypp>`_.
 
 `Detailed DOCUMENTATION <http://fypp.readthedocs.org>`_ is available on
-`readthedocs.org <http://fypp.readthedocs.org>`_. 
+`readthedocs.org <http://fypp.readthedocs.org>`_.
 
 Fypp is released under the *BSD 2-clause license*.
 
@@ -28,9 +28,10 @@ Main features
     #:endif
 
     #:set LOGLEVEL = 2
+    print *, "LOGLEVEL: ${LOGLEVEL}$"
 
     #:del LOGLEVEL
-    
+
 * Macro definitions and macro calls::
 
     #:def assertTrue(cond)
@@ -42,15 +43,14 @@ Main features
     #:endif
     #:enddef assertTrue
 
-    ! Invoked via direct call (needs no quotation)
-    @:assertTrue size(myArray) > 0
+    ! Invoked via direct call (argument needs no quotation)
+    @:assertTrue(size(myArray) > 0)
 
-    ! Invoked as Python expression (needs quotation)
+    ! Invoked as Python expression (argument needs quotation)
     $:assertTrue('size(myArray) > 0')
-    
 
 * Conditional output::
-  
+
     program test
     #:if defined('WITH_MPI')
       use mpi
@@ -63,14 +63,14 @@ Main features
 * Iterated output (e.g. for generating Fortran templates)::
 
     interface myfunc
-    #:for dtype in [ 'real', 'dreal', 'complex', 'dcomplex' ]
+    #:for dtype in ['real', 'dreal', 'complex', 'dcomplex']
       module procedure myfunc_${dtype}$
     #:endfor
     end interface myfunc
 
 * Inline directives::
 
-    logical, parameter :: hasMpi = #{if defined('MPI')}#.true.#{else}#.false.#{endif}#
+    logical, parameter :: hasMpi = #{if defined('MPI')}# .true. #{else}# .false. #{endif}#
 
 * Insertion of arbitrary Python expressions::
 
@@ -94,7 +94,7 @@ Main features
         $:code
       #:endif
     #:enddef debug_code
-    
+
     #:call debug_code
       if (size(array) > 100) then
         print *, "DEBUG: spuriously large array"
@@ -130,7 +130,7 @@ Main features
       #:assert RANK > 0
       :
     #:enddef mymacro
-  
+
 * Line numbering directives in output::
 
     program test
@@ -150,6 +150,8 @@ Main features
 
   when variable ``MPI`` is defined and Fypp was instructed to generate line
   markers.
+
+* Automatic folding of generated lines exceeding line length limit
 
 
 Installing
@@ -197,7 +199,7 @@ obtain
 
 The command line tool is a single stand-alone script. You can run it directly
 from the source folder ::
-  
+
   FYPP_SOURCE_FOLDER/bin/fypp
 
 or after copying it from the `bin` folder to any location listed in your `PATH`
