@@ -1397,7 +1397,7 @@ SIMPLE_TESTS = [
 # arguments of the get_test_output_method() routine.
 #
 LINENUM_TESTS = [
-    # Explicit test for line number marker format (GFortran5 compatibility)
+    # Explicit test for line number marker format
     ('explicit_str_linenum_test',
      ([_LINENUM_FLAG],
       '',
@@ -1405,7 +1405,7 @@ LINENUM_TESTS = [
      )
     ),
     # Explicit test for line number marker format (GFortran5 compatibility)
-    ('explicit_str_linenum_test',
+    ('explicit_str_linenum_test_gfortran5',
      ([_LINENUM_FLAG, _linenum_gfortran5()],
       '',
       '# 1 "<string>" 1\n',
@@ -1668,14 +1668,14 @@ LINENUM_TESTS = [
      ([_LINENUM_FLAG],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '@:mymacro( a < b )\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(3) + '|a < b|\n',
+      _linenum(0) + _linenum(3) + '|a < b|\n',
      )
     ),
     ('direct_call_contline',
      ([_LINENUM_FLAG],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '@:mymacro(a &\n    &< b&\n    &)\nDone\n',
-      _linenum(0, flag=_NEW_FILE) + _linenum(3) + '|a < b|\n' + _linenum(6)
+      _linenum(0) + _linenum(3) + '|a < b|\n' + _linenum(6)
       + 'Done\n',
      )
     ),
