@@ -534,13 +534,6 @@ SIMPLE_TESTS = [
       'hello',
      )
     ),
-    ('direct_call_old',
-     ([],
-      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro a < b\n',
-      '|a < b|\n',
-     )
-    ),
     ('direct_call',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
@@ -597,25 +590,11 @@ SIMPLE_TESTS = [
       '|a < b|',
      )
     ),
-    ('direct_call_contline_old',
-     ([],
-      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro a &\n    &< b&\n    &\n',
-      '|a < b|\n',
-     )
-    ),
     ('direct_call_contline',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '@:mymacro(a &\n    &< b&\n    &)\n',
       '|a < b|\n',
-     )
-    ),
-    ('direct_call_quotation_old',
-     ([],
-      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro """L1"""\n',
-      '|"""L1"""|\n',
      )
     ),
     ('direct_call_quotation',
@@ -632,13 +611,6 @@ SIMPLE_TESTS = [
       '|"""L1"""|',
      )
     ),
-    ('direct_call_backslash_escape1_old',
-     ([],
-      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro L1\\n\n',
-      '|L1\\n|\n',
-     )
-    ),
     ('direct_call_backslash_escape1',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
@@ -651,13 +623,6 @@ SIMPLE_TESTS = [
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '@{mymacro(L1\\n)}@',
       '|L1\\n|',
-     )
-    ),
-    ('direct_call_backslash_escape2_old',
-     ([],
-      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
-      '@:mymacro L1\\"a\\"\\n\n',
-      '|L1\\"a\\"\\n|\n',
      )
     ),
     ('direct_call_backslash_escape2',
@@ -674,13 +639,6 @@ SIMPLE_TESTS = [
       '|L1\\"a\\"\\n|',
      )
     ),
-    ('direct_call_2_args_old',
-     ([],
-      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-      '@:mymacro """L1""" @@ L2\n',
-      '|"""L1"""|L2|\n',
-     )
-    ),
     ('direct_call_2_args',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
@@ -693,13 +651,6 @@ SIMPLE_TESTS = [
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@{mymacro("""L1""", L2)}@',
       '|"""L1"""|L2|',
-     )
-    ),
-    ('direct_call_2_args_escape_old',
-     ([],
-      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-      '@:mymacro """L1""" @\\@ L2 @@ L3\n',
-      '|"""L1""" @@ L2|L3|\n',
      )
     ),
     ('direct_call_2_args_escape1',
@@ -800,13 +751,6 @@ SIMPLE_TESTS = [
       '|L1 (2, 2)|L3|',
      )
     ),
-    ('direct_call_varsubs_old',
-     ([],
-      '#:def mymacro(val1)\n|${val1}$|\n#:enddef\n'\
-      '@:mymacro 2x2=${2*2}$\n',
-      '|2x2=4|\n',
-     )
-    ),
     ('direct_call_varsubs',
      ([],
       '#:def mymacro(val1)\n|${val1}$|\n#:enddef\n'\
@@ -819,13 +763,6 @@ SIMPLE_TESTS = [
       '#:def mymacro(val1)\n|${val1}$|\n#:enddef\n'\
       '@{mymacro(2x2=${2*2}$)}@',
       '|2x2=4|',
-     )
-    ),
-    ('direct_call_varsubs_2_args_old',
-     ([],
-      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-      '@:mymacro ${2*1}$ @@ ${2*2}$\n',
-      '|2|4|\n',
      )
     ),
     ('direct_call_varsubs_2_args',
@@ -842,13 +779,6 @@ SIMPLE_TESTS = [
       '|2|4|',
      )
     ),
-    ('direct_call_varsubs_2_args_escape_old',
-     ([],
-      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
-      '@:mymacro ${2*1}$ @\\@ ${2*2}$ @@ ${2*3}$\n',
-      '|2 @@ 4|6|\n',
-     )
-    ),
     ('direct_call_varsubs_2_args_escape',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
@@ -861,12 +791,6 @@ SIMPLE_TESTS = [
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@{mymacro((${2*1}$, ${2*2}$), ${2*3}$)}@',
       '|(2, 4)|6|',
-     )
-    ),
-    ('direct_call_no_param_old',
-     ([],
-      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n@:mymacro\n',
-      '||\n'
      )
     ),
     ('direct_call_no_param',
@@ -1358,7 +1282,7 @@ SIMPLE_TESTS = [
     ('correct_predefined_var_injection',
      ([],
       '#:def ASSERT(cond)\n"${cond}$", ${_FILE_}$, ${_LINE_}$\n#:enddef\n'\
-      '@:ASSERT 2 < 3\n',
+      '@:ASSERT(2 < 3)\n',
       '"2 < 3", ' + fypp.STRING + ', 4\n'
      )
     ),

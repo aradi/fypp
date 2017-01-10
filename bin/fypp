@@ -116,14 +116,8 @@ _ALL_DIRECTIVES_REGEXP = re.compile(
 _CONTROL_DIR_REGEXP = re.compile(
     r'(?P<dir>\w+)[ \t]*(?:[ \t]+(?P<param>[^ \t].*))?$')
 
-_DIRECT_CALL_REGEXP = re.compile(r'''
-(?P<callname>\w+)
-(?P<callarg>
-  (?:[ \t]+(?P<freeparams>.+)?)
-|
-  (?:(?P<dcopen>\()(?P<enclosedparams>.+)?(?P<dcclose>\)))
-)?$
-''', re.VERBOSE)
+_DIRECT_CALL_REGEXP = re.compile(
+    r'(?P<callname>\w+)\((?P<callparams>.+?)?\)$', re.VERBOSE)
 
 _DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>\w+)\(\s*(?P<args>.+)?\s*\)$')
@@ -166,13 +160,11 @@ _LINENUM_NEW_FILE = 1
 
 _LINENUM_RETURN_TO_FILE = 2
 
-_OPENING_QUOTES_FORTRAN = '\'"'
+_QUOTES_FORTRAN = '\'"'
 
-_CLOSING_QUOTES_FORTRAN = '\'"'
+_OPENING_BRACKETS_FORTRAN = '{(['
 
-_OPENING_BRACES_FORTRAN = '{(['
-
-_CLOSING_BRACES_FORTRAN = '})]'
+_CLOSING_BRACKETS_FORTRAN = '})]'
 
 _ARGUMENT_SPLIT_CHAR_FORTRAN = ','
 
@@ -706,31 +698,13 @@ class Parser:
             msg = "invalid direct call expression"
             raise FyppFatalError(msg, self._curfile, span)
         callname = match.group('callname')
-        if match.group('callarg') is None:
-            callparams = None
-            fortran_args = False
-        elif match.group('dcopen') is not None:
-            callparams = match.group('enclosedparams')
-            fortran_args = True
+        self.handle_call(span, callname, callname, True)
+        callparams = match.group('callparams')
+        if callparams is None or not callparams.strip():
+            args = []
         else:
-            callparams = match.group('freeparams')
-            fortran_args = False
-        # Old style direct call is reported as normal call, as it empty
-        # argument convention works like in normal calls.
-        self.handle_call(span, callname, callname, fortran_args)
-        if callparams is None:
-            args = [] if fortran_args else ['']
-        else:
-            callparams = _CONTLINE_REGEXP.sub('', callparams)
-            if fortran_args:
-                if not callparams.split():
-                    args = []
-                else:
-                    args = [arg.strip()
-                            for arg in _argsplit_fortran(callparams)]
-            else:
-                args = [_UNESCAPE_FREE_ARG_REGEXP.sub(r'\1\2\3', arg.strip())
-                        for arg in callparams.split('@@')]
+            args = [arg.strip()
+                    for arg in _argsplit_fortran(callparams)]
         if args:
             linenr = span[0]
             self._parse(args[0], linenr=linenr, directcall=True)
@@ -2790,38 +2764,34 @@ def _blank_match(match):
 
 def _argsplit_fortran(argtxt):
     txt = _INLINE_EVAL_REGION_REGEXP.sub(_blank_match, argtxt)
-    splitpos = []
-    closing_quote = ''
-    closing_braces = ''
+    splitpos = [-1]
+    quote = None
+    closing_brace_stack = []
+    closing_brace = None
     for ind, char in enumerate(txt):
-        if char == closing_quote:
-            closing_quote = ''
+        if quote:
+            if char == quote:
+                quote = None
             continue
-        if closing_quote:
+        if closing_brace and char == closing_brace:
+            closing_brace = closing_brace_stack.pop(-1)
             continue
-        if closing_braces and char == closing_braces[-1]:
-            closing_braces = closing_braces[:-1]
+        if char in _QUOTES_FORTRAN:
+            quote = char
             continue
-        if closing_braces:
+        if char in _OPENING_BRACKETS_FORTRAN:
+            closing_brace_stack.append(closing_brace)
+            ind = _OPENING_BRACKETS_FORTRAN.index(char)
+            closing_brace = _CLOSING_BRACKETS_FORTRAN[ind]
             continue
-        pos = _OPENING_QUOTES_FORTRAN.find(char)
-        if pos != -1:
-            closing_quote = _CLOSING_QUOTES_FORTRAN[pos]
-            continue
-        pos = _OPENING_BRACES_FORTRAN.find(char)
-        if pos != -1:
-            closing_braces += _CLOSING_BRACES_FORTRAN[pos]
-            continue
-        if char == _ARGUMENT_SPLIT_CHAR_FORTRAN:
+        if not closing_brace and char == _ARGUMENT_SPLIT_CHAR_FORTRAN:
             splitpos.append(ind)
-
-    if splitpos:
-        fragments = [argtxt[0:splitpos[0]]]
-        for ind in range(len(splitpos) - 1):
-            fragments.append(argtxt[splitpos[ind] + 1 : splitpos[ind + 1]])
-        fragments.append(argtxt[splitpos[-1] + 1:])
-    else:
-        fragments = [argtxt]
+    if quote or closing_brace:
+        msg = "open quotes or brackets in expression '{0}'".format(argtxt)
+        raise FyppFatalError(msg)
+    splitpos.append(len(txt))
+    fragments = [argtxt[start + 1 : end]
+                 for start, end in zip(splitpos, splitpos[1:])]
     return fragments
 
 
