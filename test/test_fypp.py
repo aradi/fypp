@@ -1004,12 +1004,6 @@ SIMPLE_TESTS = [
       '2\n',
      )
     ),
-    ('set_setvar',
-     ([],
-      '#:setvar x 2\n$: x\n',
-      '2\n',
-     )
-    ),
     ('inline_set_equal_withspace',
      ([],
       '#{set x = 2}#${x}$Done\n',
@@ -1019,12 +1013,6 @@ SIMPLE_TESTS = [
     ('inline_set_equal_nospace',
      ([],
       '#{set x=2}#${x}$Done\n',
-      '2Done\n',
-     )
-    ),
-    ('inline_setvar',
-     ([],
-      '#{setvar x 2}#${x}$Done\n',
       '2Done\n',
      )
     ),
@@ -2056,6 +2044,18 @@ EXCEPTION_TESTS = [
     ('missing_inline_dir_content2',
      ([],
       '#{ }#',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+     )
+    ),
+    ('set_setvar',
+     ([],
+      '#:setvar x 2\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('inline_setvar',
+     ([],
+      '#{setvar x 2}#',
       [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
     ),

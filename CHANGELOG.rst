@@ -13,11 +13,11 @@ Added
 
 * Inline direct call directive.
 
+* Keyword arguments in direct call and call directive.
+
 * Macros with variable number of arguments.
 
 * Default values for macro arguments.
-
-* Equal sign as separator in set directive for better readability.
 
 * Allow names in enddef and endcall directives for better readability.
 
@@ -42,10 +42,20 @@ Added
 Changed
 -------
 
-* Inline form of def directive not allowed any more. [Backwards incompatible!]
+* Setvar directive not allowed as alternative to set any more. [Backwards
+  incompatible]
 
 * Old direct call syntax (@:macro arg1) not supported any more [Backwards
-  incompatible!]
+  incompatible]
+
+* Inline form of def directive not allowed any more. [Backwards incompatible]
+
+* Minimal API changes : process_* methods of Processor and Fypp do not accept the
+  optional argument env any more. Method updateenv() of Evaluator has been
+  renamed to updatescope() for more consistency. [Backwards incompatible]
+
+* Equal sign must be used as separator in set directive for better
+  readability. [Backwards incompatible]
 
 * Reverse order exception printing, exception first occuring printed as last.
 
@@ -54,13 +64,6 @@ Changed
 * Make equal sign in set directive mandatory and in setvar directive forbidden.
 
 * Search paths for module imports behave more Python-like.
-
-* API changes : process_* methods of Processor and Fypp do not accept the
-  optional argument env any more. Method updateenv() of Evaluator has been
-  renamed to updatescope() for more consistency. [Backwards incompatible!]
-
-* Marked setvar directive and old style direct call as deprecated in the
-  documentation.
 
 * Removed builtins callable() and memoryview() from restricted environment as they
   are not available in all supported Python versions.

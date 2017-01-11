@@ -131,8 +131,8 @@ _SIMPLE_CALLABLE_REGEXP = re.compile(
 _IDENTIFIER_NAME_REGEXP = re.compile(r'^(?P<name>[a-zA-Z_]\w*)$')
 
 _SET_PARAM_REGEXP = re.compile(
-    r'^(?P<name>(?:[(]\s*)?[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*(?:\s*[)])?)'\
-    r'(?:(?:(?P<equal>\s*=\s*)|\s+)(?P<expr>.*))?$')
+    r'^(?P<name>(?:[(]\s*)?[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*(?:\s*[)])?)\s*'\
+    r'(?:=\s*(?P<expr>.*))?$')
 
 _DEL_PARAM_REGEXP = re.compile(
     r'^(?:[(]\s*)?[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*(?:\s*[)])?$')
@@ -646,9 +646,6 @@ class Parser:
             self._process_def(param, span)
         elif directive == 'enddef':
             self._process_enddef(param, span)
-        elif directive == 'setvar':
-            self._check_param_presence(True, 'setvar', param, span)
-            self._process_set(param, span, setvar=True)
         elif directive == 'set':
             self._check_param_presence(True, 'set', param, span)
             self._process_set(param, span)
@@ -741,19 +738,11 @@ class Parser:
         self.handle_enddef(span, param)
 
 
-    def _process_set(self, param, span, setvar=False):
+    def _process_set(self, param, span):
         match = _SET_PARAM_REGEXP.match(param)
         if not match:
             msg = "invalid variable assignment '{0}'".format(param)
             raise FyppFatalError(msg, self._curfile, span)
-        else:
-            has_equal_sign = match.group('equal') is not None
-            if setvar == has_equal_sign:
-                if setvar:
-                    msg = 'superfluous equal sign in setvar directive'
-                else:
-                    msg = 'missing equal sign in set directive'
-                raise FyppFatalError(msg, self._curfile, span)
         self.handle_set(span, match.group('name'), match.group('expr'))
 
 

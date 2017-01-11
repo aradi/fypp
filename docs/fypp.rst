@@ -619,11 +619,6 @@ The `set` directive can be also used in the inline form::
 
 Similar to the line form, the separating equal sign is optional here as well.
 
-For backwards compatibility reason, also a `setvar` directive is recognized by
-Fypp. It has identical syntax and functionality to the `set` directive, but the
-equal sign between variable and value must be omitted. Its usage is not
-recommended, though, as this feature may be removed from Fypp in the future.
-
 
 `del` directive
 ==================
