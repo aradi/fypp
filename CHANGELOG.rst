@@ -44,6 +44,9 @@ Changed
 
 * Inline form of def directive not allowed any more. [Backwards incompatible!]
 
+* Old direct call syntax (@:macro arg1) not supported any more [Backwards
+  incompatible!]
+
 * Reverse order exception printing, exception first occuring printed as last.
 
 * Command line tool formats error messages in GNU-like format.

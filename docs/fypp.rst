@@ -775,7 +775,7 @@ The `for` directive can be used also in its inline form::
 ===============
 
 Parametrized macros can be defined with the `def` directive. This defines a
-regular Python callable, which returns the rendered content of the macro body
+regular callable in Python, which returns the rendered content of the macro body
 when called. The macro arguments are converted to local variables containing the
 actual arguments as values. The macro can be either called from within an
 eval-directive, via the `call` control directive and via its abreviated form,
@@ -794,12 +794,15 @@ Given the macro definition ::
 
 the following three calls ::
 
+  #! call macro by evaluating a Python expression
   $:assertTrue('x > y')
 
+  #! call macro by using the call directive (see below)
   #:call assertTrue
   x > y
   #:endcall assertTrue
 
+  #! call macro by using the direct call directive (see below)
   @:assertTrue(x > y)
 
 would all yield ::
@@ -812,10 +815,10 @@ would all yield ::
 if the variable `DEBUG` had a value greater than zero or an empty string
 otherwise.
 
-When called from within an eval-directive, arbitrary optional parameters can be
-passed additional to the regular macro arguments. The optional parameters are
-converted to local variables when the macro content is rendered. For example
-given the defintion of the ``assertTrue()`` macro from above, the call ::
+When calling a macro, arbitrary optional parameters can be passed additional to
+the regular macro arguments. The optional parameters are converted to local
+variables when the macro content is rendered. For example given the defintion of
+the ``assertTrue()`` macro from above, the call ::
 
   $:assertTrue('x > y', DEBUG=1)
 
@@ -895,9 +898,10 @@ The `def` directive has no inline form.
 `call` directive
 ================
 
-When a Python callable (regular Python function, macro etc.) with at least one
-argument is called with string argument(s) only (e.g. source code), it can be
-called using the `call` directive to avoid extra quoting of the arguments::
+When a Python callable (regular Python function, macro etc.) is called with
+*string argument(s)* only (e.g. source code), it can be called using the `call`
+directive to avoid extra quoting of the arguments and to enable passing of
+multiline arguments in a comfortable way::
 
   #:def debug_code(code)
     #:if DEBUG > 0
@@ -925,15 +929,15 @@ argument to the callable. The name of the callable can be repeated in the
 If the callable has more than one arguments, the `nextarg` directive can be used
 to separate the arguments from each other::
 
-  #:def choose_code(code_debug, code_nondebug)
+  #:def choose_code(debug_code, nondebug_code)
     #:if DEBUG > 0
-      $:code_debug
+      $:debug_code
     #:else
-      $:code_nondebug
+      $:nondebug_code
     #:endif
   #:enddef choose_code
 
-  #:call chose_code
+  #:call choose_code
     if (a < b) then
         print *, "DEBUG: a is less than b"
     end if
@@ -947,6 +951,45 @@ directive will be a local variable existing only during the evaluation of that
 branch of the directive (and not being available when the callable is called
 with the evaluated text as argument).
 
+The `nextarg` directive may be followed by an optional argument name. In that
+case the text following will be passed as keyword argument to the callable. If
+the first argument should be also passed as keyword argument, it should be also
+preceeded by a named `nextarg` directive declared in the line immediately
+following the `call` directive. If an argument is passed as a keyword argument,
+all following arguments must be passed as keyword arguments as well::
+
+  #:call choose_code
+  #:nextarg nondebug_code
+    print *, "No debugging"
+  #:nextarg debug_code
+    if (a < b) then
+        print *, "DEBUG: a is less than b"
+    end if
+  #:endcall choose_code
+
+Callables without arguments can also be called with the `call` directive,
+provided the `endcall` directive immediately follows the `call` directive. If
+there are empty lines between the `call` and the `endcall` directive, they will
+be interpreted as a positional argument::
+
+  #:def macro_noarg()
+  NOARGS
+  #:enddef macro_noarg
+
+  #:def macro_arg1(arg1)
+  ARG1:${arg1}$
+  #:enddef macro_arg1
+
+  #! Calling macro without arguments
+  #:call macro_noarg
+  #:endcall macro_noarg
+
+  #! Calling macro with one positional (empty) argument
+  #! Note the empty line between call and endcall
+  #:call macro_arg1
+  
+  #:endcall macro_arg1
+  
 The `call` directive can also be used in its inline form. As this easily leads
 to code being hard to read, it should be usually avoided::
 
@@ -956,11 +999,15 @@ to code being hard to read, it should be usually avoided::
   ! This form is more readable
   print *, ${choose_code('a(:)', 'size(a)')}$
 
-  ! Alternatively, you can use the direct call (next section)
+  ! Alternatively, you may use a direct call (see next section)
   print *, @{choose_code(a(:), size(a))}@
 
 If the arguments are short, the more compact direct call directive can be also
 used as an alternative (see next section).
+
+
+Generating callables
+--------------------
 
 The callables are not restricted to macros only, but can be arbitrary Python
 expressions, which are either directly callables or after evaluation yield a
@@ -1040,25 +1087,64 @@ directive::
 
 The direct call directive starts with ``@:`` followed by the name of a Python
 callable and an opening paranthesis (``(``). Everything after that up to the
-closing paranthesis (``)``) is treated as string argument for the callable. The
+closing paranthesis (``)``) is passed as *string argument* to the callable. The
 closing paranthesis may only be followed by whitespace characters.
 
 When the callable needs more than one argument, the arguments must be separated
 by a comma (``,``)::
 
-  #:def assertEqual(lhs, rhs)
-  if (${lhs}$ /= ${rhs}$) then
-    print *, "assertEqual failed (${lhs}$ /= ${rhs}$)!"
+  #:def assertEqual(received, expected)
+  if (${received}$ /= ${expected}$) then
+    print *, "assertEqual failed (${received}$ /= ${expected}$)!"
     error stop
   end if
   #:enddef assertEqual
 
-  @:assertEqual(size(coords, dim=2), size(types))
+  @:assertEqual(size(coords, dim=2), size(atomtypes))
 
-The direct call directive can contain continuation lines::
+.. note:: In order to be able to split the argument string of a direct call
+          correctly, Fypp assumes that all provided arguments represent valid
+          Fortran expressions with balanced quotes (``'`` or ``"``) and balanced
+          brackets (``()``, ``[]`` and ``{}``) outside of quoted regions. The
+          argument string is only split around commas which are outside of any
+          quoted or bracketed regions.
+
+Arguments can be optionally enclosed within curly braces in order to avoid
+argument splitting at unwanted places or to improve readability. The outermost
+curly braces will be removed from the arguments before they are passed to the
+callable::
+
+  #! Passes "a**2 + b**2" and "c**2" as string arguments to assertEqual
+  @:assertEqual({a**2 + b**2}, c**2)
+
+Keywords arguments can be passed by prefixing them with the keyword name
+and an equal sign::
+
+  @:assertEqual(expected=size(atomtypes), received=size(coords, dim=2))
+  @:assertEqual(expected=c**2, received={a**2 + b**2})
+
+If the equal sign is followed immediately by an other equal sign, the argument
+will be recognized as positional and not as keyword argument. This exception
+allows for passing valid Fortran code containing the comparison operator
+(``==``) without the need for special bracketing. In other cases, however,
+bracketing may be needed to avoid recognition as keyword argument::
+
+  #! Passes string "a == b" as first positional argument
+  @:assertTrue(a == b)
+
+  #! Passes string "=b" as keyword argument "a"
+  @:assertTrue(a={=b})
+
+  #! Passes string "b" as keyword argument "a"
+  @:someMacro(a = b)
+
+  #! Passes "a = b" as positional argument
+  @:someMacro({a = b})
+
+The direct call directive may contain continuation lines::
 
   @:assertEqual(size(coords, dim=2), &
-      & size(types))
+      & size(atomtypes))
 
 The arguments are parsed for further inline eval directives (but not for any
 inline control or direct call directives), making variable substitutions in the
@@ -1067,18 +1153,20 @@ arguments possible::
   #:set MYSIZE = 2
   @:assertEqual(size(coords, dim=2), ${MYSIZE}$)
 
-.. note:: In order to be able to split the arguments of a direct call correctly,
-          Fypp assumes that all provided arguments represent expressions with
-          balanced brackets and quotations. The inline eval directives are not
-          considered when splitting the arguments, and are evaluated only at a
-          later stage.
+Whitespaces around the arguments of the direct call are stripped, but not the
+whitespaces within the optional curly braces around the argument::
 
-The whitespaces around the arguments of the direct call are stripped before
-parsed. In contrast to the ``call`` directive, the direct call can be also used
-for callables without any arguments::
-
-  #! Passes no arguments
+  #! Calls a macro without arguments
   @:macro_without_args()
+
+  #! Calls a macro with no arguments (whitespace between () is stripped):
+  @:macro_without_args( )
+
+  #! Calls a macro with empty string as argument
+  @:macro_with_one_arg({})
+
+  #! Calls a macro with one space as argument
+  @:macro_with_one_arg({ })
 
 The direct call directive needs the name of an existing callable and does not
 allow for on the fly callable-generation. However, it is possible to store the
@@ -1096,10 +1184,6 @@ The direct call directive can also be used in its inline form::
 
   #! Using choose_code() macro defined in previous section
   print *, @{choose_code(a(:), size(a))}@
-
-For backwards compatibility reasons, direct calls without enclosing parantheses
-and ``@@`` as argument seperator are also accepted by Fypp. Their usage is not
-recommended, though, as this feature may be removed from Fypp in the future.
 
 
 `include` directive
@@ -1509,16 +1593,19 @@ First, we create an include file (``checks.fypp``) with the appropriate macros::
 
   #! Stops the code, if the condition passed to it is not fulfilled
   #! Only included in debug mode.
-  #:def ensure(cond)
-    #:if DEBUG
+  #:def ensure(cond, msg=None)
+  #:if DEBUG
   if (.not. (${cond}$)) then
     write(*,*) 'Run-time check failed'
     write(*,*) 'Condition: ${cond.replace("'", "''")}$'
+    #:if msg is not None
+    write(*,*) 'Message: ', ${msg}$
+    #:endif
     write(*,*) 'File: ${_FILE_}$'
     write(*,*) 'Line: ', ${_LINE_}$
     stop
   end if
-    #:endif
+  #:endif
   #:enddef ensure
 
 
@@ -1563,7 +1650,7 @@ after including ``checks.fypp``::
       integer, intent(in) :: ind
       character, intent(in) :: uplo
 
-      @:ensure(ind > 0)
+      @:ensure(ind > 0, msg="Index must be positive")
       @:ensure(uplo == 'U' .or. uplo == 'L')
 
       ! Do something useful here
@@ -1612,6 +1699,7 @@ the run-time checks and the debug code will be there::
   if (.not. (ind > 0)) then
     write(*,*) 'Run-time check failed'
     write(*,*) 'Condition: ind > 0'
+    write(*,*) 'Message: ', "Index must be positive"
     write(*,*) 'File: testmod.fpp'
     write(*,*) 'Line: ', 12
     stop
