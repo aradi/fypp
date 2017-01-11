@@ -245,6 +245,12 @@ SIMPLE_TESTS = [
       'MACRO|1|'
      )
     ),
+    ('macrodef_whitespace',
+     ([],
+      '#:def macro (var)\nMACRO|${var}$|\n#:enddef macro\n${macro(1)}$',
+      'MACRO|1|'
+     )
+    ),
     ('macro_noargs',
      ([],
       '#:def macro()\nMACRO\n#:enddef\n${macro()}$',
@@ -597,6 +603,13 @@ SIMPLE_TESTS = [
       '|a < b|\n',
      )
     ),
+    ('direct_call_whitespace',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '@:mymacro (a < b)\n',
+      '|a < b|\n',
+     )
+    ),
     ('direct_call_inline',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
@@ -819,6 +832,34 @@ SIMPLE_TESTS = [
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@{mymacro({{L1, L2}}, L3)}@',
       '|{L1, L2}|L3|',
+     )
+    ),
+    ('direct_call_kwarg',
+     ([],
+      '#:def mymacro(a)\n|${a}$|\n#:enddef\n'\
+      '@:mymacro(a = b)\n',
+      '|b|\n',
+     )
+    ),
+    ('direct_call_kwarg_eq_operator',
+     ([],
+      '#:def mymacro(a)\n|${a}$|\n#:enddef\n'\
+      '@:mymacro(a == b)\n',
+      '|a == b|\n',
+     )
+    ),
+    ('direct_call_kwarg_ptr_assignment',
+     ([],
+      '#:def mymacro(a)\n|${a}$|\n#:enddef\n'\
+      '@:mymacro(a => b)\n',
+      '|> b|\n',
+     )
+    ),
+    ('direct_call_kwarg_escape',
+     ([],
+      '#:def mymacro(val1)\n|${val1}$|\n#:enddef\n'\
+      '@:mymacro({a = b})\n',
+      '|a = b|\n',
      )
     ),
     ('direct_call_varsubs',
@@ -1968,6 +2009,30 @@ EXCEPTION_TESTS = [
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@{mymacro(L1 #{if True}#2, 2#{endif}#)}@',
       [(fypp.FyppFatalError, fypp.STRING, (3, 3))]
+     )
+    ),
+    ('direct_call_unclosed quote',
+     ([],
+      '#:def mymacro(arg1)\n|${arg1}$|\n#:enddef\n'\
+      '@:mymacro("something)\n',
+      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
+       (fypp.FyppFatalError, None, None)]
+     )
+    ),
+    ('direct_call_unclosed bracket',
+     ([],
+      '#:def mymacro(arg1)\n|${arg1}$|\n#:enddef\n'\
+      '@:mymacro({something)\n',
+      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
+       (fypp.FyppFatalError, None, None)]
+     )
+    ),
+    ('direct_call_unbalanced bracket',
+     ([],
+      '#:def mymacro(arg1)\n|${arg1}$|\n#:enddef\n'\
+      '@:mymacro({(})\n',
+      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
+       (fypp.FyppFatalError, None, None)]
      )
     ),
     ('missing_line_dir_content',

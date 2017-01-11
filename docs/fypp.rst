@@ -775,7 +775,7 @@ The `for` directive can be used also in its inline form::
 ===============
 
 Parametrized macros can be defined with the `def` directive. This defines a
-regular Python callable, which returns the rendered content of the macro body
+regular callable in Python, which returns the rendered content of the macro body
 when called. The macro arguments are converted to local variables containing the
 actual arguments as values. The macro can be either called from within an
 eval-directive, via the `call` control directive and via its abreviated form,
@@ -794,12 +794,15 @@ Given the macro definition ::
 
 the following three calls ::
 
+  #! call macro by evaluating a Python expression
   $:assertTrue('x > y')
 
+  #! call macro by using the call directive (see below)
   #:call assertTrue
   x > y
   #:endcall assertTrue
 
+  #! call macro by using the direct call directive (see below)
   @:assertTrue(x > y)
 
 would all yield ::
@@ -812,10 +815,10 @@ would all yield ::
 if the variable `DEBUG` had a value greater than zero or an empty string
 otherwise.
 
-When called from within an eval-directive, arbitrary optional parameters can be
-passed additional to the regular macro arguments. The optional parameters are
-converted to local variables when the macro content is rendered. For example
-given the defintion of the ``assertTrue()`` macro from above, the call ::
+When calling a macro, arbitrary optional parameters can be passed additional to
+the regular macro arguments. The optional parameters are converted to local
+variables when the macro content is rendered. For example given the defintion of
+the ``assertTrue()`` macro from above, the call ::
 
   $:assertTrue('x > y', DEBUG=1)
 
@@ -996,7 +999,7 @@ to code being hard to read, it should be usually avoided::
   ! This form is more readable
   print *, ${choose_code('a(:)', 'size(a)')}$
 
-  ! Alternatively, you can use the direct call (next section)
+  ! Alternatively, you may use a direct call (see next section)
   print *, @{choose_code(a(:), size(a))}@
 
 If the arguments are short, the more compact direct call directive can be also
@@ -1120,17 +1123,23 @@ and an equal sign::
   @:assertEqual(expected=size(atomtypes), received=size(coords, dim=2))
   @:assertEqual(expected=c**2, received={a**2 + b**2})
 
-If the equal sign is followed immediately by an other equal sign or by the
-greater sign (``>``), it will be not recognized as keyword argument. This
-exception allows for passing valid Fortran code containing the comparison
-operator (``==``) or a pointer assignment (``=>``) without the need for special
-bracketing::
+If the equal sign is followed immediately by an other equal sign, the argument
+will be recognized as positional and not as keyword argument. This exception
+allows for passing valid Fortran code containing the comparison operator
+(``==``) without the need for special bracketing. In other cases, however,
+bracketing may be needed to avoid recognition as keyword argument::
 
   #! Passes string "a == b" as first positional argument
   @:assertTrue(a == b)
 
   #! Passes string "=b" as keyword argument "a"
   @:assertTrue(a={=b})
+
+  #! Passes string "b" as keyword argument "a"
+  @:someMacro(a = b)
+
+  #! Passes "a = b" as positional argument
+  @:someMacro({a = b})
 
 The direct call directive may contain continuation lines::
 

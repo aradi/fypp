@@ -117,15 +117,16 @@ _CONTROL_DIR_REGEXP = re.compile(
     r'(?P<dir>[a-zA-Z_]\w*)[ \t]*(?:[ \t]+(?P<param>[^ \t].*))?$')
 
 _DIRECT_CALL_REGEXP = re.compile(
-    r'(?P<callname>[a-zA-Z_]\w*)\((?P<callparams>.+?)?\)$', re.VERBOSE)
+    r'(?P<callname>[a-zA-Z_]\w*)[ \t]*\((?P<callparams>.+?)?\)$', re.VERBOSE)
 
 _DIRECT_CALL_KWARG_REGEXP = re.compile(
-    r'(?:(?P<kwname>[a-zA-Z_]\w*)\s*=(?=[^>=]|$))?')
+    r'(?:(?P<kwname>[a-zA-Z_]\w*)\s*=(?=[^=]|$))?')
 
 _DEF_PARAM_REGEXP = re.compile(
-    r'^(?P<name>[a-zA-Z_]\w*)\(\s*(?P<args>.+)?\s*\)$')
+    r'^(?P<name>[a-zA-Z_]\w*)[ \t]*\(\s*(?P<args>.+)?\s*\)$')
 
-_SIMPLE_CALLABLE_REGEXP = re.compile(r'^(?P<name>[a-zA-Z_]\w*)\s*(?:\(.*\))?$')
+_SIMPLE_CALLABLE_REGEXP = re.compile(
+    r'^(?P<name>[a-zA-Z_]\w*)[ \t]*(?:\(.*\))?$')
 
 _IDENTIFIER_NAME_REGEXP = re.compile(r'^(?P<name>[a-zA-Z_]\w*)$')
 
@@ -706,7 +707,7 @@ class Parser:
             try:
                 args = [arg.strip() for arg in _argsplit_fortran(callparams)]
             except Exception as exc:
-                msg = 'unable to split direct call arguments'
+                msg = 'unable to parse direct call argument'
                 raise FyppFatalError(msg, self._curfile, span, exc)
         for arg in args:
             match = _DIRECT_CALL_KWARG_REGEXP.match(arg)
@@ -2815,9 +2816,6 @@ def _argsplit_fortran(argtxt):
             if char == quote:
                 quote = None
             continue
-        if closing_brace and char == closing_brace:
-            closing_brace = closing_brace_stack.pop(-1)
-            continue
         if char in _QUOTES_FORTRAN:
             quote = char
             continue
@@ -2826,6 +2824,14 @@ def _argsplit_fortran(argtxt):
             ind = _OPENING_BRACKETS_FORTRAN.index(char)
             closing_brace = _CLOSING_BRACKETS_FORTRAN[ind]
             continue
+        if char in _CLOSING_BRACKETS_FORTRAN:
+            if char == closing_brace:
+                closing_brace = closing_brace_stack.pop(-1)
+                continue
+            else:
+                msg = "unexpected closing delimiter '{0}' in expression '{1}' "\
+                      "at position {2}".format(char, argtxt, ind + 1)
+                raise FyppFatalError(msg)
         if not closing_brace and char == _ARGUMENT_SPLIT_CHAR_FORTRAN:
             splitpos.append(ind)
     if quote or closing_brace:
