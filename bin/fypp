@@ -126,7 +126,7 @@ _DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>[a-zA-Z_]\w*)[ \t]*\(\s*(?P<args>.+)?\s*\)$')
 
 _SIMPLE_CALLABLE_REGEXP = re.compile(
-    r'^(?P<name>[a-zA-Z_]\w*)[ \t]*(?:\(.*\))?$')
+    r'^(?P<name>[a-zA-Z_]\w*)[ \t]*(?:\([ \t]*(?P<args>.*)[ \t]*\))?$')
 
 _IDENTIFIER_NAME_REGEXP = re.compile(r'^(?P<name>[a-zA-Z_]\w*)$')
 
@@ -445,18 +445,18 @@ class Parser:
         self._log_event('endfor', span)
 
 
-    def handle_call(self, span, callexpr, name):
+    def handle_call(self, span, name, argexpr):
         '''Called when parser encounters a call directive.
 
         It is a dummy method and should be overriden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
-            callexpr (str): Expression to evaluate and call.
-            name (str): Name of the callable (without any optional arguments)
-                which can be used in the corresponding endcall directive.
+            name (str): Name of the callable to call
+            argexpr (str or None): Argument expression containing additional
+                arguments for the call.
         '''
-        self._log_event('call', span, callexpr=callexpr, name=name)
+        self._log_event('call', span, name=name, argexpr=argexpr)
 
 
     def handle_nextarg(self, span, name):
@@ -696,7 +696,7 @@ class Parser:
             msg = "invalid direct call expression"
             raise FyppFatalError(msg, self._curfile, span)
         callname = match.group('callname')
-        self.handle_call(span, callname, callname)
+        self.handle_call(span, callname, None)
         callparams = match.group('callparams')
         if callparams is None or not callparams.strip():
             args = []
@@ -766,11 +766,11 @@ class Parser:
 
     def _process_call(self, param, span):
         match = _SIMPLE_CALLABLE_REGEXP.match(param)
-        if match:
-            name = match.group('name')
-        else:
-            name = None
-        self.handle_call(span, param, name)
+        if not match:
+            msg = "invalid callable expression '{}'".format(param)
+            raise FyppFatalError(msg, self._curfile, span)
+        name, args = match.groups()
+        self.handle_call(span, name, args)
 
 
     def _process_nextarg(self, param, span):
@@ -1066,19 +1066,19 @@ class Builder:
         self._curnode.append(block)
 
 
-    def handle_call(self, span, callexpr, name):
+    def handle_call(self, span, name, argexpr):
         '''Should be called to signalize a call directive.
 
         Args:
             span (tuple of int): Start and end line of the directive.
-            callexpr (str): Expression, which after evaluation can be called.
-            name (str): Name of callable (the same name must appear in
-                the corresponding endcall directive).
+            name (str): Name of the callable to call
+            argexpr (str or None): Argument expression containing additional
+                arguments for the call.
         '''
         self._path.append(self._curnode)
         self._curnode = []
         self._open_blocks.append(
-            ('call', self._curfile, [span, span], callexpr, name, [], []))
+            ('call', self._curfile, [span, span], name, argexpr, [], []))
 
 
     def handle_nextarg(self, span, name):
@@ -1118,10 +1118,7 @@ class Builder:
         directive, fname, spans = block[0:3]
         self._check_if_matches_last(directive, 'call', spans[0], span,
                                     'endcall')
-        callexpr, callname, args, argnames = block[3:7]
-        if name is not None and callname is None:
-            msg = 'name not allowed for this endcall directive'
-            raise FyppFatalError(msg, fname, span)
+        callname, callargexpr, args, argnames = block[3:7]
         if name is not None and name != callname:
             msg = "wrong name in endcall directive "\
                   "(expected '{0}', got '{1}')".format(callname, name)
@@ -1136,7 +1133,7 @@ class Builder:
             del args[0]
             del spans[1]
         spans.append(span)
-        block = (directive, fname, spans, callexpr, args, argnames)
+        block = (directive, fname, spans, callname, callargexpr, args, argnames)
         self._curnode = self._path.pop(-1)
         self._curnode.append(block)
 
@@ -1362,7 +1359,7 @@ class Renderer:
                 eval_pos += peval
                 output += out
             elif cmd == 'call':
-                out, ieval, peval = self._get_called_content(*node[1:6])
+                out, ieval, peval = self._get_called_content(*node[1:7])
                 eval_inds += _shiftinds(ieval, len(output))
                 eval_pos += peval
                 output += out
@@ -1458,41 +1455,15 @@ class Renderer:
         return out, ieval, peval
 
 
-    def _get_called_content(self, fname, spans, name, contents, argnames):
-        try:
-            callobj = self._evaluate(name, fname, spans[0][0])
-        except Exception as exc:
-            msg = "unable to obtain callable by evaluating '{0}'".format(name)
-            raise FyppFatalError(msg, fname, spans[0], exc)
-        self._divert()
-        args = []
-        for content in contents:
-            self._evaluator.openscope()
-            rendered = self.render(content)
-            self._evaluator.closescope()
-            if rendered.endswith('\n'):
-                rendered = rendered[:-1]
-            args.append(rendered)
-        self._undivert()
-        # Separate arguments into positional and keyword ones:
-        if argnames:
-            posargs = args[:len(args) - len(argnames)]
-            kwargs = {}
-            offset = len(args) - len(argnames)
-            for iargname, argname in enumerate(argnames):
-                ind = offset + iargname
-                if argname in kwargs:
-                    msg = "keyword argument '{0}' already defined"\
-                        .format(argname)
-                    raise FyppFatalError(msg, fname, spans[ind + 1])
-                kwargs[argname] = args[ind]
-        else:
-            posargs = args
-            kwargs = {}
+    def _get_called_content(self, fname, spans, name, argexpr, contents,
+                            argnames):
+        posargs, kwargs = self._get_call_arguments(fname, spans, argexpr,
+                                                   contents, argnames)
         # Since callobj uses the evaluators scope, the globals must be updated
         # before calling it.
         self._update_globals(fname, spans[0][0])
         try:
+            callobj = self._evaluate(name, fname, spans[0][0])
             result = callobj(*posargs, **kwargs)
         except Exception as exc:
             msg = "exception occured when calling '{0}'".format(name)
@@ -1509,6 +1480,51 @@ class Renderer:
         if span[0] != span[1]:
             out.append('\n')
         return out, ieval, peval
+
+
+    def _get_call_arguments(self, fname, spans, argexpr, contents, argnames):
+        if argexpr is None:
+            posargs = []
+            kwargs = {}
+        else:
+            # Parse and evaluate arguments passed in call header
+            self._evaluator.openscope()
+            try:
+                posargs, kwargs = self._evaluate(
+                    '__getargvalues(' + argexpr + ')', fname, spans[0][0])
+            except Exception as exc:
+                msg = "unable to parse argument expression '{0}'"\
+                    .format(argexpr)
+                raise FyppFatalError(msg, fname, spans[0], exc)
+            self._evaluator.closescope()
+
+        # Render arguments passed in call body
+        self._divert()
+        args = []
+        for content in contents:
+            self._evaluator.openscope()
+            rendered = self.render(content)
+            self._evaluator.closescope()
+            if rendered.endswith('\n'):
+                rendered = rendered[:-1]
+            args.append(rendered)
+        self._undivert()
+
+        # Separate arguments in call body into positional and keyword ones:
+        if argnames:
+            posargs += args[:len(args) - len(argnames)]
+            offset = len(args) - len(argnames)
+            for iargname, argname in enumerate(argnames):
+                ind = offset + iargname
+                if argname in kwargs:
+                    msg = "keyword argument '{0}' already defined"\
+                        .format(argname)
+                    raise FyppFatalError(msg, fname, spans[ind + 1])
+                kwargs[argname] = args[ind]
+        else:
+            posargs += args
+
+        return posargs, kwargs
 
 
     def _get_included_content(self, fname, spans, includefname, content):
@@ -1887,6 +1903,7 @@ class Evaluator:
         builtindict['setvar'] = self._func_setvar
         builtindict['getvar'] = self._func_getvar
         builtindict['delvar'] = self._func_delvar
+        builtindict['__getargvalues'] = self._func_getargvalues
 
         # Permitted builtins when evaluating expressions
         self._globals['__builtins__'] = builtindict
@@ -2073,6 +2090,11 @@ class Evaluator:
 
     def _func_delvar(self, name):
         self.undefine(name)
+
+
+    @staticmethod
+    def _func_getargvalues(*args, **kwargs):
+        return list(args), kwargs
 
 
 

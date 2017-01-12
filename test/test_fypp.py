@@ -566,34 +566,53 @@ SIMPLE_TESTS = [
       'hello\n',
      )
     ),
-    ('call_lambda_direct',
+    ('call_no_header_arg_no_body_arg',
      ([],
-      '#:call lambda s: s.lower()\nHELLO\n#:endcall\n',
-      'hello\n',
+      '#:def macro0()\nNOARG\n#:enddef\n'\
+      '#:call macro0()\n#:endcall\n',
+      'NOARG\n',
      )
     ),
-    ('call_generator',
-     ([_inifile('include/caseconv.py')],
-      '#:call caseconv("l")\nHELLO\n#:endcall\n',
-      'hello\n',
+    ('call_header_pos_arg_no_body_arg',
+     ([],
+      '#:def macro(arg)\n|${arg}$|\n#:enddef\n'\
+      '#:call macro("h1")\n#:endcall\n',
+      '|h1|\n',
      )
     ),
-    ('call_generator_named_endcall',
-     ([_inifile('include/caseconv.py')],
-      '#:call caseconv("l")\nHELLO\n#:endcall caseconv\n',
-      'hello\n',
+    ('call_header_kwarg_no_body_arg',
+     ([],
+      '#:def macro(arg)\n|${arg}$|\n#:enddef\n'\
+      '#:call macro(arg="h1")\n#:endcall\n',
+      '|h1|\n',
      )
     ),
-    ('call_generator_inline',
-     ([_inifile('include/caseconv.py')],
-      '#{call caseconv("l")}#HELLO#{endcall}#',
-      'hello',
+    ('call_header_mixed_args_no_body_arg',
+     ([],
+      '#:def macro(arg, arg2)\n|${arg}$|${arg2}$|\n#:enddef\n'\
+      '#:call macro("h1", arg2="h2")\n#:endcall\n',
+      '|h1|h2|\n',
      )
     ),
-    ('call_generator_inline_named_endcall',
-     ([_inifile('include/caseconv.py')],
-      '#{call caseconv("l")}#HELLO#{endcall caseconv}#',
-      'hello',
+    ('call_header_mixed_args_body_pos_arg',
+     ([],
+      '#:def macro(arg, arg2, arg3)\n|${arg}$|${arg2}$|${arg3}$|\n#:enddef\n'\
+      '#:call macro("h1", arg3="h3")\nB1\n#:endcall\n',
+      '|h1|B1|h3|\n',
+     )
+    ),
+    ('call_header_kwargs_body_pos_arg',
+     ([],
+      '#:def macro(arg, arg2, arg3)\n|${arg}$|${arg2}$|${arg3}$|\n#:enddef\n'\
+      '#:call macro(arg3="h3", arg2="h2")\nB1\n#:endcall\n',
+      '|B1|h2|h3|\n',
+     )
+    ),
+    ('call_header_kwargs_body_kwarg',
+     ([],
+      '#:def macro(arg1, arg2, arg3)\n|${arg1}$|${arg2}$|${arg3}$|\n#:enddef\n'\
+      '#:call macro(arg1="h1", arg3="h3")\n#:nextarg arg2\nB1\n#:endcall\n',
+      '|h1|B1|h3|\n',
      )
     ),
     ('direct_call',
@@ -1067,8 +1086,8 @@ SIMPLE_TESTS = [
     ),
     ('del_variable_local_scope',
      ([],
-      '#:set X = 1\n#:call lambda s: s\n$:X\n#:set X = 2\n$:X\n#:del X\n$:X\n'\
-      '#:endcall\n$:X\n',
+      '#:set echo = lambda s: s\n#:set X = 1\n'\
+      '#:call echo\n$:X\n#:set X = 2\n$:X\n#:del X\n$:X\n#:endcall\n$:X\n',
       '1\n2\n1\n1\n',
      )
     ),
@@ -1326,25 +1345,28 @@ SIMPLE_TESTS = [
     ),
     ('global_scope_accessibility',
      ([_inifile('include/setx.py')],
+      '#:set echo = lambda s: s\n'\
       '$:setX(1)\nX0A:${X}$\n'\
-      '#:call lambda s: s\nX1A:${X}$\n'\
-      '#:call lambda s: s\nX2A:${X}$\n$:setX(-1)\nX2B:${X}$\n'\
+      '#:call echo\nX1A:${X}$\n'\
+      '#:call echo\nX2A:${X}$\n$:setX(-1)\nX2B:${X}$\n'\
       '#:endcall\nX1B:${X}$\n#:endcall\nX0B:${X}$\n',
       '1\nX0A:1\nX1A:1\nX2A:1\n-1\nX2B:-1\nX1B:-1\nX0B:-1\n'
      )
     ),
     ('global_scope_accessibility_with_shadowing',
      ([_inifile('include/setx.py')],
+      '#:set echo = lambda s: s\n'\
       '#:set X = 1\nX0A:${X}$\n'\
-      '#:call lambda s: s\nX1A:${X}$\n#:set X = 2\nX1B:${X}$\n'\
-      '#:call lambda s: s\nX2A:${X}$\n#:set X = 3\nX2B:${X}$\n'\
+      '#:call echo\nX1A:${X}$\n#:set X = 2\nX1B:${X}$\n'\
+      '#:call echo\nX2A:${X}$\n#:set X = 3\nX2B:${X}$\n'\
       '$:setX(-1)\nX2C:${X}$\n#:endcall\nX1C:${X}$\n#:endcall\nX0B:${X}$\n',
       'X0A:1\nX1A:1\nX1B:2\nX2A:2\nX2B:3\n-1\nX2C:3\nX1C:2\nX0B:-1\n'
      )
     ),
     ('local_macro_local_scope',
      ([],
-      '#:set X = 3\n#:call lambda s: s\n'
+      '#:set echo = lambda s: s\n'\
+      '#:set X = 3\n#:call echo\n'\
       '#:def mymacro()\nX:${X}$\n#:enddef\n'\
       '#:set X = 2\n$:mymacro()\n#:endcall\n',
       'X:2\n',
@@ -1352,7 +1374,8 @@ SIMPLE_TESTS = [
     ),
     ('local_macro_global_scope',
      ([],
-      '#:set X = 3\n#:call lambda s: s\n'
+      '#:set echo = lambda s: s\n'\
+      '#:set X = 3\n#:call echo\n'
       '#:def mymacro()\nX:${X}$\n#:enddef\n'\
       '$:mymacro()\n#:endcall\n',
       'X:3\n',
@@ -1360,9 +1383,10 @@ SIMPLE_TESTS = [
     ),
     ('scope_global_macro_called_from_local_scope',
      ([],
+      '#:set echo = lambda s: s\n'\
       '#:def printX()\nX:${X}$\n#:enddef\n#:set X = 1\n'\
-      '#:call lambda s: s\n#:set X = 2\n'\
-      '#:call lambda s: s\n#:set X = 3\n$:printX()\n'\
+      '#:call echo\n#:set X = 2\n'\
+      '#:call echo\n#:set X = 3\n$:printX()\n'\
       '#:endcall\n#:endcall\nX:${X}$\n',
       'X:1\nX:1\n',
      )
@@ -1434,9 +1458,9 @@ SIMPLE_TESTS = [
     ),
     ('global_local_line_numbering_argeval',
      ([],
-      "#:call lambda s: str(_THIS_LINE_) + ',' + str(_LINE_) + '|' + s\n"\
-      "${_THIS_LINE_}$,${_LINE_}$\n#:endcall\n",
-      '1,1|2,1\n'
+      "#:set func = lambda s: str(_THIS_LINE_) + ',' + str(_LINE_) + '|' + s\n"\
+      "#:call func\n${_THIS_LINE_}$,${_LINE_}$\n#:endcall\n",
+      '2,2|3,1\n'
      )
     ),
 ]
@@ -2196,24 +2220,6 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (3, 3))]
      )
     ),
-    ('generator_endcall_name_mismatch',
-     ([_inifile('include/caseconv.py')],
-      '#:call caseconv("l")\nHELLO\n#:endcall invalid\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
-     )
-    ),
-    ('inline_generator_endcall_name_mismatch',
-     ([_inifile('include/caseconv.py')],
-      '#{call caseconv("l")}#HELLO#{endcall nonsense}#',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
-     )
-    ),
-    ('generator_endcall_forbidden_name',
-     ([],
-      '#:call lambda s: s.lower()\nHELLO\n#:endcall lambda\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
-     )
-    ),
     ('line_for_inline_endfor',
      ([],
       '#:for i in range(3)\nA\n#{endfor}#\n',
@@ -2481,10 +2487,11 @@ EXCEPTION_TESTS = [
     ),
     ('local_macro_visibility',
      ([],
-      '#:call lambda s: s\n'
+      '#:set echo = lambda s: s\n'\
+      '#:call echo\n'
       '#:def mymacro()\nX\n#:enddef\n'\
       '#:endcall\n$:mymacro()\n',
-      [(fypp.FyppFatalError, fypp.STRING, (5, 6))]
+      [(fypp.FyppFatalError, fypp.STRING, (6, 7))]
      )
     ),
     #

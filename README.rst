@@ -89,21 +89,31 @@ Main features
 
 * Passing (unquoted) multiline string arguments to callables::
 
+    #! Callable needs only string argument
     #:def debug_code(code)
       #:if DEBUG > 0
         $:code
       #:endif
     #:enddef debug_code
 
+    #! Pass code block as first positional argument
     #:call debug_code
       if (size(array) > 100) then
         print *, "DEBUG: spuriously large array"
       end if
     #:endcall debug_code
 
-    #:call lambda s: s.upper()
-    this will be converted to upper case
-    #:endcall
+    #! Callable needs also non-string argument types
+    #:def repeat_code(code, repeat)
+      #:for ind in range(repeat)
+        $:code
+      #:endfor
+    #:enddef repeat_code
+
+    #! Pass code block as positional argument and 3 as keyword argument "repeat"
+    #:call repeat_code(repeat=3)
+    this will be repeated 3 times
+    #:endcall repeat_code
 
 * Preprocessor comments::
 

@@ -106,21 +106,32 @@ more in detail in the individual sections further down.
 
 * Passing (unquoted) multiline string arguments to callables::
 
+    #! Callable needs only string argument
     #:def debug_code(code)
       #:if DEBUG > 0
         $:code
       #:endif
     #:enddef debug_code
 
+    #! Pass code block as first positional argument
     #:call debug_code
       if (size(array) > 100) then
         print *, "DEBUG: spuriously large array"
       end if
     #:endcall debug_code
 
-    #:call lambda s: s.upper()
-    this will be converted to upper case
-    #:endcall
+    #! Callable needs also non-string argument types
+    #:def repeat_code(code, repeat)
+      #:for ind in range(repeat)
+        $:code
+      #:endfor
+    #:enddef repeat_code
+
+    #! Pass code block as positional argument and 3 as keyword argument "repeat"
+    #:call repeat_code(repeat=3)
+    this will be repeated 3 times
+    #:endcall repeat_code
+
 
 * Preprocessor comments::
 
@@ -893,9 +904,9 @@ The `def` directive has no inline form.
 `call` directive
 ================
 
-When a Python callable (regular Python function, macro etc.) is called with
-*string argument(s)* only (e.g. source code), it can be called using the `call`
-directive to avoid extra quoting of the arguments and to enable passing of
+When a Python callable (regular Python function, macro etc.) needs a string
+argument of larger size (e.g. source code), it can be called using the `call`
+directive to avoid extra quoting of the text argument and to enable passing of
 multiline arguments in a comfortable way::
 
   #:def debug_code(code)
@@ -910,10 +921,10 @@ multiline arguments in a comfortable way::
     end if
   #:endcall
 
-The `call` directive takes the callable as argument. The lines between the
-opening and closing directives will be rendered and then passed as Python string
-argument to the callable. The name of the callable can be repeated in the
-`endcall` directive for enhanced readability::
+The `call` directive takes the name of the callable as argument. The lines
+between the opening and closing directives will be rendered and then passed as
+positional *string* arguments to the callable. The name of the callable can be
+repeated in the `endcall` directive for enhanced readability::
 
   #:call debug_code
     if (a < b) then
@@ -921,8 +932,8 @@ argument to the callable. The name of the callable can be repeated in the
     end if
   #:endcall debug_code
 
-If the callable has more than one arguments, the `nextarg` directive can be used
-to separate the arguments from each other::
+If the callable needs more than one string arguments, the `nextarg` directive
+can be used to separate the arguments from each other::
 
   #:def choose_code(debug_code, nondebug_code)
     #:if DEBUG > 0
@@ -944,7 +955,7 @@ The lines in the body of the `call` directive may contain directives
 themselves. However, any variable defined within the body of the `call`
 directive will be a local variable existing only during the evaluation of that
 branch of the directive (and not being available when the callable is called
-with the evaluated text as argument).
+with the evaluated string as argument).
 
 The `nextarg` directive may be followed by an optional argument name. In that
 case the text following will be passed as keyword argument to the callable. If
@@ -961,6 +972,36 @@ all following arguments must be passed as keyword arguments as well::
         print *, "DEBUG: a is less than b"
     end if
   #:endcall choose_code
+
+Additional to passing the content of the `call` directives body as string
+argument, further arguments of arbitrary type can be passed by specifying them
+directly in the header of the directive. Among others, this can be very
+comfortable when the callable needs also non-string type of arguments::
+
+  #! Argument 'repeat' should be an integer, not string
+  #:def repeat_code(code, repeat)
+    #:for ind in range(repeat)
+      $:code
+    #:endfor
+  #:enddef repeat_code
+
+  #! Code block as positional argument and 3 as keyword argument "repeat"
+  #:call repeat_code(repeat=3)
+  this will be repeated 3 times
+  #:endcall repeat_code
+
+The arguments in the call-header must be specified between parantheses and are
+evaluated as Python expressions. The arguments specified in the `call` directive
+(both, in the header and in the body) are passed to the callable in the
+following order:
+
+#. positional arguments in the header
+
+#. positional arguments in the body
+
+#. keyword arguments in the header
+
+#. keyword arguments in the body
 
 Callables without arguments can also be called with the `call` directive,
 provided the `endcall` directive immediately follows the `call` directive. If
@@ -984,7 +1025,7 @@ be interpreted as a positional argument::
   #:call macro_arg1
   
   #:endcall macro_arg1
-  
+
 The `call` directive can also be used in its inline form. As this easily leads
 to code being hard to read, it should be usually avoided::
 
@@ -997,69 +1038,8 @@ to code being hard to read, it should be usually avoided::
   ! Alternatively, you may use a direct call (see next section)
   print *, @{choose_code(a(:), size(a))}@
 
-If the arguments are short, the more compact direct call directive can be also
-used as an alternative (see next section).
-
-
-Generating callables
---------------------
-
-The callables are not restricted to macros only, but can be arbitrary Python
-expressions, which are either directly callables or after evaluation yield a
-callable. Using the `lambda` construct of Python, such callables can be easily
-generated also during preprocessing. The following example shows how to create a
-callable, which converts its argument to lower case::
-
-  #:call lambda s: s.lower()
-  THIS WILL BE CONVERTED TO LOWERCASE
-  #:endcall
-
-Alternatively, callable-generators can be defined in initialization files, as
-demonstrated in the following example. Consider a Python file (``caseconv.py``),
-which contains a case converter object. When an instance of it is called, it
-converts the passed text to lower or upper case, depending on the flag passed at
-initialization::
-
-  class CaseConverter:
-
-      def __init__(self, case):
-          self._lower = (case == 'l')
-
-      def __call__(self, txt):
-          if self._lower:
-              return txt.lower()
-          else:
-              return txt.upper()
-
-Instances of ``CaseConverter`` can be created on the fly in the `call` directive
-according to the needs (``example.fypp``)::
-
-  #:call CaseConverter('l')
-  THIS WILL BE CONVERTED TO LOWERCASE
-  #:endcall CaseConverter
-
-  #:call CaseConverter('u')
-  this will be converted to uppercase
-  #:endcall CaseConverter
-
-To run this example, the Python file with the defintion of ``CaseConverter``
-must be passed to the preprocessor as initialization file::
-
-  fypp -i caseconv.py example.fypp
-
-If the header of the `call` directive contains a name of a callable or a simple
-Python call of the form ``callable(...)``, the name of the callable can be
-repeated in the `endcall` directive, but not its arguments (see the example
-above). If the `call` directive contains a more complicated Python expression,
-the `endcall` directive must not contain any name (see the example with
-``lambda``-function above). In those cases, however, it is recommended to use
-temporary variables for better readability::
-
-  #:set lower = lambda s: s.lower()
-
-  #:call lower
-  THIS WILL BE CONVERTED TO LOWERCASE
-  #:endcall lower
+If the callable only requires short text arguments, the more compact direct call
+directive should be used as an alternative (see next section).
 
 
 Direct call directive
@@ -1162,18 +1142,6 @@ whitespaces within the optional curly braces around the argument::
 
   #! Calls a macro with one space as argument
   @:macro_with_one_arg({ })
-
-The direct call directive needs the name of an existing callable and does not
-allow for on the fly callable-generation. However, it is possible to store the
-result of the callable-generation in a temporary variable first, and call the
-variable content with the direct call directive later. The example from the end
-of the last section could be realized as follows::
-
-  #:set lower = CaseConverter('l')
-  #:set upper = CaseConverter('u')
-
-  @:lower("THIS WILL BE CONVERTED TO LOWERCASE")
-  @:upper("this will be converted to uppercase")
 
 The direct call directive can also be used in its inline form::
 
@@ -1461,10 +1429,11 @@ Addtional temporary local scopes are opened, whenever
 Any entity defined in a local scope is only visible within that scope and is
 unaccessible once the scope has been closed. For example the code snippet::
 
-  #:call lambda s: s.upper()
+  #:set toupper = lambda s: s.upper()
+  #:call toupper
   #:set NUMBER = 9
   here is the number ${NUMBER}$
-  #:endcall
+  #:endcall toupper
   $:defined('NUMBER')
 
 results after preprocessing in ::
@@ -1496,11 +1465,12 @@ variable with the same name is created in the active scope, it will shadow the
 original definition. Once the scope is closed, the variable regains it original
 value. For example::
 
+  #:set toupper = lambda s: s.upper()
   #:set X = 1
-  #:call lambda s: s.upper()
+  #:call toupper
   #:set X = 2
   value ${X}$
-  #:endcall
+  #:endcall toupper
   value ${X}$
 
 results in ::
@@ -1515,8 +1485,8 @@ scope, from which the macro is being called. The following snippet demonstrates
 this::
 
   #! GLOBAL SCOPE
-
-  #:call lambda s: s.upper()
+  #:set toupper = lambda s: s.upper()
+  #:call toupper
   #! LOCAL SCOPE 1
 
   #:def macro1()
