@@ -580,6 +580,10 @@ Following predefined functions are available:
     $:delvar('i, j')
 
 
+* ``addglobal(VARNAME)``: Add given variable as global variable to the current
+  scope.  It is identical to the ``#:global`` directive.
+
+
 
 Eval directive
 ==============

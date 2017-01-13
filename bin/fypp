@@ -97,7 +97,7 @@ _CONTROL_DIR_REGEXP = re.compile(
     r'(?P<dir>[a-zA-Z_]\w*)[ \t]*(?:[ \t]+(?P<param>[^ \t].*))?$')
 
 _DIRECT_CALL_REGEXP = re.compile(
-    r'(?P<callname>[a-zA-Z_]\w*)[ \t]*\((?P<callparams>.+?)?\)$', re.VERBOSE)
+    r'(?P<callname>[a-zA-Z_]\w*)[ \t]*\((?P<callparams>.+?)?\)$')
 
 _DIRECT_CALL_KWARG_REGEXP = re.compile(
     r'(?:(?P<kwname>[a-zA-Z_]\w*)\s*=(?=[^=]|$))?')
@@ -134,9 +134,9 @@ _INLINE_EVAL_REGION_REGEXP = re.compile(r'\${.*?}\$')
 
 _RESERVED_PREFIX = '__'
 
-_RESERVED_NAMES = set(['defined', 'setvar', 'getvar', 'delvar', '_LINE_',
-                       '_FILE_', '_THIS_FILE_', '_THIS_LINE_', '_TIME_',
-                       '_DATE_'])
+_RESERVED_NAMES = set(['defined', 'setvar', 'getvar', 'delvar', 'addglobal',
+                       '_LINE_', '_FILE_', '_THIS_FILE_', '_THIS_LINE_',
+                       '_TIME_', '_DATE_'])
 
 _LINENUM_NEW_FILE = 1
 

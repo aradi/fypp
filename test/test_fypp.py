@@ -1477,6 +1477,13 @@ SIMPLE_TESTS = [
       'False\n\n2\n'
      )
     ),
+    ('global_non_existing_evaldir',
+     ([],
+      '#:def macro()\n$:addglobal("A")\n#:set A = 2\n#:enddef macro\n'\
+      '$:defined("A")\n$:macro()\n$:A\n',
+      'False\n\n2\n'
+     )
+    ),
     ('global_in_global_scope',
      ([],
       '#:set A = 1\n#:global A\n$:A\n',
