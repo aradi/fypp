@@ -1460,7 +1460,7 @@ SIMPLE_TESTS = [
      ([],
       "#:set func = lambda s: str(_THIS_LINE_) + ',' + str(_LINE_) + '|' + s\n"\
       "#:call func\n${_THIS_LINE_}$,${_LINE_}$\n#:endcall\n",
-      '2,2|3,1\n'
+      '2,2|3,3\n'
      )
     ),
     ('global_existing',

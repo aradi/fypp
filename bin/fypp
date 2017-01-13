@@ -1325,8 +1325,13 @@ class Renderer:
         # Evaluator to use for Python expressions
         self._evaluator = Evaluator() if evaluator is None else evaluator
 
-        # Number of diversions, when > 0 we are within a macro call
-        self._diversions = 0
+        # Whether rendered output is diverted and will be processed
+        # further before output (if True: no line numbering and post processing)
+        self._diverted = False
+
+        # Whether file name and line numbers should be kept fixed and
+        # not updated (typically when rendering macro content)
+        self._fixedposition = False
 
         # Whether line numbering directives should be emitted
         self._linenums = linenums
@@ -1344,19 +1349,31 @@ class Renderer:
             self._linefolder = linefolder
 
 
-    def render(self, tree):
+    def render(self, tree, divert=False, fixposition=False):
         '''Renders a tree.
 
         Args:
             tree (fypp-tree): Tree to render.
+            divert (bool): Whether output will be diverted and sent for further
+                processing, so that no line numbering directives and
+                postprocessing are needed at this stage. (Default: False)
+            fixposition (bool): Whether file name and line position (variables
+                _FILE_ and _LINE_) should be kept at their current values or
+                should be updated continuously. (Default: False).
 
-        Returns:
-            str: Rendered string.
+        Returns: str: Rendered string.
         '''
+        diverted = self._diverted
+        self._diverted = divert
+        fixedposition = self._fixedposition
+        self._fixedposition = fixposition
         output, eval_inds, eval_pos = self._render(tree)
-        if eval_inds:
+        if not self._diverted and eval_inds:
             self._postprocess_eval_lines(output, eval_inds, eval_pos)
+        self._diverted = diverted
+        self._fixedposition = fixedposition
         txt = ''.join(output)
+
         return txt
 
 
@@ -1429,7 +1446,7 @@ class Renderer:
         peval = []
         if result is not None:
             out.append(str(result))
-            if not self._diversions:
+            if not self._diverted:
                 ieval.append(0)
                 peval.append((span, fname))
         if span[0] != span[1]:
@@ -1450,14 +1467,14 @@ class Renderer:
                       .format(condition)
                 raise FyppFatalError(msg, fname, span, exc)
             if cond:
-                if self._linenums and not self._diversions and multiline:
+                if self._linenums and not self._diverted and multiline:
                     out.append(linenumdir(span[1], fname))
                 outcont, ievalcont, pevalcont = self._render(content)
                 ieval += _shiftinds(ievalcont, len(out))
                 peval += pevalcont
                 out += outcont
                 break
-        if self._linenums and not self._diversions and multiline:
+        if self._linenums and not self._diverted and multiline:
             out.append(linenumdir(spans[-1][1], fname))
         return out, ieval, peval
 
@@ -1479,13 +1496,13 @@ class Renderer:
             else:
                 for varname, value in zip(loopvars, var):
                     self._define(varname, value)
-            if self._linenums and not self._diversions and multiline:
+            if self._linenums and not self._diverted and multiline:
                 out.append(linenumdir(spans[0][1], fname))
             outcont, ievalcont, pevalcont = self._render(content)
             ieval += _shiftinds(ievalcont, len(out))
             peval += pevalcont
             out += outcont
-        if self._linenums and not self._diversions and multiline:
+        if self._linenums and not self._diverted and multiline:
             out.append(linenumdir(spans[1][1], fname))
         return out, ieval, peval
 
@@ -1509,7 +1526,7 @@ class Renderer:
         peval = []
         if result is not None:
             out = [str(result)]
-            if not self._diversions:
+            if not self._diverted:
                 ieval = [0]
                 peval = [(span, fname)]
         if span[0] != span[1]:
@@ -1534,16 +1551,14 @@ class Renderer:
             self._evaluator.closescope()
 
         # Render arguments passed in call body
-        self._divert()
         args = []
         for content in contents:
             self._evaluator.openscope()
-            rendered = self.render(content)
+            rendered = self.render(content, divert=True)
             self._evaluator.closescope()
             if rendered.endswith('\n'):
                 rendered = rendered[:-1]
             args.append(rendered)
-        self._undivert()
 
         # Separate arguments in call body into positional and keyword ones:
         if argnames:
@@ -1565,7 +1580,7 @@ class Renderer:
     def _get_included_content(self, fname, spans, includefname, content):
         includefile = spans[0] is not None
         out = []
-        if self._linenums and not self._diversions:
+        if self._linenums and not self._diverted:
             if includefile or self._linenum_gfortran5:
                 out += linenumdir(0, includefname, _LINENUM_NEW_FILE)
             else:
@@ -1573,7 +1588,7 @@ class Renderer:
         outcont, ieval, peval = self._render(content)
         ieval = _shiftinds(ieval, len(out))
         out += outcont
-        if self._linenums and not self._diversions and includefile:
+        if self._linenums and not self._diverted and includefile:
             out += linenumdir(spans[0][1], fname, _LINENUM_RETURN_TO_FILE)
         return out, ieval, peval
 
@@ -1606,14 +1621,15 @@ class Renderer:
                     raise FyppFatalError(msg, fname, spans[0])
         result = ''
         try:
-            macro = _Macro(name, fname, spans, args, defaults, varargs,
-                           content, self, self._evaluator.localscope)
+            macro = _Macro(
+                name, fname, spans, args, defaults, varargs, content, self,
+                self._evaluator, self._evaluator.localscope)
             self._define(name, macro)
         except Exception as exc:
             msg = "exception occured when defining macro '{0}'"\
                 .format(name)
             raise FyppFatalError(msg, fname, spans[0], exc)
-        if self._linenums and not self._diversions:
+        if self._linenums and not self._diverted:
             result = linenumdir(spans[1][1], fname)
         return result
 
@@ -1627,7 +1643,7 @@ class Renderer:
                 .format(name, valstr)
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
-        if self._linenums and not self._diversions and multiline:
+        if self._linenums and not self._diverted and multiline:
             result = linenumdir(span[1], fname)
         return result
 
@@ -1640,7 +1656,7 @@ class Renderer:
             msg = "exception occured when deleting variable(s) {0}".format(name)
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
-        if self._linenums and not self._diversions and multiline:
+        if self._linenums and not self._diverted and multiline:
             result = linenumdir(span[1], fname)
         return result
 
@@ -1654,13 +1670,13 @@ class Renderer:
                 .format(name)
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
-        if self._linenums and not self._diversions and multiline:
+        if self._linenums and not self._diverted and multiline:
             result = linenumdir(span[1], fname)
         return result
 
 
     def _get_comment(self, fname, span):
-        if self._linenums and not self._diversions:
+        if self._linenums and not self._diverted:
             return linenumdir(span[1], fname)
         else:
             return ''
@@ -1668,7 +1684,7 @@ class Renderer:
 
     def _get_muted_content(self, fname, spans, content):
         self._render(content)
-        if self._linenums and not self._diversions:
+        if self._linenums and not self._diverted:
             return linenumdir(spans[-1][1], fname)
         else:
             return ''
@@ -1695,20 +1711,9 @@ class Renderer:
         if not cond:
             msg = "Assertion failed ('{0}')".format(expr)
             raise FyppStopRequest(msg, fname, span)
-        if self._linenums and not self._diversions:
+        if self._linenums and not self._diverted:
             result = linenumdir(span[1], fname)
         return result
-
-
-    def _divert(self):
-        self._diversions += 1
-
-
-    def _undivert(self):
-        self._diversions -= 1
-        if self._diversions < 0:
-            msg = "internal error: undivert without matching divert"
-            raise FyppFatalError(msg)
 
 
     def _evaluate(self, expr, fname, linenr):
@@ -1721,7 +1726,7 @@ class Renderer:
             globalscope=True, _DATE_=time.strftime('%Y-%m-%d'),
             _TIME_=time.strftime('%H:%M:%S'), _THIS_FILE_=fname,
             _THIS_LINE_=linenr + 1)
-        if not self._diversions:
+        if not self._fixedposition:
             self._evaluator.updatescope(
                 globalscope=True, _FILE_=fname, _LINE_=linenr + 1)
 
@@ -2196,7 +2201,7 @@ class _Macro:
     '''
 
     def __init__(self, name, fname, spans, argnames, defaults, varargs, content,
-                 renderer, localscope=None):
+                 renderer, evaluator, localscope=None):
         self._name = name
         self._fname = fname
         self._spans = spans
@@ -2205,18 +2210,17 @@ class _Macro:
         self._varargs = varargs
         self._content = content
         self._renderer = renderer
+        self._evaluator = evaluator
         self._localscope = localscope if localscope is not None else {}
 
 
     def __call__(self, *args, **keywords):
-        self._renderer._divert()
         argdict = self._process_arguments(args, keywords)
-        evaluator = self._renderer._evaluator
-        evaluator.openscope(customlocals=self._localscope)
-        evaluator.updatescope(**argdict)
-        output = self._renderer.render(self._content)
-        evaluator.closescope()
-        self._renderer._undivert()
+        self._evaluator.openscope(customlocals=self._localscope)
+        self._evaluator.updatescope(**argdict)
+        output = self._renderer.render(self._content, divert=True,
+                                       fixposition=True)
+        self._evaluator.closescope()
         if output.endswith('\n'):
             return output[:-1]
         else:

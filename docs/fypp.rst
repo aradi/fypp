@@ -517,15 +517,12 @@ predefined global variables:
     print *, "Rendering started ${_DATE_}$ ${_TIME_}$"
 
 The predefined variables ``_FILE_`` and ``_LINE_`` differ from their
-counterparts ``_THIS_FILE_`` and ``_THIS_LINE_`` only in cases, where the output
-of an expression evaluation is diverted, so that it can be written at a later
-stage. This typically happens during macro evaluations or when the arguments are
-rendered for the ``call`` directive. In such cases, the variables
-``_THIS_FILE_`` and ``_THIS_LINE_`` specify the position, where the expression
-containing this variables is defined, while the variables ``_FILE_`` and
-``_LINE_`` refer to the position in the processed file, from where the diverted
-construct was called (and where the result of the evaluation will be inserted
-later). For example, the input ::
+counterparts ``_THIS_FILE_`` and ``_THIS_LINE_`` only within macros. When a
+macro is executed, the variables ``_THIS_FILE_`` and ``_THIS_LINE_`` specify the
+position, where the expression containing these variables is located, while the
+variables ``_FILE_`` and ``_LINE_`` refer to the position in the processed file,
+from where the macro was called (and where the result of the evaluation will be
+inserted later). For example, the input ::
 
   #:def macro()
   IN MACRO: _THIS_LINE_=${_THIS_LINE_}$, _LINE_=${_LINE_}$
@@ -536,6 +533,10 @@ later). For example, the input ::
 yields after being processed by Fypp::
 
   GLOBAL: _THIS_LINE_=5, _LINE_=5 | IN MACRO: _THIS_LINE_=2, _LINE_=5
+
+If from within a macro an other macro is called, the variables ``_FILE_`` and
+``_LINE_`` will keep their original values, while ``_THIS_FILE_`` and
+``_THIS_LINE_`` will be continuously updated within the nested macro as well.
 
 
 Functions
