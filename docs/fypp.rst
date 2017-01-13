@@ -1149,6 +1149,46 @@ The direct call directive can also be used in its inline form::
   print *, @{choose_code(a(:), size(a))}@
 
 
+`global` directive
+==================
+
+Global variables are by default read-only in local scopes (e.g. within
+macros). This can be changed for selected variables by using the `global`
+directive::
+
+  #:def set_debug(value)
+    #:global DEBUG
+    #:set DEBUG = value
+  #:enddef set_debug
+
+  #:set DEBUG = 1
+  $:DEBUG
+  $:set_debug(2)
+  $:DEBUG
+
+In the example above, without the `global` directive, the `set` directive would
+have created a local variable within the macro, which had shadowed the global
+variable and was destroyed at the end of the macro execution. With the `global`
+directive the `set` refers to the variable in the global scope. The
+variable in the global scope does not need to exist yet, when the `global`
+directive is executed. It will be then created at the first `set` directive, or
+remain non-existing if no assignment is made in the current scope.
+
+A variable can only made global, if it was not created in the local scope
+yet. Therefore, the following code would throw an exception::
+
+  #:def set_debug(value)
+    #! DEBUG variable created in local scope
+    #:set DEBUG = value
+
+    #! Invalid: variable DEBUG already exists in local scope
+    #:global DEBUG
+  #:enddef set_debug
+
+  # Throws exception
+  $:set_debug(2)
+
+
 `include` directive
 ===================
 

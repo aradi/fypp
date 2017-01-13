@@ -497,6 +497,18 @@ class Parser:
         self._log_event('eval', span, expression=expr)
 
 
+    def handle_global(self, span, name):
+        '''Called when parser encounters a global directive.
+
+        It is a dummy method and should be overriden for actual use.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+            name (str): Name of the variable which should be made global.
+        '''
+        self._log_event('global', span, name=name)
+
+
     def handle_text(self, span, txt):
         '''Called when parser finds text which must left unaltered.
 
@@ -685,6 +697,9 @@ class Parser:
             self._check_param_presence(True, 'assert', param, span)
             self._check_not_inline_directive('assert', span)
             self.handle_assert(span, param)
+        elif directive == 'global':
+            self._check_param_presence(True, 'global', param, span)
+            self._process_global(param, span)
         else:
             msg = "unknown directive '{0}'".format(directive)
             raise FyppFatalError(msg, self._curfile, span)
@@ -744,6 +759,14 @@ class Parser:
             msg = "invalid variable assignment '{0}'".format(param)
             raise FyppFatalError(msg, self._curfile, span)
         self.handle_set(span, match.group('name'), match.group('expr'))
+
+
+    def _process_global(self, param, span):
+        match = _DEL_PARAM_REGEXP.match(param)
+        if not match:
+            msg = "invalid variable specification '{0}'".format(param)
+            raise FyppFatalError(msg, self._curfile, span)
+        self.handle_global(span, param)
 
 
     def _process_del(self, param, span):
@@ -1150,6 +1173,16 @@ class Builder:
         self._curnode.append(('set', self._curfile, span, name, expr))
 
 
+    def handle_global(self, span, name):
+        '''Should be called to signalize a global directive.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+            name (str): Name of the variable(s) to make global.
+        '''
+        self._curnode.append(('global', self._curfile, span, name))
+
+
     def handle_del(self, span, name):
         '''Should be called to signalize a del directive.
 
@@ -1377,6 +1410,8 @@ class Renderer:
             elif cmd == 'assert':
                 result = self._handle_assert(*node[1:4])
                 output.append(result)
+            elif cmd == 'global':
+                self._add_global(*node[1:4])
             else:
                 msg = "internal error: unknown command '{0}'".format(cmd)
                 raise FyppFatalError(msg)
@@ -1588,7 +1623,7 @@ class Renderer:
         try:
             self._define(name, self._evaluate(valstr, fname, span[0]))
         except Exception as exc:
-            msg = "exception occured when setting variable(s) {0} to {1}"\
+            msg = "exception occured when setting variable(s) '{0}' to '{1}'"\
                 .format(name, valstr)
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
@@ -1603,6 +1638,20 @@ class Renderer:
             self._evaluator.undefine(name)
         except Exception as exc:
             msg = "exception occured when deleting variable(s) {0}".format(name)
+            raise FyppFatalError(msg, fname, span, exc)
+        multiline = (span[0] != span[1])
+        if self._linenums and not self._diversions and multiline:
+            result = linenumdir(span[1], fname)
+        return result
+
+
+    def _add_global(self, fname, span, name):
+        result = ''
+        try:
+            self._evaluator.addglobal(name)
+        except Exception as exc:
+            msg = "exception occured when making variable(s) '{0}' global"\
+                .format(name)
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
         if self._linenums and not self._diversions and multiline:
@@ -1875,11 +1924,13 @@ class Evaluator:
         # Global scope
         self._globals = env if env is not None else {}
 
-        # Local scope
+        # Local scope(s)
         self._locals = None
-
-        # Stack for local environments to implement nested scopes
         self._localstack = []
+
+        # Variables which are references to entries in global scope
+        self._globalrefs = None
+        self._globalrefs_stack = []
 
         # Current scope
         self._scope = self._globals
@@ -1903,6 +1954,7 @@ class Evaluator:
         builtindict['setvar'] = self._func_setvar
         builtindict['getvar'] = self._func_getvar
         builtindict['delvar'] = self._func_delvar
+        builtindict['addglobal'] = self._func_addglobal
         builtindict['__getargvalues'] = self._func_getargvalues
 
         # Permitted builtins when evaluating expressions
@@ -1947,7 +1999,11 @@ class Evaluator:
             value = (value,)
         for ind, varname in enumerate(varnames):
             self._check_variable_name(varname)
-            self._scope[varname] = value[ind]
+            if self._globalrefs and varname in self._globalrefs:
+                scope = self._globals
+            else:
+                scope = self._scope
+            scope[varname] = value[ind]
 
 
     def undefine(self, name):
@@ -1963,8 +2019,22 @@ class Evaluator:
         varnames = self._get_variable_names(name)
         for varname in varnames:
             self._check_variable_name(varname)
-            if varname in self._scope:
-                del self._scope[varname]
+            if self._globalrefs and varname in self._globalrefs:
+                scope = self._globals
+            else:
+                scope = self._scope
+            if varname in scope:
+                del scope[varname]
+
+
+    def addglobal(self, name):
+        self._check_variable_name(name)
+        if self._locals is not None:
+            if name in self._locals:
+                msg = "variable '{0}' already defined in local scope"\
+                      .format(name)
+                raise FyppFatalError(msg)
+            self._globalrefs.add(name)
 
 
     def updatescope(self, globalscope=False, **vardict):
@@ -1992,18 +2062,21 @@ class Evaluator:
                 and those locals will become the only visible ones.
         '''
         self._localstack.append(self._locals)
+        self._globalrefs_stack.append(self._globalrefs)
         if customlocals is not None:
             self._locals = customlocals.copy()
         elif self._locals is not None:
             self._locals = self._locals.copy()
         else:
             self._locals = {}
+        self._globalrefs = set()
         self._scope = self._locals
 
 
     def closescope(self):
         '''Close scope and restore embedding scope.'''
         self._locals = self._localstack.pop(-1)
+        self._globalrefs = self._globalrefs_stack.pop(-1)
         if self._locals is not None:
             self._scope = self._locals
         else:
@@ -2090,6 +2163,10 @@ class Evaluator:
 
     def _func_delvar(self, name):
         self.undefine(name)
+
+
+    def _func_addglobal(self, name):
+        self.addglobal(name)
 
 
     @staticmethod
@@ -2221,6 +2298,7 @@ class Processor:
         self._parser.handle_enddef = self._builder.handle_enddef
         self._parser.handle_set = self._builder.handle_set
         self._parser.handle_del = self._builder.handle_del
+        self._parser.handle_global = self._builder.handle_global
         self._parser.handle_for = self._builder.handle_for
         self._parser.handle_endfor = self._builder.handle_endfor
         self._parser.handle_call = self._builder.handle_call

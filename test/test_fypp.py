@@ -1463,6 +1463,33 @@ SIMPLE_TESTS = [
       '2,2|3,1\n'
      )
     ),
+    ('global_existing',
+     ([],
+      '#:set A = 1\n#:def macro()\n#:global A\n#:set A = 2\n#:enddef macro\n'\
+      '$:macro()\n$:A\n',
+      '\n2\n'
+     )
+    ),
+    ('global_non_existing',
+     ([],
+      '#:def macro()\n#:global A\n#:set A = 2\n#:enddef macro\n'\
+      '$:defined("A")\n$:macro()\n$:A\n',
+      'False\n\n2\n'
+     )
+    ),
+    ('global_in_global_scope',
+     ([],
+      '#:set A = 1\n#:global A\n$:A\n',
+      '1\n'
+     )
+    ),
+    ('global_without_assignment',
+     ([],
+      '#:def macro()\n#:global A\n#:enddef macro\n'\
+      '$:defined("A")\n$:macro()\n$:defined("A")\n',
+      'False\n\nFalse\n'
+     )
+    ),
 ]
 
 
@@ -2558,6 +2585,14 @@ EXCEPTION_TESTS = [
      ([],
       '#:set A = 12\n#{assert A < 10}#\n',
       [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
+     )
+    ),
+    ('global_existing_in_local_scope',
+     ([],
+      '#:def macro()\n#:set A = 12\n#:global A\n#:enddef\n$:macro()\n',
+      [(fypp.FyppFatalError, fypp.STRING, (4, 5)),
+       (fypp.FyppFatalError, fypp.STRING, (2, 3)),
+       (fypp.FyppFatalError, None, None)]
      )
     ),
 ]
