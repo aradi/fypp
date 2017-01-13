@@ -31,25 +31,11 @@
 #
 ################################################################################
 
-'''The functionality of the Fypp preprocessor is mainly realized by
-using following classes:
+'''For using the functionality of the Fypp preprocessor from within
+Python, one usually interacts with the following two classes:
 
-* `Parser`_: Reads a source file, does basic syntax checking and generates
-  events.
-
-* `Builder`_: Builds a tree representation of the source file by
-  receiving events. Does additional syntax checking.
-
-* `Renderer`_: Renders a tree built by the builder.
-
-* `Evaluator`_: Evaluates Python expressions in a designated environment. It is
-  used by `Renderer`_ when rendering eval directives.
-
-* `Processor`_: Connects `Parser`_, `Builder`_, `Renderer`_ and `Evaluator`_
-  with each other and returns for a given input the preprocessed output.
-
-* `Fypp`_: The actual Fypp preprocessor. It initializes and drives
-  `Processor`_.
+* `Fypp`_: The actual Fypp preprocessor. It returns for a given input
+  the preprocessed output.
 
 * `FyppOptions`_: Contains customizable settings controling the behaviour of
   `Fypp`_. Alternatively, the function `get_option_parser()`_ can be used to
@@ -63,12 +49,6 @@ subclasses of `FyppError`_ is raised:
 
 * FyppStopRequest: Stop was triggered by an explicit request in the input
   (by a stop- or an assert-directive).
-
-Additional to those above an additional class is used for fine tuning:
-
-* `FortranLineFolder`_: Folds overlong lines by using Fortran continuation
-  lines.
-
 '''
 
 from __future__ import print_function

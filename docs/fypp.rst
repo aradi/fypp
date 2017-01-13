@@ -2013,49 +2013,6 @@ FyppError
    :members:
 
 
-Parser
-======
-
-.. autoclass:: Parser
-   :members:
-
-
-Builder
-=======
-
-.. autoclass:: Builder
-   :members:
-
-
-Renderer
-========
-
-.. autoclass:: Renderer
-   :members:
-
-
-Evaluator
-=========
-
-.. autoclass:: Evaluator
-   :members:
-
-
-Processor
-=========
-
-.. autoclass:: Processor
-   :members:
-
-
-FortranLineFolder
-=================
-
-.. autoclass:: FortranLineFolder
-   :members:
-   :special-members: __call__
-
-
 *****
 Notes
 *****
