@@ -587,39 +587,6 @@ in the module could be accessed as::
   #:call mymodule.some_function
   #:endcall mymodule.some_function
 
-Modules can also manipulate entities in the scope used during the preprocessing
-by calling the functions ``setvar()``, ``getvar()``, ``delvar()`` or
-``addglobal()``. Given the file ``mymodule.py``::
-
-  SOME_CONSTANT = 1
-  
-  def some_function():
-      return 'some text'
-  
-  def decrease_debug():
-      debug = getvar('DEBUG', None)
-      if debug is not None and debug > 0:
-          debug = debug - 1
-      else:
-          debug = 0
-      setvar('DEBUG', debug)
-  
-  # Register entities in Fypps global scope
-  setvar('SOME_CONSTANT', SOME_CONSTANT)
-  setvar('some_function', some_function)
-  setvar('decrease_debug', decrease_debug)
-
-the entities ``SOME_CONSTANT`` and ``some_function`` will be directly available
-during preprocessing::
-
-  ${SOME_CONSTANT}$
-  $:mymodule.some_function()
-  @:mymodule.some_function()
-  
-  #:set DEBUG = 2
-  $:decrease_debug()
-  $:DEBUG
-
 
 Executing Python scripts at startup
 -----------------------------------

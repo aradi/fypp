@@ -65,6 +65,8 @@ if sys.version_info[0] >= 3:
 else:
     import __builtin__ as builtins
 
+# Prevent cluttering user directory with Python bytecode
+sys.dont_write_bytecode = True
 
 VERSION = '2.0-dev'
 
@@ -1936,7 +1938,7 @@ class Evaluator:
             builtindict = self._get_restricted_builtins()
             builtindict['__import__'] = self._func_import
         else:
-            builtindict = vars(builtins)
+            builtindict = dict(vars(builtins))
         builtindict['defined'] = self._func_defined
         builtindict['setvar'] = self._func_setvar
         builtindict['getvar'] = self._func_getvar
@@ -1973,20 +1975,23 @@ class Evaluator:
     def import_module(self, module):
         '''Import a module into the evaluator.
 
+        NOTE: Module imports are global. Importing a nasty module,
+        which manipulates global modules used by Fypp can affect Fypps
+        behaviour in unpredictable ways. Only import modules you trust.
+
         Args:
             module (str): Python module to import.
 
         Raises:
             FyppFatalError: If module could not be imported.
+
         '''
-        path = module.split('.', 1)
+        rootmod = module.split('.', 1)[0]
         try:
-            imported = __import__(path[0], self._globals, self._locals)
-            self.define(path[0], imported)
-            if len(path) == 2:
-                __import__(module, self._globals, self._locals)
+            imported = self.evaluate('__import__("{0}")'.format(module))
+            self.define(rootmod, imported)
         except Exception as exc:
-            msg = "import of module '{0}' failed".format(module)
+            msg = "failed to import module '{0}'".format(module)
             raise FyppFatalError(msg, cause=exc)
 
 
