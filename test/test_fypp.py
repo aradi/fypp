@@ -2613,7 +2613,7 @@ EXCEPTION_TESTS = [
 # NOTE: imports are global in Python, so all instances of Fypp following after
 # the tests below will see the imported modules Therefore, this tests should be
 # executed as last to minimize unwanted interactions between unit tests. Also,
-# not other test before these should import any modules.
+# no tests before these should import any modules.
 #
 IMPORT_TESTS = [
     ('import_module',

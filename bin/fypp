@@ -97,7 +97,7 @@ _CONTROL_DIR_REGEXP = re.compile(
     r'(?P<dir>[a-zA-Z_]\w*)[ \t]*(?:[ \t]+(?P<param>[^ \t].*))?$')
 
 _DIRECT_CALL_REGEXP = re.compile(
-    r'(?P<callname>[a-zA-Z_]\w*)[ \t]*\((?P<callparams>.+?)?\)$')
+    r'(?P<callname>[a-zA-Z_][\w.]*)[ \t]*\((?P<callparams>.+?)?\)$')
 
 _DIRECT_CALL_KWARG_REGEXP = re.compile(
     r'(?:(?P<kwname>[a-zA-Z_]\w*)\s*=(?=[^=]|$))?')
@@ -106,9 +106,11 @@ _DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>[a-zA-Z_]\w*)[ \t]*\(\s*(?P<args>.+)?\s*\)$')
 
 _SIMPLE_CALLABLE_REGEXP = re.compile(
-    r'^(?P<name>[a-zA-Z_]\w*)[ \t]*(?:\([ \t]*(?P<args>.*)[ \t]*\))?$')
+    r'^(?P<name>[a-zA-Z_][\w.]*)[ \t]*(?:\([ \t]*(?P<args>.*)[ \t]*\))?$')
 
 _IDENTIFIER_NAME_REGEXP = re.compile(r'^(?P<name>[a-zA-Z_]\w*)$')
+
+_PREFIXED_IDENTIFIER_NAME_REGEXP = re.compile(r'^(?P<name>[a-zA-Z_][\w.]*)$')
 
 _SET_PARAM_REGEXP = re.compile(
     r'^(?P<name>(?:[(]\s*)?[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*(?:\s*[)])?)\s*'\
@@ -788,7 +790,7 @@ class Parser:
 
     def _process_endcall(self, param, span):
         if param is not None:
-            match = _IDENTIFIER_NAME_REGEXP.match(param)
+            match = _PREFIXED_IDENTIFIER_NAME_REGEXP.match(param)
             if not match:
                 msg = "invalid endcall parameter '{0}'".format(param)
                 raise FyppFatalError(msg, self._curfile, span)
@@ -1920,7 +1922,7 @@ class Evaluator:
         # Current scope
         self._scope = self._globals
 
-        # Turn on restricted mode, if desired
+        # Turn on restricted mode
         self.restrict_builtins(restrict_builtins)
 
 
@@ -1966,6 +1968,25 @@ class Evaluator:
             code (str): Python code to run.
         '''
         exec(code, self._globals, self._locals)
+
+
+    def import_module(self, module):
+        '''Import a module into the evaluator.
+
+        Args:
+            module (str): Python module to import.
+
+        Raises:
+            FyppFatalError: If module could not be imported.
+        '''
+        path = module.split('.', 1)
+        try:
+            self._globals[path[0]] = __import__(path[0], self._globals)
+            if len(path) == 2:
+                __import__(module, self._globals)
+        except Exception as exc:
+            msg = "import of module '{0}' failed".format(module)
+            raise FyppFatalError(msg, cause=exc)
 
 
     def define(self, name, value):
@@ -2380,11 +2401,11 @@ class Fypp:
             options = FyppOptions()
         evaluator = Evaluator(restrict_builtins=False)
         syspath = self._get_syspath_without_scriptdir()
+        self._adjust_syspath(syspath)
         if options.modules:
             self._import_modules(options.modules, evaluator, syspath)
         if options.inifiles:
             self._exec_inifiles(options.inifiles, evaluator, syspath)
-        self._adjust_syspath(evaluator, syspath)
         evaluator.restrict_builtins(True)
         if options.defines:
             self._apply_definitions(options.defines, evaluator)
@@ -2471,14 +2492,10 @@ class Fypp:
 
     def _import_modules(self, modules, evaluator, syspath):
         curdir = os.path.abspath('.')
-        self._adjust_syspath(evaluator, [curdir] + syspath)
+        self._adjust_syspath([curdir] + syspath)
         for module in modules:
-            try:
-                evaluator.execute('import ' + module)
-            except Exception as exc:
-                msg = "exception occured during import of module '{0}'"\
-                      .format(module)
-                raise FyppFatalError(msg, cause=exc)
+            evaluator.import_module(module)
+        self._adjust_syspath(syspath)
 
 
     def _exec_inifiles(self, inifiles, evaluator, syspath):
@@ -2492,7 +2509,7 @@ class Fypp:
                     .format(inifile)
                 raise FyppFatalError(msg, cause=exc)
             inifiledir = os.path.abspath(os.path.dirname(inifile))
-            self._adjust_syspath(evaluator, [inifiledir] + syspath)
+            self._adjust_syspath([inifiledir] + syspath)
             try:
                 code = compile(source, inifile, 'exec', dont_inherit=-1)
                 evaluator.execute(code)
@@ -2500,6 +2517,7 @@ class Fypp:
                 msg = "exception occured when executing ini-file '{0}'"\
                       .format(inifile)
                 raise FyppFatalError(msg, cause=exc)
+        self._adjust_syspath(syspath)
 
 
     @staticmethod
@@ -2513,15 +2531,8 @@ class Fypp:
 
 
     @staticmethod
-    def _adjust_syspath(evaluator, syspath):
-        try:
-            evaluator.execute('import sys')
-            evaluator.execute('sys.path = {0}'.format(repr(syspath)))
-            evaluator.execute('del sys')
-        except Exception as exc:
-            msg = 'failed to set up sys.path of the evaluator'
-            raise FyppFatalError(msg, cause=exc)
-
+    def _adjust_syspath(syspath):
+        sys.path = syspath
 
 
 class FyppOptions(optparse.Values):
