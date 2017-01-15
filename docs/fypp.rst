@@ -432,70 +432,21 @@ example the directive ::
 
 can only be evaluated, if the variable `DEBUG` had been already defined before.
 
+
+Python sandbox
+==============
+
 Python expressions are evaluted in an isolated Python environment, which
 contains a restricted set of Python built-in functions and a few predefined
 variables and functions (see below). There are no modules loaded by default, and
-for safety reasons, no modules can be loaded once the preprocessing has started.
-
-
-Initializing the environment
-----------------------------
-
-If a Python module is required for the preprocessing, it can be imported before
-the preprocessing starts via the command line option (``-m``)::
-
-  fypp -m time
-
-The example above would allow to process the line::
-
-  character(*), parameter :: comp_date = "${time.strftime('%Y-%m-%d')}$"
-
-If more than one module is needed, each of them can imported with an individual
-``-m`` option::
-
-  fypp -m time -m math
-
-Initial values for preprocessor variables can be set via the command line option
-(``-D``) at startup::
-
-  fypp -DDEBUG=0 -DWITH_MPI
-
-The assigned value for a given variable is evaluated in Python. If no value is
-provided, `None` is assigned.
-
-When complex initialization is needed (e.g. user defined Python functions should
-be defined), initialization scripts can be specified via the command line option
-``-i``::
-
-  fypp -i ini1.py -i ini2.py
-
-The preprocessor executes the content of each initialization script in the
-isolated environment via Pythons `exec()` command before processing any
-input. If modules had been also specified via the ``-m`` option, they are
-imported before the execution of the initialization scripts. The module imports,
-the initialization and the evaluation of the Python expressions during the
-processing all use the same global scope (as if they were part of one single
-module). Therefore, any globals defined at initialization can be accessed when
-evaluating Python expressions during input processing. Additionally, functions
-defined during initialization can access global variables defined during the
-processing, provided the variables have been defined, before the function is
-invoked.
-
-When importing modules with the ``-m`` option, the module search path consists
-of the current directory, the directories in the `PYTHONPATH` environment
-variable and the standard Python module paths. When executing an initialization
-file via the ``-i`` option, the current directory in the module search path is
-replaced by the directory containing the initialization file. Modules in
-initialization files must be imported into the global scope, directly when the
-initialization files are executed, as once all initialization files have been
-processed, module imports are not possible any more.
-
+for safety reasons, no modules can be loaded once the preprocessing has
+started, but can be loaded at startup if needed.
 
 Predefined entities
-===================
+-------------------
 
 Variables
----------
+.........
 
 The isolated Python environment for the expression evaluation contains following
 predefined global variables:
@@ -540,7 +491,7 @@ If from within a macro an other macro is called, the variables ``_FILE_`` and
 
 
 Functions
----------
+.........
 
 Following predefined functions are available:
 
@@ -582,6 +533,90 @@ Following predefined functions are available:
 
 * ``addglobal(VARNAME)``: Add given variable as global variable to the current
   scope.  It is identical to the ``#:global`` directive.
+
+
+Initializing variables
+----------------------
+
+Initial values for preprocessor variables can be set via the command line option
+(``-D``) at startup::
+
+  fypp -DDEBUG=0 -DWITH_MPI
+
+The assigned value for a given variable is evaluated in Python. If no value is
+provided, `None` is assigned.
+
+
+Importing modules at startup
+----------------------------
+
+If a Python module is required for the preprocessing, it can be imported before
+the preprocessing starts via the command line option (``-m``)::
+
+  fypp -m time
+
+The example above would allow to process the line::
+
+  character(*), parameter :: comp_date = "${time.strftime('%Y-%m-%d')}$"
+
+If more than one module is needed, each of them can imported with an individual
+``-m`` option::
+
+  fypp -m time -m math
+
+When importing modules with the ``-m`` option, the module search path consists
+of the current directory, the directories in the `PYTHONPATH` environment
+variable and the standard Python module paths. Further lookup paths can be
+specified using the option ``-M``::
+
+  fypp -M mymoddir1 -M mymoddir2 -m mymodule -m mymodule2
+
+The module directories are looked up in the order they are specified *before*
+searching at the default locations. Modules are imported also in the order of
+their specification at the command line.
+
+Each module imported at startup has its own name space. Entities in the imported
+modules can be accessed during the preprocessing in the usual pythonic
+way. After importing the module ``mymodule`` as in the example above, entities
+in the module could be accessed as::
+
+  ${mymodule.SOME_CONSTANT}$
+  $:mymodule.SOME_CONSTANT
+  $:mymodule.some_function()
+  @:mymodule.some_function()
+  #:call mymodule.some_function
+  #:endcall mymodule.some_function
+
+
+Executing Python scripts at startup
+-----------------------------------
+
+When complex initialization is needed (e.g. user defined Python functions should
+be defined), initialization scripts can be specified via the command line option
+``-i``::
+
+  fypp -i ini1.py -i ini2.py
+
+The preprocessor executes the content of each initialization script in the
+isolated environment via Pythons `exec()` command before processing any
+input. If modules had been also specified via the ``-m`` option, they are
+imported before the execution of the initialization scripts. The module imports,
+the initialization and the evaluation of the Python expressions during the
+processing all use the same global scope (as if they were part of one single
+module). Therefore, any globals defined at initialization can be accessed when
+evaluating Python expressions during input processing. Additionally, functions
+defined during initialization can access global variables defined during the
+processing, provided the variables have been defined, before the function is
+invoked.
+
+When executing an initialization file via the ``-i`` option, the current
+directory in the module search path is replaced by the directory containing the
+initialization file. Modules in initialization files must be imported into the
+global scope, directly when the initialization files are executed, as once all
+initialization files have been processed, module imports are not possible any
+more.
+
+
 
 
 

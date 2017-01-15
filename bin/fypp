@@ -65,6 +65,8 @@ if sys.version_info[0] >= 3:
 else:
     import __builtin__ as builtins
 
+# Prevent cluttering user directory with Python bytecode
+sys.dont_write_bytecode = True
 
 VERSION = '2.0-dev'
 
@@ -97,7 +99,7 @@ _CONTROL_DIR_REGEXP = re.compile(
     r'(?P<dir>[a-zA-Z_]\w*)[ \t]*(?:[ \t]+(?P<param>[^ \t].*))?$')
 
 _DIRECT_CALL_REGEXP = re.compile(
-    r'(?P<callname>[a-zA-Z_]\w*)[ \t]*\((?P<callparams>.+?)?\)$')
+    r'(?P<callname>[a-zA-Z_][\w.]*)[ \t]*\((?P<callparams>.+?)?\)$')
 
 _DIRECT_CALL_KWARG_REGEXP = re.compile(
     r'(?:(?P<kwname>[a-zA-Z_]\w*)\s*=(?=[^=]|$))?')
@@ -106,9 +108,11 @@ _DEF_PARAM_REGEXP = re.compile(
     r'^(?P<name>[a-zA-Z_]\w*)[ \t]*\(\s*(?P<args>.+)?\s*\)$')
 
 _SIMPLE_CALLABLE_REGEXP = re.compile(
-    r'^(?P<name>[a-zA-Z_]\w*)[ \t]*(?:\([ \t]*(?P<args>.*)[ \t]*\))?$')
+    r'^(?P<name>[a-zA-Z_][\w.]*)[ \t]*(?:\([ \t]*(?P<args>.*)[ \t]*\))?$')
 
 _IDENTIFIER_NAME_REGEXP = re.compile(r'^(?P<name>[a-zA-Z_]\w*)$')
+
+_PREFIXED_IDENTIFIER_NAME_REGEXP = re.compile(r'^(?P<name>[a-zA-Z_][\w.]*)$')
 
 _SET_PARAM_REGEXP = re.compile(
     r'^(?P<name>(?:[(]\s*)?[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*(?:\s*[)])?)\s*'\
@@ -788,7 +792,7 @@ class Parser:
 
     def _process_endcall(self, param, span):
         if param is not None:
-            match = _IDENTIFIER_NAME_REGEXP.match(param)
+            match = _PREFIXED_IDENTIFIER_NAME_REGEXP.match(param)
             if not match:
                 msg = "invalid endcall parameter '{0}'".format(param)
                 raise FyppFatalError(msg, self._curfile, span)
@@ -1920,7 +1924,7 @@ class Evaluator:
         # Current scope
         self._scope = self._globals
 
-        # Turn on restricted mode, if desired
+        # Turn on restricted mode
         self.restrict_builtins(restrict_builtins)
 
 
@@ -1934,7 +1938,7 @@ class Evaluator:
             builtindict = self._get_restricted_builtins()
             builtindict['__import__'] = self._func_import
         else:
-            builtindict = vars(builtins)
+            builtindict = dict(vars(builtins))
         builtindict['defined'] = self._func_defined
         builtindict['setvar'] = self._func_setvar
         builtindict['getvar'] = self._func_getvar
@@ -1966,6 +1970,29 @@ class Evaluator:
             code (str): Python code to run.
         '''
         exec(code, self._globals, self._locals)
+
+
+    def import_module(self, module):
+        '''Import a module into the evaluator.
+
+        NOTE: Module imports are global. Importing a nasty module,
+        which manipulates global modules used by Fypp can affect Fypps
+        behaviour in unpredictable ways. Only import modules you trust.
+
+        Args:
+            module (str): Python module to import.
+
+        Raises:
+            FyppFatalError: If module could not be imported.
+
+        '''
+        rootmod = module.split('.', 1)[0]
+        try:
+            imported = self.evaluate('__import__("{0}")'.format(module))
+            self.define(rootmod, imported)
+        except Exception as exc:
+            msg = "failed to import module '{0}'".format(module)
+            raise FyppFatalError(msg, cause=exc)
 
 
     def define(self, name, value):
@@ -2013,6 +2040,15 @@ class Evaluator:
 
 
     def addglobal(self, name):
+        '''Define a given entity as global.
+
+        Args:
+            name (str): Name of the entity to make global.
+
+        Raises:
+            FyppFatalError: If entity name is invalid or if the current scope is
+                 a local scope and entity is already defined in it.
+        '''
         self._check_variable_name(name)
         if self._locals is not None:
             if name in self._locals:
@@ -2380,11 +2416,12 @@ class Fypp:
             options = FyppOptions()
         evaluator = Evaluator(restrict_builtins=False)
         syspath = self._get_syspath_without_scriptdir()
+        self._adjust_syspath(syspath)
         if options.modules:
-            self._import_modules(options.modules, evaluator, syspath)
+            self._import_modules(options.modules, evaluator, syspath,
+                                 options.moduledirs)
         if options.inifiles:
             self._exec_inifiles(options.inifiles, evaluator, syspath)
-        self._adjust_syspath(evaluator, syspath)
         evaluator.restrict_builtins(True)
         if options.defines:
             self._apply_definitions(options.defines, evaluator)
@@ -2469,16 +2506,16 @@ class Fypp:
             evaluator.define(name, value)
 
 
-    def _import_modules(self, modules, evaluator, syspath):
-        curdir = os.path.abspath('.')
-        self._adjust_syspath(evaluator, [curdir] + syspath)
+    def _import_modules(self, modules, evaluator, syspath, moduledirs):
+        lookuppath = []
+        if moduledirs is not None:
+            lookuppath += [os.path.abspath(moddir) for moddir in moduledirs]
+        lookuppath.append(os.path.abspath('.'))
+        lookuppath += syspath
+        self._adjust_syspath(lookuppath)
         for module in modules:
-            try:
-                evaluator.execute('import ' + module)
-            except Exception as exc:
-                msg = "exception occured during import of module '{0}'"\
-                      .format(module)
-                raise FyppFatalError(msg, cause=exc)
+            evaluator.import_module(module)
+        self._adjust_syspath(syspath)
 
 
     def _exec_inifiles(self, inifiles, evaluator, syspath):
@@ -2492,7 +2529,7 @@ class Fypp:
                     .format(inifile)
                 raise FyppFatalError(msg, cause=exc)
             inifiledir = os.path.abspath(os.path.dirname(inifile))
-            self._adjust_syspath(evaluator, [inifiledir] + syspath)
+            self._adjust_syspath([inifiledir] + syspath)
             try:
                 code = compile(source, inifile, 'exec', dont_inherit=-1)
                 evaluator.execute(code)
@@ -2500,6 +2537,7 @@ class Fypp:
                 msg = "exception occured when executing ini-file '{0}'"\
                       .format(inifile)
                 raise FyppFatalError(msg, cause=exc)
+        self._adjust_syspath(syspath)
 
 
     @staticmethod
@@ -2513,15 +2551,8 @@ class Fypp:
 
 
     @staticmethod
-    def _adjust_syspath(evaluator, syspath):
-        try:
-            evaluator.execute('import sys')
-            evaluator.execute('sys.path = {0}'.format(repr(syspath)))
-            evaluator.execute('del sys')
-        except Exception as exc:
-            msg = 'failed to set up sys.path of the evaluator'
-            raise FyppFatalError(msg, cause=exc)
-
+    def _adjust_syspath(syspath):
+        sys.path = syspath
 
 
 class FyppOptions(optparse.Values):
@@ -2546,6 +2577,9 @@ class FyppOptions(optparse.Values):
         no_folding (bool): Whether folding should be suppresed. Default: False.
         indentation (int): Indentation in continuation lines. Default: 4.
         modules (list of str): Modules to import at initialization. Default: [].
+        moduledirs (list of str): Module lookup directories for importing user
+            specified modules. The specified paths are looked up *before* the
+            standard module locations in sys.path.
         inifiles (list of str): Python files to execute at initialization.
             Default: []
         fixed_format (bool): Whether input file is in fixed format.
@@ -2566,6 +2600,7 @@ class FyppOptions(optparse.Values):
         self.no_folding = False
         self.indentation = 4
         self.modules = []
+        self.moduledirs = []
         self.inifiles = []
         self.fixed_format = False
         self.create_parent_folder = False
@@ -2749,6 +2784,10 @@ def get_option_parser():
     msg = 'import python module before starting the processing'
     parser.add_option('-m', '--module', action='append', dest='modules',
                       metavar='MOD', help=msg)
+    msg = 'directory to be searched for user imported modules before '\
+          'looking up standard locations in sys.path'
+    parser.add_option('-M', '--module-dir', action='append',
+                      dest='moduledirs', metavar='MODDIR', help=msg)
     msg = 'execute python initialization script before starting processing'
     parser.add_option('-i', '--ini-file', action='append',
                       dest='inifiles', metavar='INI', help=msg)

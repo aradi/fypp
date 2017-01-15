@@ -26,6 +26,9 @@ def _folding(fold):
 def _inifile(fname):
     return '-i{0}'.format(fname)
 
+def _moddir(path):
+    return '-M{0}'.format(path)
+
 def _linenumbering(nummode):
     return '-N{0}'.format(nummode)
 
@@ -2613,7 +2616,7 @@ EXCEPTION_TESTS = [
 # NOTE: imports are global in Python, so all instances of Fypp following after
 # the tests below will see the imported modules Therefore, this tests should be
 # executed as last to minimize unwanted interactions between unit tests. Also,
-# not other test before these should import any modules.
+# no tests before these should import any modules.
 #
 IMPORT_TESTS = [
     ('import_module',
@@ -2633,7 +2636,19 @@ IMPORT_TESTS = [
       '${inimod2.get_version()}$',
       '2'
      )
-    )
+    ),
+    ('import_module_modified_lookupdir',
+     ([_moddir('include'), _importmodule('inimod2')],
+      '${inimod2.get_version()}$',
+      '2'
+     )
+    ),
+    ('import_subpackage',
+     ([_importmodule('os.path')],
+      '${os.path.isabs("a")}$',
+      'False'
+      )
+    ),
 ]
 
 
