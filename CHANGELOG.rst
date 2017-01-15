@@ -15,6 +15,8 @@ Added
 
 * Keyword arguments in direct call and call directive.
 
+* Generalized call directive with arbitrary argument types.
+
 * Macros with variable number of arguments.
 
 * Default values for macro arguments.
@@ -24,8 +26,6 @@ Added
 * Del directive.
 
 * Assert directive.
-
-* Generalized call directive with any Python expression yielding a callable.
 
 * Python-like consistent global and local scopes and scope lookup rules.
 
@@ -50,9 +50,11 @@ Changed
 
 * Inline form of def directive not allowed any more. [Backwards incompatible]
 
-* Minimal API changes : process_* methods of Processor and Fypp do not accept the
-  optional argument env any more. Method updateenv() of Evaluator has been
-  renamed to updatescope() for more consistency. [Backwards incompatible]
+* Execution of arbitrary Python script at startup (option -i) has been
+  removed. [Backwards incompatible]
+
+* Minimal API change: process_* methods of Fypp do not accept the optional
+  argument env any more. [Backwards incompatible]
 
 * Equal sign must be used as separator in set directive for better
   readability. [Backwards incompatible]
