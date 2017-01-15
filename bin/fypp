@@ -2679,6 +2679,7 @@ def get_option_parser():
         OptionParser: Parser which can create an optparse.Values object with
             Fypp settings based on command line arguments.
     '''
+    defs = FyppOptions()
     fypp_name = 'fypp'
     fypp_desc = 'Preprocesses source code with Fypp directives. The input is '\
                 'read from INFILE (default: \'-\', stdin) and written to '\
@@ -2691,56 +2692,61 @@ def get_option_parser():
           'Python expression (e.g \'-DDEBUG=1\' sets DEBUG to the ' \
           'integer 1) or set to None if ommitted'
     parser.add_option('-D', '--define', action='append', dest='defines',
-                      metavar='VAR[=VALUE]', help=msg)
+                      metavar='VAR[=VALUE]', default=defs.defines, help=msg)
     msg = 'add directory to the search paths for include files'
     parser.add_option('-I', '--include', action='append', dest='includes',
-                      metavar='INCDIR', help=msg)
+                      metavar='INCDIR', default=defs.includes, help=msg)
     msg = 'emit line numbering markers'
     parser.add_option('-n', '--line-numbering', action='store_true',
-                      default=False, help=msg)
+                      dest='line_numbering', default=defs.line_numbering,
+                      help=msg)
     msg = 'line numbering mode, \'full\' (default): line numbering '\
           'markers generated whenever source and output lines are out '\
           'of sync, \'nocontlines\': line numbering markers omitted '\
           'for continuation lines'
     parser.add_option('-N', '--line-numbering-mode', metavar='MODE',
-                      choices=['full', 'nocontlines'], default='full',
-                      help=msg)
+                      choices=['full', 'nocontlines'],
+                      default=defs.line_numbering_mode,
+                      dest='line_numbering_mode', help=msg)
     msg = 'line numbering marker format, \'cpp\' (default): GNU cpp format, '\
           '\'gfortran5\': modified markers to work around bug in GFortran 5 '\
           'and above'
     parser.add_option('--line-marker-format', metavar='FMT',
-                      choices=['cpp', 'gfortran5'], default=False, help=msg)
+                      choices=['cpp', 'gfortran5'], dest='line_marker_format',
+                      default=defs.line_marker_format, help=msg)
     msg = 'maximal line length (default: 132), lines modified by the '\
           'preprocessor are folded if becoming longer'
-    parser.add_option('-l', '--line-length', type=int, default=132,
-                      metavar='LEN', help=msg)
+    parser.add_option('-l', '--line-length', type=int, metavar='LEN',
+                      dest='line_length', default=defs.line_length, help=msg)
     msg = 'line folding mode, \'smart\' (default): indentation context '\
           'and whitespace aware, \'simple\': indentation context aware, '\
           '\'brute\': mechnical folding'
     parser.add_option('-f', '--folding-mode', metavar='MODE',
-                      choices=['smart', 'simple', 'brute'],
-                      default='smart', help=msg)
+                      choices=['smart', 'simple', 'brute'], dest='folding_mode',
+                      default=defs.folding_mode, help=msg)
     msg = 'suppress line folding'
     parser.add_option('-F', '--no-folding', action='store_true',
-                      dest='no_folding', default=False, help=msg)
+                      dest='no_folding', default=defs.no_folding, help=msg)
     msg = 'indentation to use for continuation lines (default 4)'
     parser.add_option('--indentation', type=int, metavar='IND',
-                      default=4, help=msg)
+                      dest='indentation', default=defs.indentation, help=msg)
     msg = 'import a python module at startup (import only trustworthy modules '\
           'as they have access to an *unrestricted* Python environment!)'
     parser.add_option('-m', '--module', action='append', dest='modules',
-                      metavar='MOD', help=msg)
+                      metavar='MOD', default=defs.modules, help=msg)
     msg = 'directory to be searched for user imported modules before '\
           'looking up standard locations in sys.path'
     parser.add_option('-M', '--module-dir', action='append',
-                      dest='moduledirs', metavar='MODDIR', help=msg)
+                      dest='moduledirs', metavar='MODDIR',
+                      default=defs.moduledirs, help=msg)
     msg = 'produce fixed format output (any settings for options '\
           '--line-length, --folding-method and --indentation are ignored)'
     parser.add_option('--fixed-format', action='store_true',
-                      default=False, help=msg)
+                      dest='fixed_format', default=defs.fixed_format, help=msg)
     msg = 'create parent folders of the output file if they do not exist'
     parser.add_option('-p', '--create-parents', action='store_true',
-                      default=False, dest='create_parent_folder', help=msg)
+                      dest='create_parent_folder',
+                      default=defs.create_parent_folder, help=msg)
     return parser
 
 
