@@ -1981,9 +1981,10 @@ class Evaluator:
         '''
         path = module.split('.', 1)
         try:
-            self._globals[path[0]] = __import__(path[0], self._globals)
+            imported = __import__(path[0], self._globals, self._locals)
+            self.define(path[0], imported)
             if len(path) == 2:
-                __import__(module, self._globals)
+                __import__(module, self._globals, self._locals)
         except Exception as exc:
             msg = "import of module '{0}' failed".format(module)
             raise FyppFatalError(msg, cause=exc)
@@ -2034,6 +2035,15 @@ class Evaluator:
 
 
     def addglobal(self, name):
+        '''Define a given entity as global.
+
+        Args:
+            name (str): Name of the entity to make global.
+
+        Raises:
+            FyppFatalError: If entity name is invalid or if the current scope is
+                 a local scope and entity is already defined in it.
+        '''
         self._check_variable_name(name)
         if self._locals is not None:
             if name in self._locals:
@@ -2403,7 +2413,8 @@ class Fypp:
         syspath = self._get_syspath_without_scriptdir()
         self._adjust_syspath(syspath)
         if options.modules:
-            self._import_modules(options.modules, evaluator, syspath)
+            self._import_modules(options.modules, evaluator, syspath,
+                                 options.moduledirs)
         if options.inifiles:
             self._exec_inifiles(options.inifiles, evaluator, syspath)
         evaluator.restrict_builtins(True)
@@ -2490,9 +2501,13 @@ class Fypp:
             evaluator.define(name, value)
 
 
-    def _import_modules(self, modules, evaluator, syspath):
-        curdir = os.path.abspath('.')
-        self._adjust_syspath([curdir] + syspath)
+    def _import_modules(self, modules, evaluator, syspath, moduledirs):
+        lookuppath = []
+        if moduledirs is not None:
+            lookuppath += [os.path.abspath(moddir) for moddir in moduledirs]
+        lookuppath.append(os.path.abspath('.'))
+        lookuppath += syspath
+        self._adjust_syspath(lookuppath)
         for module in modules:
             evaluator.import_module(module)
         self._adjust_syspath(syspath)
@@ -2557,6 +2572,9 @@ class FyppOptions(optparse.Values):
         no_folding (bool): Whether folding should be suppresed. Default: False.
         indentation (int): Indentation in continuation lines. Default: 4.
         modules (list of str): Modules to import at initialization. Default: [].
+        moduledirs (list of str): Module lookup directories for importing user
+            specified modules. The specified paths are looked up *before* the
+            standard module locations in sys.path.
         inifiles (list of str): Python files to execute at initialization.
             Default: []
         fixed_format (bool): Whether input file is in fixed format.
@@ -2577,6 +2595,7 @@ class FyppOptions(optparse.Values):
         self.no_folding = False
         self.indentation = 4
         self.modules = []
+        self.moduledirs = []
         self.inifiles = []
         self.fixed_format = False
         self.create_parent_folder = False
@@ -2760,6 +2779,10 @@ def get_option_parser():
     msg = 'import python module before starting the processing'
     parser.add_option('-m', '--module', action='append', dest='modules',
                       metavar='MOD', help=msg)
+    msg = 'directory to be searched for user imported modules before '\
+          'looking up standard locations in sys.path'
+    parser.add_option('-M', '--module-dir', action='append',
+                      dest='moduledirs', metavar='MODDIR', help=msg)
     msg = 'execute python initialization script before starting processing'
     parser.add_option('-i', '--ini-file', action='append',
                       dest='inifiles', metavar='INI', help=msg)

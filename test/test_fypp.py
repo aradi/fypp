@@ -26,6 +26,9 @@ def _folding(fold):
 def _inifile(fname):
     return '-i{0}'.format(fname)
 
+def _moddir(path):
+    return '-M{0}'.format(path)
+
 def _linenumbering(nummode):
     return '-N{0}'.format(nummode)
 
@@ -2633,7 +2636,19 @@ IMPORT_TESTS = [
       '${inimod2.get_version()}$',
       '2'
      )
-    )
+    ),
+    ('import_module_modified_lookupdir',
+     ([_moddir('include'), _importmodule('inimod2')],
+      '${inimod2.get_version()}$',
+      '2'
+     )
+    ),
+    ('import_subpackage',
+     ([_importmodule('os.path')],
+      '${os.path.isabs("a")}$',
+      'False'
+      )
+    ),
 ]
 
 
