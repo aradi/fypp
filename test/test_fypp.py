@@ -23,9 +23,6 @@ def _indentation(ind):
 def _folding(fold):
     return '-f{0}'.format(fold)
 
-def _inifile(fname):
-    return '-i{0}'.format(fname)
-
 def _moddir(path):
     return '-M{0}'.format(path)
 
@@ -1316,56 +1313,6 @@ SIMPLE_TESTS = [
       '\n3\n'
      )
     ),
-    ('inifile_scope_get_globals',
-     ([_inifile('include/getx.py')],
-      '#:set X = -1\n$:getX()\n',
-      '-1\n'
-     )
-    ),
-    ('inifile_scope_get_globals2',
-     ([_inifile('include/getx-init.py')],
-      '$:X\n$:getX()\n#:set X = -1\n$:X\n$:getX()\n',
-      '1\n1\n-1\n-1\n'
-     )
-    ),
-    ('inifile_scope_get_globals3',
-     ([_inifile('include/getx2.py')],
-      '#:set X = -1\n$:X\n$:getX()\n$:X\n',
-      '-1\n0\n-1\n'
-     )
-    ),
-    ('inifile_scope_set_globals',
-     ([_inifile('include/setx.py')],
-      '#:set X = -1\n$:X\n$:setX(0)\n$:X\n',
-      '-1\n0\n0\n'
-     )
-    ),
-    ('inifile_scope_predefined_vars',
-     ([_inifile('include/getpredefvars.py')],
-      '$:getpredefvars()\n',
-      'FILE: ' + fypp.STRING + ', LINE: 1\n'
-     )
-    ),
-    ('global_scope_accessibility',
-     ([_inifile('include/setx.py')],
-      '#:set echo = lambda s: s\n'\
-      '$:setX(1)\nX0A:${X}$\n'\
-      '#:call echo\nX1A:${X}$\n'\
-      '#:call echo\nX2A:${X}$\n$:setX(-1)\nX2B:${X}$\n'\
-      '#:endcall\nX1B:${X}$\n#:endcall\nX0B:${X}$\n',
-      '1\nX0A:1\nX1A:1\nX2A:1\n-1\nX2B:-1\nX1B:-1\nX0B:-1\n'
-     )
-    ),
-    ('global_scope_accessibility_with_shadowing',
-     ([_inifile('include/setx.py')],
-      '#:set echo = lambda s: s\n'\
-      '#:set X = 1\nX0A:${X}$\n'\
-      '#:call echo\nX1A:${X}$\n#:set X = 2\nX1B:${X}$\n'\
-      '#:call echo\nX2A:${X}$\n#:set X = 3\nX2B:${X}$\n'\
-      '$:setX(-1)\nX2C:${X}$\n#:endcall\nX1C:${X}$\n#:endcall\nX0B:${X}$\n',
-      'X0A:1\nX1A:1\nX1B:2\nX2A:2\nX2B:3\n-1\nX2C:3\nX1C:2\nX0B:-1\n'
-     )
-    ),
     ('local_macro_local_scope',
      ([],
       '#:set echo = lambda s: s\n'\
@@ -2546,18 +2493,6 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, None, None)]
      )
     ),
-    ('missing_ini',
-     (['-iWhateverDummyKJFDKf'],
-      '',
-      [(fypp.FyppFatalError, None, None)]
-     )
-    ),
-    ('broken_ini',
-     (['-iinclude/brokenini.py'],
-      '',
-      [(fypp.FyppFatalError, None, None)]
-     )
-    ),
     #
     # User requested stop
     #
@@ -2629,12 +2564,6 @@ IMPORT_TESTS = [
      ([_importmodule('inimod')],
       '${inimod.get_version()}$',
       '1'
-     )
-    ),
-    ('import_module_inifile_dir',
-     ([_inifile('include/importini.py')],
-      '${inimod2.get_version()}$',
-      '2'
      )
     ),
     ('import_module_modified_lookupdir',

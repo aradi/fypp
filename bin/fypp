@@ -1829,21 +1829,13 @@ class Evaluator:
 
     '''Provides an isolated environment for evaluating Python expressions.
 
-    It can restrict the builtins which can be used within this environment
-    to a (hopefully safe) subset. Additionally it defines the functions
-    which are provided by the preprocessor for the eval directives.
-
-    Note, that the restricted environment does not allow importing Python
-    modules. If you need a restricted environment with modules loaded,
-    launch a non-restricted one, load the modules, export its environment
-    and launch a restricted one using that environment.
+    It restricts the builtins which can be used within this environment to a
+    (hopefully safe) subset. Additionally it defines the functions which are
+    provided by the preprocessor for the eval directives.
 
     Args:
         env (dict, optional): Initial definitions for the environment, defaults
             to None.
-        restrict_builtins (bool, optional): Whether restricted builtins
-            should be used. Otherwise all Python builtins are accessible.
-            Defaults to `True`.
     '''
 
     # Restricted builtins working in all supported Python verions. Version
@@ -1908,7 +1900,7 @@ class Evaluator:
         'zip': builtins.zip,
     }
 
-    def __init__(self, env=None, restrict_builtins=True):
+    def __init__(self, env=None):
 
         # Global scope
         self._globals = env if env is not None else {}
@@ -1925,29 +1917,7 @@ class Evaluator:
         self._scope = self._globals
 
         # Turn on restricted mode
-        self.restrict_builtins(restrict_builtins)
-
-
-    def restrict_builtins(self, restrict):
-        '''Sets whether restricted builtins should be used.
-
-        Args:
-            restricted (bool): Whether builtins should be restricted.
-        '''
-        if restrict:
-            builtindict = self._get_restricted_builtins()
-            builtindict['__import__'] = self._func_import
-        else:
-            builtindict = dict(vars(builtins))
-        builtindict['defined'] = self._func_defined
-        builtindict['setvar'] = self._func_setvar
-        builtindict['getvar'] = self._func_getvar
-        builtindict['delvar'] = self._func_delvar
-        builtindict['addglobal'] = self._func_addglobal
-        builtindict['__getargvalues'] = self._func_getargvalues
-
-        # Permitted builtins when evaluating expressions
-        self._globals['__builtins__'] = builtindict
+        self._restrict_builtins()
 
 
     def evaluate(self, expr):
@@ -1963,21 +1933,12 @@ class Evaluator:
         return result
 
 
-    def execute(self, code):
-        '''Run Python code using the `exec()` builtin.
-
-        Args:
-            code (str): Python code to run.
-        '''
-        exec(code, self._globals, self._locals)
-
-
     def import_module(self, module):
         '''Import a module into the evaluator.
 
-        NOTE: Module imports are global. Importing a nasty module,
-        which manipulates global modules used by Fypp can affect Fypps
-        behaviour in unpredictable ways. Only import modules you trust.
+        Note: Import only trustworthy modules! Module imports are global,
+        therefore, importing a malicious module which manipulates other global
+        modules could affect code behaviour outside of the Evaluator as well.
 
         Args:
             module (str): Python module to import.
@@ -1988,7 +1949,7 @@ class Evaluator:
         '''
         rootmod = module.split('.', 1)[0]
         try:
-            imported = self.evaluate('__import__("{0}")'.format(module))
+            imported = __import__(module, self._globals, self._locals)
             self.define(rootmod, imported)
         except Exception as exc:
             msg = "failed to import module '{0}'".format(module)
@@ -2116,9 +2077,21 @@ class Evaluator:
         return self._locals
 
 
+    def _restrict_builtins(self):
+        builtindict = self._get_restricted_builtins()
+        builtindict['__import__'] = self._func_import
+        builtindict['defined'] = self._func_defined
+        builtindict['setvar'] = self._func_setvar
+        builtindict['getvar'] = self._func_getvar
+        builtindict['delvar'] = self._func_delvar
+        builtindict['addglobal'] = self._func_addglobal
+        builtindict['__getargvalues'] = self._func_getargvalues
+        self._globals['__builtins__'] = builtindict
+
+
     @classmethod
     def _get_restricted_builtins(cls):
-        bidict = cls._RESTRICTED_BUILTINS
+        bidict = dict(cls._RESTRICTED_BUILTINS)
         major = sys.version_info[0]
         if major == 2:
             bidict['True'] = True
@@ -2412,17 +2385,14 @@ class Fypp:
     '''
 
     def __init__(self, options=None):
-        if options is None:
-            options = FyppOptions()
-        evaluator = Evaluator(restrict_builtins=False)
         syspath = self._get_syspath_without_scriptdir()
         self._adjust_syspath(syspath)
+        if options is None:
+            options = FyppOptions()
+        evaluator = Evaluator()
         if options.modules:
             self._import_modules(options.modules, evaluator, syspath,
                                  options.moduledirs)
-        if options.inifiles:
-            self._exec_inifiles(options.inifiles, evaluator, syspath)
-        evaluator.restrict_builtins(True)
         if options.defines:
             self._apply_definitions(options.defines, evaluator)
         parser = Parser(options.includes)
@@ -2518,28 +2488,6 @@ class Fypp:
         self._adjust_syspath(syspath)
 
 
-    def _exec_inifiles(self, inifiles, evaluator, syspath):
-        for inifile in inifiles:
-            try:
-                inifp = open(inifile, 'r')
-                source = inifp.read()
-                inifp.close()
-            except IOError as exc:
-                msg = "IO error occured at reading file '{0}'"\
-                    .format(inifile)
-                raise FyppFatalError(msg, cause=exc)
-            inifiledir = os.path.abspath(os.path.dirname(inifile))
-            self._adjust_syspath([inifiledir] + syspath)
-            try:
-                code = compile(source, inifile, 'exec', dont_inherit=-1)
-                evaluator.execute(code)
-            except Exception as exc:
-                msg = "exception occured when executing ini-file '{0}'"\
-                      .format(inifile)
-                raise FyppFatalError(msg, cause=exc)
-        self._adjust_syspath(syspath)
-
-
     @staticmethod
     def _get_syspath_without_scriptdir():
         '''Remove the folder of the fypp binary from the search path'''
@@ -2580,8 +2528,6 @@ class FyppOptions(optparse.Values):
         moduledirs (list of str): Module lookup directories for importing user
             specified modules. The specified paths are looked up *before* the
             standard module locations in sys.path.
-        inifiles (list of str): Python files to execute at initialization.
-            Default: []
         fixed_format (bool): Whether input file is in fixed format.
             Default: False.
         create_parent_folder (bool): Whether the parent folder for the output
@@ -2601,7 +2547,6 @@ class FyppOptions(optparse.Values):
         self.indentation = 4
         self.modules = []
         self.moduledirs = []
-        self.inifiles = []
         self.fixed_format = False
         self.create_parent_folder = False
 
@@ -2781,16 +2726,14 @@ def get_option_parser():
     msg = 'indentation to use for continuation lines (default 4)'
     parser.add_option('--indentation', type=int, metavar='IND',
                       default=4, help=msg)
-    msg = 'import python module before starting the processing'
+    msg = 'import a python module at startup (import only trustworthy modules '\
+          'as they have access to an *unrestricted* Python environment!)'
     parser.add_option('-m', '--module', action='append', dest='modules',
                       metavar='MOD', help=msg)
     msg = 'directory to be searched for user imported modules before '\
           'looking up standard locations in sys.path'
     parser.add_option('-M', '--module-dir', action='append',
                       dest='moduledirs', metavar='MODDIR', help=msg)
-    msg = 'execute python initialization script before starting processing'
-    parser.add_option('-i', '--ini-file', action='append',
-                      dest='inifiles', metavar='INI', help=msg)
     msg = 'produce fixed format output (any settings for options '\
           '--line-length, --folding-method and --indentation are ignored)'
     parser.add_option('--fixed-format', action='store_true',
