@@ -442,11 +442,8 @@ variables and functions (see below). There are no modules loaded by default, and
 for safety reasons, no modules can be loaded once the preprocessing has
 started, but can be loaded at startup if needed.
 
-Predefined entities
--------------------
-
-Variables
-.........
+Predefined variables
+--------------------
 
 The isolated Python environment for the expression evaluation contains following
 predefined global variables:
@@ -490,8 +487,8 @@ If from within a macro an other macro is called, the variables ``_FILE_`` and
 ``_THIS_LINE_`` will be continuously updated within the nested macro as well.
 
 
-Functions
-.........
+Predefined functions
+--------------------
 
 Following predefined functions are available:
 
