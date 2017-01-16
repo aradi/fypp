@@ -1434,6 +1434,14 @@ SIMPLE_TESTS = [
       'False\n\n2\n'
      )
     ),
+    ('global_non_existing_evaldir_tuple',
+     ([],
+      '#:def macro()\n$:addglobal("A, B")\n#:set A = 2\n#:set B = 3\n'\
+      '#:enddef macro\n'\
+      '$:defined("A")\n$:defined("B")\n$:macro()\n$:A\n$:B\n',
+      'False\nFalse\n\n2\n3\n'
+     )
+    ),
     ('global_in_global_scope',
      ([],
       '#:set A = 1\n#:global A\n$:A\n',

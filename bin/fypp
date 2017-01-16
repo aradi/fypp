@@ -2010,13 +2010,15 @@ class Evaluator:
             FyppFatalError: If entity name is invalid or if the current scope is
                  a local scope and entity is already defined in it.
         '''
-        self._check_variable_name(name)
-        if self._locals is not None:
-            if name in self._locals:
-                msg = "variable '{0}' already defined in local scope"\
-                      .format(name)
-                raise FyppFatalError(msg)
-            self._globalrefs.add(name)
+        varnames = self._get_variable_names(name)
+        for varname in varnames:
+            self._check_variable_name(varname)
+            if self._locals is not None:
+                if varname in self._locals:
+                    msg = "variable '{0}' already defined in local scope"\
+                          .format(varname)
+                    raise FyppFatalError(msg)
+                self._globalrefs.add(varname)
 
 
     def updatescope(self, globalscope=False, **vardict):
