@@ -1271,7 +1271,8 @@ class Builder:
     def _check_if_matches_last(self, lastdir, curdir, lastspan, curspan,
                                directive):
         if curdir != lastdir:
-            msg = 'mismatching {0} directive'.format(directive)
+            msg = "mismatching '{0}' directive (last block opened was '{1}')"\
+                .format(directive, lastdir)
             raise FyppFatalError(msg, self._curfile, curspan)
         inline_last = lastspan[0] == lastspan[1]
         inline_cur = curspan[0] == curspan[1]
@@ -2704,6 +2705,15 @@ def get_option_parser():
     msg = 'add directory to the search paths for include files'
     parser.add_option('-I', '--include', action='append', dest='includes',
                       metavar='INCDIR', default=defs.includes, help=msg)
+    msg = 'import a python module at startup (import only trustworthy modules '\
+          'as they have access to an **unrestricted** Python environment!)'
+    parser.add_option('-m', '--module', action='append', dest='modules',
+                      metavar='MOD', default=defs.modules, help=msg)
+    msg = 'directory to be searched for user imported modules before '\
+          'looking up standard locations in sys.path'
+    parser.add_option('-M', '--module-dir', action='append',
+                      dest='moduledirs', metavar='MODDIR',
+                      default=defs.moduledirs, help=msg)
     msg = 'emit line numbering markers'
     parser.add_option('-n', '--line-numbering', action='store_true',
                       dest='line_numbering', default=defs.line_numbering,
@@ -2738,15 +2748,6 @@ def get_option_parser():
     msg = 'indentation to use for continuation lines (default 4)'
     parser.add_option('--indentation', type=int, metavar='IND',
                       dest='indentation', default=defs.indentation, help=msg)
-    msg = 'import a python module at startup (import only trustworthy modules '\
-          'as they have access to an *unrestricted* Python environment!)'
-    parser.add_option('-m', '--module', action='append', dest='modules',
-                      metavar='MOD', default=defs.modules, help=msg)
-    msg = 'directory to be searched for user imported modules before '\
-          'looking up standard locations in sys.path'
-    parser.add_option('-M', '--module-dir', action='append',
-                      dest='moduledirs', metavar='MODDIR',
-                      default=defs.moduledirs, help=msg)
     msg = 'produce fixed format output (any settings for options '\
           '--line-length, --folding-method and --indentation are ignored)'
     parser.add_option('--fixed-format', action='store_true',
