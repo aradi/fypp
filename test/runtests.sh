@@ -27,6 +27,7 @@ for python in $pythons; do
     fi
   fi
 done
+echo
 if [ $failed -gt 0 ]; then
   echo "Failing test runs: $failed" >&2
   echo "Failing interpreter(s): $failing_pythons" >&2

@@ -504,32 +504,35 @@ Following predefined functions are available:
     #:if getvar('DEBUG', 0)
 
 * ``setvar(VARNAME, VALUE)``: Sets a variable to given value. It is identical to
-  the ``#:set`` control directive. The variable name must be provided as
-  string::
+  the `set directive`_. The variable name expression has the same format as in
+  the ``#:set`` directive, but must be quoted::
 
     $:setvar('i', 12)
     print *, "VAR I: ${i}$"
 
-  If the left hand side of the assignment is a tuple of variables, the
-  corresponding Python string representation of the tuple should be used as
-  variable name::
+  Multiple assignments may be specified as subsequent argument pairs::
 
-    $:setvar('i, j', (1, 2))
+    $:setvar('i', 1, 'j', 2)
     print *, "VAR I: ${i}$, VAR J: ${j}$"
 
 * ``delvar(VARNAME)``: Removes a variable or a macro definition from the local
-  scope. It is identical to the ``#:del`` control directive. The variable name
-  must be provided as string::
+  scope. It is identical to the `del directive`_. The variable name
+  expression must be provided as in the ``#:del`` directive, but must be quoted::
 
     $:delvar('i')
 
-  Analogous to the ``setvar`` function, also variable tuples can be deleted::
+  Additional variable name expressions may be specified as subsequent arguments::
 
-    $:delvar('i, j')
+    $:delvar('i', 'j')
 
 
-* ``addglobal(VARNAME)``: Add given variable as global variable to the current
-  scope.  It is identical to the ``#:global`` directive.
+* ``globalvar(VARNAME)``: Add given variable as global variable to the current
+  scope.  It is identical to the `global directive`_. The variable name
+  expression must be provided as in the ``#:global`` directive, but must be quoted::
+
+    $:globalvar('i')
+  
+  Multiple variable name expressions may be specified as subsequent arguments.
 
 
 Initializing variables
@@ -641,7 +644,7 @@ Similar to the line form, the separating equal sign is optional here as well.
 
 
 `del` directive
-==================
+===============
 
 A variable (or macro) definition can be removed from the current scope by the
 `del` directive::

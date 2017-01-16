@@ -1053,6 +1053,12 @@ SIMPLE_TESTS = [
       "\n23\nDone\n",
      )
     ),
+    ('set_function_multiple_args',
+     ([],
+      '$:setvar("x", 2, "y", 3)\n${x}$${y}$\nDone\n',
+      "\n23\nDone\n",
+     )
+    ),
     ('getvar_existing_value',
      ([_defvar('VAR', '\"VAL\"')],
       '$:getvar("VAR", "DEFAULT")\n',
@@ -1121,6 +1127,13 @@ SIMPLE_TESTS = [
      ([],
       '#:set X = 1\n#:set Y = 2\n${defined("X")}$${defined("Y")}$\n'\
       '$:delvar("X, Y")\n${defined("X")}$${defined("Y")}$\n',
+      'TrueTrue\n\nFalseFalse\n',
+     )
+    ),
+    ('delvar_function_multiple_args',
+     ([],
+      '#:set X = 1\n#:set Y = 2\n${defined("X")}$${defined("Y")}$\n'\
+      '$:delvar("X", "Y")\n${defined("X")}$${defined("Y")}$\n',
       'TrueTrue\n\nFalseFalse\n',
      )
     ),
@@ -1429,14 +1442,22 @@ SIMPLE_TESTS = [
     ),
     ('global_non_existing_evaldir',
      ([],
-      '#:def macro()\n$:addglobal("A")\n#:set A = 2\n#:enddef macro\n'\
+      '#:def macro()\n$:globalvar("A")\n#:set A = 2\n#:enddef macro\n'\
       '$:defined("A")\n$:macro()\n$:A\n',
       'False\n\n2\n'
      )
     ),
     ('global_non_existing_evaldir_tuple',
      ([],
-      '#:def macro()\n$:addglobal("A, B")\n#:set A = 2\n#:set B = 3\n'\
+      '#:def macro()\n$:globalvar("A, B")\n#:set A = 2\n#:set B = 3\n'\
+      '#:enddef macro\n'\
+      '$:defined("A")\n$:defined("B")\n$:macro()\n$:A\n$:B\n',
+      'False\nFalse\n\n2\n3\n'
+     )
+    ),
+    ('global_non_existing_evaldir_arglist',
+     ([],
+      '#:def macro()\n$:globalvar("A", "B")\n#:set A = 2\n#:set B = 3\n'\
       '#:enddef macro\n'\
       '$:defined("A")\n$:defined("B")\n$:macro()\n$:A\n$:B\n',
       'False\nFalse\n\n2\n3\n'
@@ -2548,6 +2569,13 @@ EXCEPTION_TESTS = [
        (fypp.FyppFatalError, None, None)]
      )
     ),
+    ('setvar_func_odd_arguments',
+     ([],
+      '$:setvar("i", 1, "j")\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
+     )
+    ),
 ]
 
 
@@ -2660,7 +2688,7 @@ def _test_needed(flag):
     elif flag == _PYTHON_3:
         return sys.version_info[0] == 3
     elif flag == _PYTHON_32_OR_BELOW:
-        return (sys.version_info[0] == 2 
+        return (sys.version_info[0] == 2
                 or (sys.version_info[0] == 3 and sys.version_info[1] <= 2))
     elif flag == _PYTHON_33_OR_ABOVE:
         return (sys.version_info[0] == 3 and sys.version_info[1] >= 3)

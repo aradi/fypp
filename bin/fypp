@@ -138,7 +138,7 @@ _INLINE_EVAL_REGION_REGEXP = re.compile(r'\${.*?}\$')
 
 _RESERVED_PREFIX = '__'
 
-_RESERVED_NAMES = set(['defined', 'setvar', 'getvar', 'delvar', 'addglobal',
+_RESERVED_NAMES = set(['defined', 'setvar', 'getvar', 'delvar', 'globalvar',
                        '_LINE_', '_FILE_', '_THIS_FILE_', '_THIS_LINE_',
                        '_TIME_', '_DATE_'])
 
@@ -2086,7 +2086,7 @@ class Evaluator:
         builtindict['setvar'] = self._func_setvar
         builtindict['getvar'] = self._func_getvar
         builtindict['delvar'] = self._func_delvar
-        builtindict['addglobal'] = self._func_addglobal
+        builtindict['globalvar'] = self._func_globalvar
         builtindict['__getargvalues'] = self._func_getargvalues
         self._globals['__builtins__'] = builtindict
 
@@ -2144,11 +2144,15 @@ class Evaluator:
             raise ImportError(msg)
 
 
-    def _func_setvar(self, name, value):
-        self.define(name, value)
+    def _func_setvar(self, *namesvalues):
+        if len(namesvalues) % 2:
+            msg = 'setvar function needs an even number of arguments'
+            raise FyppFatalError(msg)
+        for ind in range(0, len(namesvalues), 2):
+            self.define(namesvalues[ind], namesvalues[ind + 1])
 
 
-    def _func_getvar(self, name, defvalue):
+    def _func_getvar(self, name, defvalue=None):
         if name in self._globals:
             return self._globals[name]
         elif self._locals is not None and name in self._locals:
@@ -2157,12 +2161,14 @@ class Evaluator:
             return defvalue
 
 
-    def _func_delvar(self, name):
-        self.undefine(name)
+    def _func_delvar(self, *names):
+        for name in names:
+            self.undefine(name)
 
 
-    def _func_addglobal(self, name):
-        self.addglobal(name)
+    def _func_globalvar(self, *names):
+        for name in names:
+            self.addglobal(name)
 
 
     @staticmethod

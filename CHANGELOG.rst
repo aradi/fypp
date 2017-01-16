@@ -23,9 +23,11 @@ Added
 
 * Allow names in enddef and endcall directives for better readability.
 
-* Del directive.
+* Del directive and delvar() function.
 
 * Assert directive.
+
+* Global directive and globalvar() function.
 
 * Python-like consistent global and local scopes and scope lookup rules.
 
@@ -58,6 +60,8 @@ Changed
 
 * Equal sign must be used as separator in set directive for better
   readability. [Backwards incompatible]
+
+* Function setvar() accepts arbitrary number of argument pairs.
 
 * Reverse order exception printing, exception first occuring printed as last.
 
