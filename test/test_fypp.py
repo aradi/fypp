@@ -1071,16 +1071,18 @@ SIMPLE_TESTS = [
       'DEFAULT\n',
      )
     ),
+    ('getvar_local_scope',
+     ([],
+      '#:set X = 1\n'\
+      '#:def test()\n$:getvar("X")\n#:set X = 2\n$:getvar("X")\n#:enddef\n'\
+      '$:test()\n',
+      '1\n2\n',
+      )
+    ),
     ('del_existing_variable',
      ([],
       '#:set X = 12\n$:defined("X")\n#:del X\n$:defined("X")\n',
       'True\nFalse\n',
-     )
-    ),
-    ('del_nonexisting_variable',
-     ([],
-      '$:defined("X")\n#:del X\n$:defined("X")\n',
-      'False\nFalse\n',
      )
     ),
     ('del_variable_tuple',
@@ -1093,8 +1095,9 @@ SIMPLE_TESTS = [
     ('del_variable_local_scope',
      ([],
       '#:set echo = lambda s: s\n#:set X = 1\n'\
-      '#:call echo\n$:X\n#:set X = 2\n$:X\n#:del X\n$:X\n#:endcall\n$:X\n',
-      '1\n2\n1\n1\n',
+      '#:call echo\n$:X\n#:set X = 2\n$:X\n$:defined("X")\n'\
+      '#:del X\n$:defined("X")\n#:endcall\n$:X\n',
+      '1\n2\nTrue\nFalse\n1\n',
      )
     ),
     ('del_macro',
@@ -1391,6 +1394,13 @@ SIMPLE_TESTS = [
       '#:enddef macro2\n$:macro2()\nX1:${X}$\n'\
       '#:enddef macro1\n$:macro1()\nX0:${X}$\n',
       'X3a:0\nX2:0\nX1:0\nX0:0\n',
+     )
+    ),
+    ('scope_generator_within_macro',
+     ([],
+      '#:def foo()\n#:set b = 21\n$:sum([b for i in range(2)])\n#:enddef\n'\
+      '$:foo()\n',
+      '42\n'
      )
     ),
     ('correct_predefined_var_injection',
@@ -2464,10 +2474,18 @@ EXCEPTION_TESTS = [
        (fypp.FyppFatalError, 'include/failingmacro.inc', (2, 3))]
      )
     ),
-    ('incompatible_tuple_assignment',
+    ('incompatible_tuple_assignment1',
      ([],
       '#:set a,b,c = (1, 2)\n${a}$${b}$${c}$\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
+     )
+    ),
+    ('incompatible_tuple_assignment2',
+     ([],
+      '#:set a,b,c = (1, 2, 3, 4)\n${a}$${b}$${c}$\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
      )
     ),
     ('invalid_lhs_tuple1',
@@ -2494,6 +2512,13 @@ EXCEPTION_TESTS = [
     ('invalid_del_tuple2',
      ([],
       '#:del a, b)\n',
+      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+       (fypp.FyppFatalError, None, None)]
+     )
+    ),
+    ('del_nonexisting_variable',
+     ([],
+      '#:del X\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )

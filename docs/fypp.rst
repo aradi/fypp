@@ -661,9 +661,9 @@ directive, so that also variable tuples can be deleted::
   #! Removes the variables X and Y from local scope
   #:del X, Y
 
-If a variable is passed to the ``del`` directive, which is not defined in the
-current scope, it will be simply ignored. So the example above would not trigger
-any errors, if the variables ``X`` and ``Y`` were not defined before.
+The variable passed to the ``del`` directive must exist and be erasable. So the
+example above would trigger an error, if the variables ``X`` and ``Y`` were not
+defined before.
 
 The `del` directive can also be used to delete macro defintions::
 

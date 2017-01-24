@@ -1638,7 +1638,8 @@ class Renderer:
         try:
             self._evaluator.undefine(name)
         except Exception as exc:
-            msg = "exception occured when deleting variable(s) {0}".format(name)
+            msg = "exception occured when deleting variable(s) '{0}'"\
+                  .format(name)
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
         if self._linenums and not self._diverted and multiline:
@@ -1707,13 +1708,11 @@ class Renderer:
 
 
     def _update_globals(self, fname, linenr):
-        self._evaluator.updatescope(
-            globalscope=True, _DATE_=time.strftime('%Y-%m-%d'),
-            _TIME_=time.strftime('%H:%M:%S'), _THIS_FILE_=fname,
-            _THIS_LINE_=linenr + 1)
+        self._evaluator.updatelocals(
+            _DATE_=time.strftime('%Y-%m-%d'), _TIME_=time.strftime('%H:%M:%S'),
+            _THIS_FILE_=fname, _THIS_LINE_=linenr + 1)
         if not self._fixedposition:
-            self._evaluator.updatescope(
-                globalscope=True, _FILE_=fname, _LINE_=linenr + 1)
+            self._evaluator.updatelocals(_FILE_=fname, _LINE_=linenr + 1)
 
 
     def _define(self, var, value):
@@ -1908,13 +1907,13 @@ class Evaluator:
 
         # Local scope(s)
         self._locals = None
-        self._localstack = []
+        self._locals_stack = []
 
         # Variables which are references to entries in global scope
         self._globalrefs = None
         self._globalrefs_stack = []
 
-        # Current scope
+        # Current scope (globals + locals in all embedding and in current scope)
         self._scope = self._globals
 
         # Turn on restricted mode
@@ -1930,7 +1929,7 @@ class Evaluator:
         Return:
             Python object: Result of the expression evaluation.
         '''
-        result = eval(expr, self._globals, self._locals)
+        result = eval(expr, self._scope)
         return result
 
 
@@ -1950,7 +1949,7 @@ class Evaluator:
         '''
         rootmod = module.split('.', 1)[0]
         try:
-            imported = __import__(module, self._globals, self._locals)
+            imported = __import__(module, self._scope)
             self.define(rootmod, imported)
         except Exception as exc:
             msg = "failed to import module '{0}'".format(module)
@@ -1971,13 +1970,19 @@ class Evaluator:
         varnames = self._get_variable_names(name)
         if len(varnames) == 1:
             value = (value,)
-        for ind, varname in enumerate(varnames):
+        elif len(varnames) != len(value):
+            msg = 'value for tuple assignment has incompatible length'
+            raise FyppFatalError(msg)
+        for varname, varvalue in zip(varnames, value):
             self._check_variable_name(varname)
-            if self._globalrefs and varname in self._globalrefs:
-                scope = self._globals
+            if self._locals is None:
+                self._globals[varname] = varvalue
             else:
-                scope = self._scope
-            scope[varname] = value[ind]
+                if varname in self._globalrefs:
+                    self._globals[varname] = varvalue
+                else:
+                    self._locals[varname] = varvalue
+                self._scope[varname] = varvalue
 
 
     def undefine(self, name):
@@ -1993,12 +1998,24 @@ class Evaluator:
         varnames = self._get_variable_names(name)
         for varname in varnames:
             self._check_variable_name(varname)
-            if self._globalrefs and varname in self._globalrefs:
-                scope = self._globals
+            deleted = False
+            if self._locals is None:
+                if varname in self._globals:
+                    del self._globals[varname]
+                    deleted = True
             else:
-                scope = self._scope
-            if varname in scope:
-                del scope[varname]
+                if varname in self._locals:
+                    del self._locals[varname]
+                    del self._scope[varname]
+                    deleted = True
+                elif varname in self._globalrefs and varname in self._globals:
+                    del self._globals[varname]
+                    del self._scope[varname]
+                    deleted = True
+            if not deleted:
+                msg = "lookup for an erasable instance of '{}' failed"\
+                      .format(varname)
+                raise FyppFatalError(msg)
 
 
     def addglobal(self, name):
@@ -2022,19 +2039,22 @@ class Evaluator:
                 self._globalrefs.add(varname)
 
 
-    def updatescope(self, globalscope=False, **vardict):
-        '''Update (or create) variables in the local or global scope.
+    def updatelocals(self, **vardict):
+        '''Update variables in the local scope.
+
+        This is a shortcut function to inject variables in the local scope
+        without extensive checks (as in define()). Vardict must not contain any
+        entries which have been made global via addglobal() before. In order to
+        ensure this, updatelocals() should be called immediately after
+        openscope(), or with variable names, which are warrantedly not globlas
+        (e.g variables starting with forbidden prefix)
 
         Args:
-            globalscope: Whether the update should happen in the global scope
-                (default: False -- update happens in the active scope).
             **vardict: variable defintions.
         '''
-        if globalscope:
-            scope = self._globals
-        else:
-            scope = self._scope
-        scope.update(vardict)
+        self._scope.update(vardict)
+        if self._locals is not None:
+            self._locals.update(vardict)
 
 
     def openscope(self, customlocals=None):
@@ -2046,7 +2066,7 @@ class Evaluator:
                 behaviour a dictionary of customized locals can be passed,
                 and those locals will become the only visible ones.
         '''
-        self._localstack.append(self._locals)
+        self._locals_stack.append(self._locals)
         self._globalrefs_stack.append(self._globalrefs)
         if customlocals is not None:
             self._locals = customlocals.copy()
@@ -2055,15 +2075,17 @@ class Evaluator:
         else:
             self._locals = {}
         self._globalrefs = set()
-        self._scope = self._locals
+        self._scope = self._globals.copy()
+        self._scope.update(self._locals)
 
 
     def closescope(self):
         '''Close scope and restore embedding scope.'''
-        self._locals = self._localstack.pop(-1)
+        self._locals = self._locals_stack.pop(-1)
         self._globalrefs = self._globalrefs_stack.pop(-1)
         if self._locals is not None:
-            self._scope = self._locals
+            self._scope = self._globals.copy()
+            self._scope.update(self._locals)
         else:
             self._scope = self._globals
 
@@ -2129,14 +2151,12 @@ class Evaluator:
 
 
     def _func_defined(self, var):
-        defined = var in self._globals
-        if not defined and self._locals is not None:
-            defined = var in self._locals
+        defined = var in self._scope
         return defined
 
 
     def _func_import(self, name, *_, **__):
-        module = self._globals.get(name, None)
+        module = self._scope.get(name, None)
         if module is not None and isinstance(module, types.ModuleType):
             return module
         else:
@@ -2154,10 +2174,8 @@ class Evaluator:
 
 
     def _func_getvar(self, name, defvalue=None):
-        if name in self._globals:
-            return self._globals[name]
-        elif self._locals is not None and name in self._locals:
-            return self._locals[name]
+        if name in self._scope:
+            return self._scope[name]
         else:
             return defvalue
 
@@ -2215,7 +2233,7 @@ class _Macro:
     def __call__(self, *args, **keywords):
         argdict = self._process_arguments(args, keywords)
         self._evaluator.openscope(customlocals=self._localscope)
-        self._evaluator.updatescope(**argdict)
+        self._evaluator.updatelocals(**argdict)
         output = self._renderer.render(self._content, divert=True,
                                        fixposition=True)
         self._evaluator.closescope()
