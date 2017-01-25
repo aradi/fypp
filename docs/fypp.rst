@@ -1466,10 +1466,10 @@ Fypp uses a scope concept very similar to Pythons one. There is one global scope
 cases (e.g. during macro calls).
 
 The global scope is the one, which Fypp normaly uses for defining objects. All
-imports specified on the command line are carried out in this scope. Also, all
-the initialization files are executed within that scope. And all definitions
-made by the `set` and `def` directives in the processed source file defines
-entities in that scope, unless they appear within a `call` or a `def` directive.
+imports specified on the command line are carried out in this scope And all
+definitions made by the `set` and `def` directives in the processed source file
+defines entities in that scope, unless they appear within a `call` or a `def`
+directive.
 
 Addtional temporary local scopes are opened, whenever
 

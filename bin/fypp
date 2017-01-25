@@ -2013,7 +2013,7 @@ class Evaluator:
                     del self._scope[varname]
                     deleted = True
             if not deleted:
-                msg = "lookup for an erasable instance of '{}' failed"\
+                msg = "lookup for an erasable instance of '{0}' failed"\
                       .format(varname)
                 raise FyppFatalError(msg)
 
