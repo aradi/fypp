@@ -306,7 +306,7 @@ Preprocessor language
 General syntax
 ==============
 
-Fypp has three types of preprocessor directives, two of them having a line and
+Fypp has three types of preprocessor directives, all of them having a line and
 an inline form:
 
 *  Control directives
@@ -421,7 +421,7 @@ to other preprocessor languages ::
 
 it enables consistent expressions with (hopefully) least surprises (once you
 know, how to formulate the expression in Python, you exactly know, how to write
-it for Fypp). Also, note, that variable names, macros etc. are in Python (and
+it for Fypp). Also, note, that variable names, macros etc. are for Python (and
 therefore also for Fypp) case sensitive.
 
 When you access a variable in an expression, it must have been already defined
@@ -526,9 +526,10 @@ Following predefined functions are available:
     $:delvar('i', 'j')
 
 
-* ``globalvar(VARNAME)``: Add given variable as global variable to the current
-  scope.  It is identical to the `global directive`_. The variable name
-  expression must be provided as in the ``#:global`` directive, but must be quoted::
+* ``globalvar(VARNAME)``: Adds a given variable as global variable to the
+  current scope.  It is identical to the `global directive`_. The variable name
+  expression must be provided as in the ``#:global`` directive, but must be
+  quoted::
 
     $:globalvar('i')
   
@@ -1611,18 +1612,18 @@ First, we create an include file (``checks.fypp``) with the appropriate macros::
   #! Stops the code, if the condition passed to it is not fulfilled
   #! Only included in debug mode.
   #:def ensure(cond, msg=None)
-  #:if DEBUG
-  if (.not. (${cond}$)) then
-    write(*,*) 'Run-time check failed'
-    write(*,*) 'Condition: ${cond.replace("'", "''")}$'
-    #:if msg is not None
-    write(*,*) 'Message: ', ${msg}$
+    #:if DEBUG
+      if (.not. (${cond}$)) then
+        write(*,*) 'Run-time check failed'
+        write(*,*) 'Condition: ${cond.replace("'", "''")}$'
+        #:if msg is not None
+          write(*,*) 'Message: ', ${msg}$
+        #:endif
+        write(*,*) 'File: ${_FILE_}$'
+        write(*,*) 'Line: ', ${_LINE_}$
+        stop
+      end if
     #:endif
-    write(*,*) 'File: ${_FILE_}$'
-    write(*,*) 'Line: ', ${_LINE_}$
-    stop
-  end if
-  #:endif
   #:enddef ensure
 
 
