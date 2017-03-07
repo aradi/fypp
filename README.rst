@@ -13,7 +13,7 @@ emphasis on robustness and on neat integration into developing toolchains.
 The project is `hosted on bitbucket <http://bitbucket.org/aradi/fypp>`_.
 
 `Detailed DOCUMENTATION <http://fypp.readthedocs.org>`_ is available on
-`readthedocs.org <http://fypp.readthedocs.org>`_. 
+`readthedocs.org <http://fypp.readthedocs.org>`_.
 
 Fypp is released under the *BSD 2-clause license*.
 
@@ -21,17 +21,18 @@ Fypp is released under the *BSD 2-clause license*.
 Main features
 =============
 
-* Definition and evaluation of preprocessor variables::
+* Definition, evaluation and removal of variables::
 
     #:if DEBUG > 0
       print *, "Some debug information"
     #:endif
 
-    #:set LOGLEVEL 2
+    #:set LOGLEVEL = 2
+    print *, "LOGLEVEL: ${LOGLEVEL}$"
 
-* Macro defintions and macro calls (apart of minor syntax differences similar to
-  scoped intelligent Fortran macros, which probably will once become part of the
-  Fortran standard)::
+    #:del LOGLEVEL
+
+* Macro definitions and macro calls::
 
     #:def assertTrue(cond)
     #:if DEBUG > 0
@@ -40,17 +41,16 @@ Main features
       error stop
     end if
     #:endif
-    #:enddef
+    #:enddef assertTrue
 
-    ! Invoked via direct call (needs no quotation)
-    @:assertTrue size(myArray) > 0
+    ! Invoked via direct call (argument needs no quotation)
+    @:assertTrue(size(myArray) > 0)
 
-    ! Invoked as Python expression (needs quotation)
+    ! Invoked as Python expression (argument needs quotation)
     $:assertTrue('size(myArray) > 0')
-    
 
 * Conditional output::
-  
+
     program test
     #:if defined('WITH_MPI')
       use mpi
@@ -63,14 +63,14 @@ Main features
 * Iterated output (e.g. for generating Fortran templates)::
 
     interface myfunc
-    #:for dtype in [ 'real', 'dreal', 'complex', 'dcomplex' ]
+    #:for dtype in ['real', 'dreal', 'complex', 'dcomplex']
       module procedure myfunc_${dtype}$
     #:endfor
     end interface myfunc
 
 * Inline directives::
 
-    logical, parameter :: hasMpi = #{if defined('MPI')}#.true.#{else}#.false.#{endif}#
+    logical, parameter :: hasMpi = #{if defined('MPI')}# .true. #{else}# .false. #{endif}#
 
 * Insertion of arbitrary Python expressions::
 
@@ -87,19 +87,33 @@ Main features
       print *, "Doing something here"
     #:endif
 
-* Passing multiline string arguments to macros::
+* Passing (unquoted) multiline string arguments to callables::
 
+    #! Callable needs only string argument
     #:def debug_code(code)
       #:if DEBUG > 0
         $:code
       #:endif
-    #:enddef
-    
+    #:enddef debug_code
+
+    #! Pass code block as first positional argument
     #:call debug_code
       if (size(array) > 100) then
         print *, "DEBUG: spuriously large array"
       end if
-    #:endcall
+    #:endcall debug_code
+
+    #! Callable needs also non-string argument types
+    #:def repeat_code(code, repeat)
+      #:for ind in range(repeat)
+        $:code
+      #:endfor
+    #:enddef repeat_code
+
+    #! Pass code block as positional argument and 3 as keyword argument "repeat"
+    #:call repeat_code(repeat=3)
+    this will be repeated 3 times
+    #:endcall repeat_code
 
 * Preprocessor comments::
 
@@ -113,11 +127,48 @@ Main features
     #:include "macrodefs.fypp"
     #:endmute
 
+* Explicit request for stopping the preprocessor::
+
+    #:if DEBUGLEVEL < 0
+      #:stop 'Negative debug level not allowed!'
+    #:endif
+
+* Easy check for macro parameter sanity::
+
+    #:def mymacro(RANK)
+      #! Macro only works for RANK 1 and above
+      #:assert RANK > 0
+      :
+    #:enddef mymacro
+
+* Line numbering directives in output::
+
+    program test
+    #:if defined('MPI')
+    use mpi
+    #:endif
+    :
+
+  transformed to ::
+
+    # 1 "test.fypp" 1
+    program test
+    # 3 "test.fypp"
+    use mpi
+    # 5 "test.fypp"
+    :
+
+  when variable ``MPI`` is defined and Fypp was instructed to generate line
+  markers.
+
+* Automatic folding of generated lines exceeding line length limit
+
 
 Installing
 ==========
 
-Fypp needs a Python interpreter of version 2.7, 3.2 or above.
+Fypp needs a working Python interpreter. It is compatible with Python 2 (version
+2.6 and above) and Python 3 (all versions).
 
 Automatic install
 -----------------
@@ -158,7 +209,7 @@ obtain
 
 The command line tool is a single stand-alone script. You can run it directly
 from the source folder ::
-  
+
   FYPP_SOURCE_FOLDER/bin/fypp
 
 or after copying it from the `bin` folder to any location listed in your `PATH`

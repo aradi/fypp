@@ -16,12 +16,12 @@ Fypp was inspired by the `pyratemp
 <http://www.simple-is-better.org/template/pyratemp.html>`_ templating engine
 [#]_. Although it shares many concepts with pyratemp, it was written from
 scratch focusing on the special needs when preprocessing source code. Fypp
-natively supports the output of line numbering directives, which are used by
+natively supports the output of line numbering markers, which are used by
 many compilers to generate compiler messages with correct line numbers. Unlike
-most cpp/fpp preprocessors or the coco preprocessor, Fypp also supports
+most cpp/fpp-like preprocessors or the coco preprocessor, Fypp also supports
 iterations, multiline macros, continuation lines in preprocessor directives and
 automatic line folding. It generally tries to extend the modern Fortran language
-with some useful features without tempting you to use it for tasks which
+with metaprogramming capabilities without tempting you to use it for tasks which
 could/should be done in Fortran itself.
 
 The project is `hosted on bitbucket <http://bitbucket.org/aradi/fypp>`_ with
@@ -29,7 +29,7 @@ documentation available on `readthedocs.org
 <http://fypp.readthedocs.org>`_. Fypp is released under the *BSD 2-clause
 license*.
 
-This document describes Fypp Version 1.2.
+This document describes Fypp Version 2.0.
 
 
 Features
@@ -38,17 +38,18 @@ Features
 Below you find a summary over Fypps main features. Each of them is described
 more in detail in the individual sections further down.
 
-* Definition and evaluation of preprocessor variables::
+* Definition, evaluation and removal of variables::
 
     #:if DEBUG > 0
       print *, "Some debug information"
     #:endif
 
-    #:set LOGLEVEL 2
+    #:set LOGLEVEL = 2
+    print *, "LOGLEVEL: ${LOGLEVEL}$"
 
-* Macro defintions and macro calls (apart of minor syntax differences similar to
-  scoped intelligent Fortran macros, which probably will once become part of the
-  Fortran standard)::
+    #:del LOGLEVEL
+
+* Macro definitions and macro calls::
 
     #:def assertTrue(cond)
     #:if DEBUG > 0
@@ -57,14 +58,13 @@ more in detail in the individual sections further down.
       error stop
     end if
     #:endif
-    #:enddef
+    #:enddef assertTrue
 
-    ! Invoked via direct call (needs no quotation)
-    @:assertTrue size(myArray) > 0
+    ! Invoked via direct call (argument needs no quotation)
+    @:assertTrue(size(myArray) > 0)
 
-    ! Invoked as Python expression (needs quotation)
+    ! Invoked as Python expression (argument needs quotation)
     $:assertTrue('size(myArray) > 0')
-
 
 * Conditional output::
 
@@ -80,14 +80,14 @@ more in detail in the individual sections further down.
 * Iterated output (e.g. for generating Fortran templates)::
 
     interface myfunc
-    #:for dtype in [ 'real', 'dreal', 'complex', 'dcomplex' ]
+    #:for dtype in ['real', 'dreal', 'complex', 'dcomplex']
       module procedure myfunc_${dtype}$
     #:endfor
     end interface myfunc
 
 * Inline directives::
 
-    logical, parameter :: hasMpi = #{if defined('MPI')}#.true.#{else}#.false.#{endif}#
+    logical, parameter :: hasMpi = #{if defined('MPI')}# .true. #{else}# .false. #{endif}#
 
 * Insertion of arbitrary Python expressions::
 
@@ -104,19 +104,34 @@ more in detail in the individual sections further down.
       print *, "Doing something here"
     #:endif
 
-* Passing multiline string arguments to macros::
+* Passing (unquoted) multiline string arguments to callables::
 
+    #! Callable needs only string argument
     #:def debug_code(code)
       #:if DEBUG > 0
         $:code
       #:endif
-    #:enddef
+    #:enddef debug_code
 
+    #! Pass code block as first positional argument
     #:call debug_code
       if (size(array) > 100) then
         print *, "DEBUG: spuriously large array"
       end if
-    #:endcall
+    #:endcall debug_code
+
+    #! Callable needs also non-string argument types
+    #:def repeat_code(code, repeat)
+      #:for ind in range(repeat)
+        $:code
+      #:endfor
+    #:enddef repeat_code
+
+    #! Pass code block as positional argument and 3 as keyword argument "repeat"
+    #:call repeat_code(repeat=3)
+    this will be repeated 3 times
+    #:endcall repeat_code
+
 
 * Preprocessor comments::
 
@@ -130,6 +145,42 @@ more in detail in the individual sections further down.
     #:include "macrodefs.fypp"
     #:endmute
 
+* Explicit request for stopping the preprocessor::
+
+    #:if DEBUGLEVEL < 0
+      #:stop 'Negative debug level not allowed!'
+    #:endif
+
+* Easy check for macro parameter sanity::
+
+    #:def mymacro(RANK)
+      #! Macro only works for RANK 1 and above
+      #:assert RANK > 0
+      :
+    #:enddef mymacro
+
+* Line numbering markers in output::
+
+    program test
+    #:if defined('MPI')
+    use mpi
+    #:endif
+    :
+
+  transformed to ::
+
+    # 1 "test.fypp" 1
+    program test
+    # 3 "test.fypp"
+    use mpi
+    # 5 "test.fypp"
+    :
+
+  when variable ``MPI`` is defined and Fypp was instructed to generate line
+  markers.
+
+* Automatic folding of generated lines exceeding line length limit
+
 
 ***************
 Getting started
@@ -138,7 +189,9 @@ Getting started
 Installing
 ==========
 
-Fypp needs a Python interpreter of version 2.7, 3.2 or above.
+Fypp needs a working Python interpreter. It is compatible with Python 2 (version
+2.6 and above) and Python 3 (all versions).
+
 
 Automatic install
 -----------------
@@ -193,15 +246,38 @@ The python module ``fypp.py`` can be found in ``FYP_SOURCE_FOLDER/src``.
 Testing
 =======
 
-You can test Fypp on your system by running ::
+Simple manual testing can be done by issuing the command ::
 
   ./test/runtests.sh
 
-in the source tree. This will execute various unit tests to check whether Fypp
-works as expected. If you want to run the tests with a specific Python
-interpreter, you can specify it as argument to the script::
+from the root of the Fypp source tree. This executes the unit tests shipped with
+Fypp with the default Python interpreter in your path. If you wish to use a
+specific interpreter, you can pass it as argument to the script::
 
-  ./test/runtests.sh python3.2
+  ./test/runtests.sh python3
+
+You can also pass multiple interpreters as separate arguments. In that case
+the testing will be carried out for each of them.
+
+
+Testing for developers
+----------------------
+
+If you wish to contribute to Fypp, you should have `tox` installed on your
+system, so that you can test the packaged project in isolated environments
+before issuing a pull request.
+
+In order to execute the unit tests with `tox`, run  ::
+
+  tox
+
+from the root folder of the source tree. This tries to test Fypp with various
+different python interpreters. If you want to limit testing to selected
+interpeters only, select the environment with the appropriate command line
+switch, e.g. ::
+
+  tox -e py34
+
 
 
 Running
@@ -230,7 +306,7 @@ Preprocessor language
 General syntax
 ==============
 
-Fypp has three types of preprocessor directives, two of them having a line and
+Fypp has three types of preprocessor directives, all of them having a line and
 an inline form:
 
 *  Control directives
@@ -255,11 +331,15 @@ an inline form:
 
       print *, "Compilation date: ${time.strftime('%Y-%m-%d')}$"
 
-* Direct call directive, only available as line form, starting with ``@:`` (at
-  colon)::
+* Direct call directive
 
-    @:mymacro a < b
+  * Line form, starting with ``@:`` (at colon)::
 
+      @:mymacro(a < b)
+
+  * Inline form, enclosed between ``@{`` and ``}@``::
+
+      print *, @{mymacro(a < b)}@
 
 The line form must always start at the beginning of a line (preceded by optional
 whitespace characters only) and it ends at the end of the line. The inline form
@@ -310,6 +390,13 @@ Preprocessor directives can be arbitrarily nested::
 
 Every open directive must be closed before the end of the file is reached.
 
+In all control directives, the whitespace separating the name of the directive
+from the following parameter is obligatory. Therefore, the following example is
+syntactically incorrect::
+
+  #! Incorrect due to missing whitespace after 'if'
+  #:if(1 > 2)
+
 
 Expression evaluation
 =====================
@@ -317,24 +404,24 @@ Expression evaluation
 Python expressions can occur either as part of control directives, like ::
 
   #:if DEBUG > 0
-  #:for dtype in [ 'real(dp)', 'integer', 'logical' ]
+  #:for dtype in ['real(dp)', 'integer', 'logical']
 
 or directly inserted into the code using eval directives. ::
 
   $:time.strftime('%Y-%m-%d')
   print *, "${time.strftime('%Y-%m-%d')}$"
 
-Experssions are always evaluated by using Pythons ``eval()`` builtin and must
+Expressions are always evaluated by using Pythons ``eval()`` builtin and must
 be, therefore, syntactically and semantically correct Python
 expressions. Although, this may require some additional quotations as compared
 to other preprocessor languages ::
 
   #:if defined('DEBUG')  #! The Python function defined() expects a string argument
-  #:for dtype in [ 'real(dp)', 'integer', 'logical' ]  #! dtype runs over strings
+  #:for dtype in ['real(dp)', 'integer', 'logical']  #! dtype runs over strings
 
 it enables consistent expressions with (hopefully) least surprises (once you
 know, how to formulate the expression in Python, you exactly know, how to write
-it for Fypp). Also, note, that variable names, macros etc. are in Python (and
+it for Fypp). Also, note, that variable names, macros etc. are for Python (and
 therefore also for Fypp) case sensitive.
 
 When you access a variable in an expression, it must have been already defined
@@ -345,15 +432,129 @@ example the directive ::
 
 can only be evaluated, if the variable `DEBUG` had been already defined before.
 
+
+Python sandbox
+==============
+
 Python expressions are evaluted in an isolated Python environment, which
 contains a restricted set of Python built-in functions and a few predefined
 variables and functions (see below). There are no modules loaded by default, and
-for safety reasons, no modules can be loaded once the preprocessing has started.
+for safety reasons, no modules can be loaded once the preprocessing has
+started, but can be loaded at startup if needed.
+
+Predefined variables
+--------------------
+
+The isolated Python environment for the expression evaluation contains following
+predefined global variables:
+
+* ``_THIS_LINE_``: number of current line
+
+* ``_THIS_FILE_``: name of current file
+
+* ``_LINE_``: number of current line in the processed input file
+
+* ``_FILE_``: name of processed input file ::
+
+    print *, "This is line nr. ${_LINE_}$ in file '${_FILE_}$'"
+
+* ``_DATE_``: current date in ISO format
+
+* ``_TIME_``: current time::
+
+    print *, "Rendering started ${_DATE_}$ ${_TIME_}$"
+
+The predefined variables ``_FILE_`` and ``_LINE_`` differ from their
+counterparts ``_THIS_FILE_`` and ``_THIS_LINE_`` only within macros. When a
+macro is executed, the variables ``_THIS_FILE_`` and ``_THIS_LINE_`` specify the
+position, where the expression containing these variables is located, while the
+variables ``_FILE_`` and ``_LINE_`` refer to the position in the processed file,
+from where the macro was called (and where the result of the evaluation will be
+inserted later). For example, the input ::
+
+  #:def macro()
+  IN MACRO: _THIS_LINE_=${_THIS_LINE_}$, _LINE_=${_LINE_}$
+  #:enddef macro
+
+  GLOBAL: _THIS_LINE_=${_THIS_LINE_}$, _LINE_=${_LINE_}$ | ${macro()}$
+
+yields after being processed by Fypp::
+
+  GLOBAL: _THIS_LINE_=5, _LINE_=5 | IN MACRO: _THIS_LINE_=2, _LINE_=5
+
+If from within a macro an other macro is called, the variables ``_FILE_`` and
+``_LINE_`` will keep their original values, while ``_THIS_FILE_`` and
+``_THIS_LINE_`` will be continuously updated within the nested macro as well.
 
 
-Initializing the environment
+Predefined functions
+--------------------
+
+Following predefined functions are available:
+
+* ``defined(VARNAME)``: Returns ``True`` if a variable with a given name has
+  been already defined. The variable name must be provided as string::
+
+    #:if defined('WITH_MPI')
+
+* ``getvar(VARNAME, DEFAULTVALUE)``: Returns the value of a variable or a
+  default value if the variable is not defined. The variable name must be
+  provided as string::
+
+    #:if getvar('DEBUG', 0)
+
+* ``setvar(VARNAME, VALUE)``: Sets a variable to given value. It is identical to
+  the `set directive`_. The variable name expression has the same format as in
+  the ``#:set`` directive, but must be quoted::
+
+    $:setvar('i', 12)
+    print *, "VAR I: ${i}$"
+
+  Multiple assignments may be specified as subsequent argument pairs::
+
+    $:setvar('i', 1, 'j', 2)
+    print *, "VAR I: ${i}$, VAR J: ${j}$"
+
+* ``delvar(VARNAME)``: Removes a variable or a macro definition from the local
+  scope. It is identical to the `del directive`_. The variable name
+  expression must be provided as in the ``#:del`` directive, but must be quoted::
+
+    $:delvar('i')
+
+  Additional variable name expressions may be specified as subsequent arguments::
+
+    $:delvar('i', 'j')
+
+
+* ``globalvar(VARNAME)``: Adds a given variable as global variable to the
+  current scope.  It is identical to the `global directive`_. The variable name
+  expression must be provided as in the ``#:global`` directive, but must be
+  quoted::
+
+    $:globalvar('i')
+  
+  Multiple variable name expressions may be specified as subsequent arguments.
+
+
+Initializing variables
+----------------------
+
+Initial values for preprocessor variables can be set via the command line option
+(``-D``) at startup::
+
+  fypp -DDEBUG=0 -DWITH_MPI
+
+The assigned value for a given variable is evaluated in Python. If no value is
+provided, `None` is assigned.
+
+
+Importing modules at startup
 ----------------------------
 
+.. warning:: Modules imported at startup have access to the full
+   **unrestricted** Python environment and can execute any Python code. Import
+   only trustworthy modules!
+   
 If a Python module is required for the preprocessing, it can be imported before
 the preprocessing starts via the command line option (``-m``)::
 
@@ -368,70 +569,28 @@ If more than one module is needed, each of them can imported with an individual
 
   fypp -m time -m math
 
-Initial values for preprocessor variables can be set via the command line option
-(``-D``) at startup::
+When importing modules with the ``-m`` option, the module search path consists
+of the current directory, the directories in the `PYTHONPATH` environment
+variable and the standard Python module paths. Further lookup paths can be
+specified using the option ``-M``::
 
-  fypp -DDEBUG=0 -DWITH_MPI
+  fypp -M mymoddir1 -M mymoddir2 -m mymodule -m mymodule2
 
-The assigned value for a given variable is evaluated in Python. If no value is
-provided, `None` is assigned.
+The module directories are looked up in the order they are specified *before*
+searching at the default locations. Modules are imported also in the order of
+their specification at the command line.
 
-When complex initialization is needed (e.g. user defined Python functions should
-be defined), initialization scripts can be specified via the command line option
-``-i``::
+Each module imported at startup has its own name space. Entities in the imported
+modules can be accessed during the preprocessing in the usual pythonic
+way. After importing the module ``mymodule`` as in the example above, entities
+in the module could be accessed as::
 
-  fypp -i ini1.py -i ini2.py
-
-The preprocessor executes the content of each initialization script in the
-isolated environment via Pythons `exec()` command before processing any
-input. If modules had been also specified via the ``-m`` option, they are
-imported before the execution of the initialization scripts.
-
-
-Predefined variables and functions
-==================================
-
-The isolated Python environment for the expression evaluation contains following
-predefined (read-only) variables:
-
-* ``_LINE_``: number of current line
-
-* ``_FILE_``: name of curernt file ::
-
-    print *, "This is line nr. ${_LINE_}$ in file '${_FILE_}$'"
-
-* ``_DATE_``: current date in ISO format
-
-* ``_TIME_``: current time::
-
-    print *, "Rendering started ${_DATE_}$ ${_TIME_}$"
-
-Additionally following predefined functions are provided:
-
-* ``defined(VARNAME)``: Returns ``True`` if a variable with a given name has
-  been already defined. The variable name must be provided as string::
-
-    #:if defined('WITH_MPI')
-
-* ``getvar(VARNAME, DEFAULTVALUE)``: Returns the value of a variable or a
-  default value if the variable is not defined. The variable name must be
-  provided as string::
-
-    #:if getvar('DEBUG', 0)
-
-* ``setvar(VARNAME, VALUE)``: Sets a variable to given value. It is identical to
-  the ``#:set`` control directive. The variable name must be provided as
-  string::
-
-    $:setvar('i', 12)
-    print *, "VAR I: ${i}$"
-
-  If the left hand side of the assignment is a tuple of variables, the
-  corresponding Python string representation of the tuple should be used as
-  variable name::
-
-    $:setvar('i, j', (1, 2))
-    print *, "VAR I: ${i}$, VAR J: ${j}$"
+  ${mymodule.SOME_CONSTANT}$
+  $:mymodule.SOME_CONSTANT
+  $:mymodule.some_function()
+  @:mymodule.some_function()
+  #:call mymodule.some_function
+  #:endcall mymodule.some_function
 
 
 Eval directive
@@ -459,12 +618,13 @@ variant::
 The value of a variable can be set during the preprocessing via the `set`
 directive. (Otherwise, variables can be also declared and defined via command
 line options.) The first argument is the name of the variable (unquoted),
-followed by an optional Python expression. If latter is not present, the
-variable is set to `None`::
+followed by an optional Python expression. If the Python expression is present,
+it must be separated by an equal sign from the variable name. If the Python
+expression and the equal sign are not present, the variable is set to `None`::
 
   #:set DEBUG
-  #:set LOG 1
-  #:set LOGLEVEL LOGLEVEL + 1
+  #:set LOG = 1
+  #:set LOGLEVEL = LOGLEVEL + 1
 
 Note, that in the last example the variable `LOGLEVEL` must have been already
 defined in advance.
@@ -472,18 +632,53 @@ defined in advance.
 The `set` directive also accepts assignments to variable tuples, provided the
 right hand side of the assignment is compatible with the variable tuple::
 
-  #:set (VAR1, VAR2) 1, 2
+  #:set VAR1, VAR2 = 1, 2
+  #:set (VAR1, VAR2) = 1, 2
 
-The parantheses around the variable list are optional, but are recommended for
-better readability.
+The parantheses around the variable list (second example) are optional.
 
 The `set` directive can be also used in the inline form::
 
-  #{set X 2}#print *, ${X}$
+  #{set X = 2}#print *, ${X}$
 
-For backwards compatibility reason, the `setvar` directive is also recognized by
-Fypp. Apart of the different name, it has the same syntax and functionality as
-the `set` directive.
+Similar to the line form, the separating equal sign is optional here as well.
+
+
+`del` directive
+===============
+
+A variable (or macro) definition can be removed from the current scope by the
+`del` directive::
+
+  #:set X = 12
+  #! X available, with value 12
+  :
+  #:del X
+  #! X not available any more
+
+The variable name expression syntax is identical to the one used for the `set`
+directive, so that also variable tuples can be deleted::
+
+  #! Removes the variables X and Y from local scope
+  #:del X, Y
+
+The variable passed to the ``del`` directive must exist and be erasable. So the
+example above would trigger an error, if the variables ``X`` and ``Y`` were not
+defined before.
+
+The `del` directive can also be used to delete macro defintions::
+
+  #:def echo(TXT)
+  ${TXT}$
+  #:enddef
+  @:echo(HELLO)
+  #:del echo
+  #! Following line throws an error as macro echo is not available any more
+  @:echo(HELLO)
+
+The `del` directive can be also used in the inline form::
+
+  #{del X}#
 
 
 `if` directive
@@ -540,7 +735,7 @@ Fortran templates can be easily created by using the `for` directive. The
 following example creates a function for calculating the sine square for both
 single and double precision reals::
 
-  #:set real_kinds [ 'sp', 'dp' ]
+  #:set real_kinds = ['sp', 'dp']
 
   interface sin2
   #:for rkind in real_kinds
@@ -565,10 +760,10 @@ inserted using eval directives. If the iterable consists of iterables
 (e.g. tuples), usual indexing can be used to access their components, or a
 variable tuple to unpack them directly in the loop header::
 
-  #:set kinds ['sp', 'dp']
-  #:set names ['real', 'dreal']
+  #:set kinds = ['sp', 'dp']
+  #:set names = ['real', 'dreal']
   #! create kinds_names as [('sp', 'real'), ('dp', 'dreal')]
-  #:set kinds_names list(zip(kinds, names))
+  #:set kinds_names = list(zip(kinds, names))
 
   #! Acces by indexing
   interface sin2
@@ -599,11 +794,11 @@ The `for` directive can be used also in its inline form::
 ===============
 
 Parametrized macros can be defined with the `def` directive. This defines a
-regular Python callable, which returns the rendered content of the macro body
+regular callable in Python, which returns the rendered content of the macro body
 when called. The macro arguments are converted to local variables containing the
 actual arguments as values. The macro can be either called from within an
-eval-directive, via the `call` control directive or its abreviated form, the
-direct call.
+eval-directive, via the `call` control directive and via its abreviated form,
+the direct call.
 
 Given the macro definition ::
 
@@ -618,13 +813,16 @@ Given the macro definition ::
 
 the following three calls ::
 
+  #! call macro by evaluating a Python expression
   $:assertTrue('x > y')
 
+  #! call macro by using the call directive (see below)
   #:call assertTrue
   x > y
-  #:endcall
+  #:endcall assertTrue
 
-  @:assertTrue x > y
+  #! call macro by using the direct call directive (see below)
+  @:assertTrue(x > y)
 
 would all yield ::
 
@@ -636,14 +834,34 @@ would all yield ::
 if the variable `DEBUG` had a value greater than zero or an empty string
 otherwise.
 
-When called from within an eval-directive, arbitrary optional parameters can be
-passed additional to the regular macro arguments. The optional parameters are
-converted to local variables when the macro content is rendered. For example
-given the defintion of the ``assertTrue()`` macro from above, the call ::
+When calling a macro, arbitrary optional parameters can be passed additional to
+the regular macro arguments. The optional parameters are converted to local
+variables when the macro content is rendered. For example given the defintion of
+the ``assertTrue()`` macro from above, the call ::
 
   $:assertTrue('x > y', DEBUG=1)
 
 would override the global value of the `DEBUG` variable within the macro.
+
+It is possible to declare default values for the positional arguments of a
+macro. If for a given positional argument such a value is provided, then default
+values must be provided for all following arguments as well. When the macro is
+called, missing positional arguments will be replaced by their default value::
+
+  #:def macro(X, Y=2, Z=3)
+  X=${X}$, Y=${Y}$, Z=${Z}$
+  #:enddef macro
+
+  $:macro(1)   #! Returns "X=1, Y=2, Z=3"
+
+Similar to Python, it is also possible to define macros with a variable number
+of positional arguments::
+
+  #:def macro(X, *VARARGS)
+  X=${X}$, VARARGS=#{for ARG in VARARGS}#${ARG}$#{endfor}#
+  #:enddef macro
+
+  $:macro(1, 2, 3)   #! Returns "X=1, VARARGS=23"
 
 Scopes in general follow the Python convention: Within the macro, all variables
 from the encompassing scope are available (as `DEBUG` in the example above), and
@@ -655,12 +873,12 @@ snippet ::
 
   #:def macro(x)
   print *, "Local XY: ${x}$ ${y}$"
-  #:set y -2
+  #:set y = -2
   print *, "Local XY: ${x}$ ${y}$"
   #:enddef
 
-  #:set x 1
-  #:set y 2
+  #:set x = 1
+  #:set y = 2
   print *, "Global XY: ${x}$ ${y}$"
   $:macro(-1)
   print *, "Global XY: ${x}$ ${y}$"
@@ -673,30 +891,42 @@ would result in ::
   print *, "Global XY: 1 2"
 
 
-The `def` directive can also be used in its short form::
+For better readability, you can repeat the name of the macro (but not its
+argument list) at the corresponding enddef directive::
 
-  #{def l2(x)}#log(log(${x}$))#{enddef}#
+  #:def assertTrue(cond)
+    #:if DEBUG > 0
+      if (.not. (${cond}$)) then
+        print *, "Assert failed!"
+        error stop
+      end if
+    #:endif
+  #:enddef assertTrue
+
+
+The `def` directive has no inline form.
 
 .. warning:: The content of macros is usually inserted via an eval directive and
-	     is accordingly subject to eventual line folding. Macros should,
-	     therefore, not contain any inline Fortran comments. (Comments
-	     starting at the beginning of the line preceeded by optional
-	     whitespaces only are OK, though). Use preprocessor comments
-	     (``#!``) instead.
+     is accordingly subject to eventual line folding. Macros should,
+     therefore, not contain any inline Fortran comments. (Comments
+     starting at the beginning of the line preceeded by optional
+     whitespaces only are OK, though). Use preprocessor comments
+     (``#!``) instead.
 
 
 `call` directive
 ================
 
-When a Python callable (e.g. regular Python function, macro) is called with
-string arguments only (e.g. source code), it can be called using the `call`
-directive to avoid extra quoting of the arguments::
+When a Python callable (regular Python function, macro etc.) needs a string
+argument of larger size (e.g. source code), it can be called using the `call`
+directive to avoid extra quoting of the text argument and to enable passing of
+multiline arguments in a comfortable way::
 
   #:def debug_code(code)
     #:if DEBUG > 0
       $:code
     #:endif
-  #:enddef
+  #:enddef debug_code
 
   #:call debug_code
     if (a < b) then
@@ -706,30 +936,108 @@ directive to avoid extra quoting of the arguments::
 
 The `call` directive takes the name of the callable as argument. The lines
 between the opening and closing directives will be rendered and then passed as
-Python string argument to the callable. If the callable has more than one
-arguments, the `nextarg` directive can be used to separate the arguments from
-each other::
+positional *string* arguments to the callable. The name of the callable can be
+repeated in the `endcall` directive for enhanced readability::
 
-  #:def choose_code(code_debug, code_nondebug)
+  #:call debug_code
+    if (a < b) then
+      print *, "DEBUG: a (${a}$) is less than b (${b}$)"
+    end if
+  #:endcall debug_code
+
+If the callable needs more than one string arguments, the `nextarg` directive
+can be used to separate the arguments from each other::
+
+  #:def choose_code(debug_code, nondebug_code)
     #:if DEBUG > 0
-      $:code_debug
+      $:debug_code
     #:else
-      $:code_nondebug
+      $:nondebug_code
     #:endif
-  #:enddef
+  #:enddef choose_code
 
-  #:call chose_code
+  #:call choose_code
     if (a < b) then
         print *, "DEBUG: a is less than b"
     end if
   #:nextarg
     print *, "No debugging"
-  #:endcall
+  #:endcall choose_code
 
 The lines in the body of the `call` directive may contain directives
 themselves. However, any variable defined within the body of the `call`
 directive will be a local variable existing only during the evaluation of that
-branch of the directive (and not being available during the call itself).
+branch of the directive (and not being available when the callable is called
+with the evaluated string as argument).
+
+The `nextarg` directive may be followed by an optional argument name. In that
+case the text following will be passed as keyword argument to the callable. If
+the first argument should be also passed as keyword argument, it should be also
+preceeded by a named `nextarg` directive declared in the line immediately
+following the `call` directive. If an argument is passed as a keyword argument,
+all following arguments must be passed as keyword arguments as well::
+
+  #:call choose_code
+  #:nextarg nondebug_code
+    print *, "No debugging"
+  #:nextarg debug_code
+    if (a < b) then
+        print *, "DEBUG: a is less than b"
+    end if
+  #:endcall choose_code
+
+Additional to passing the content of the `call` directives body as string
+argument, further arguments of arbitrary type can be passed by specifying them
+directly in the header of the directive. Among others, this can be very
+comfortable when the callable needs also non-string type of arguments::
+
+  #! Argument 'repeat' should be an integer, not string
+  #:def repeat_code(code, repeat)
+    #:for ind in range(repeat)
+      $:code
+    #:endfor
+  #:enddef repeat_code
+
+  #! Code block as positional argument and 3 as keyword argument "repeat"
+  #:call repeat_code(repeat=3)
+  this will be repeated 3 times
+  #:endcall repeat_code
+
+The arguments in the call-header must be specified between parantheses and are
+evaluated as Python expressions. The arguments specified in the `call` directive
+(both, in the header and in the body) are passed to the callable in the
+following order:
+
+#. positional arguments in the header
+
+#. positional arguments in the body
+
+#. keyword arguments in the header
+
+#. keyword arguments in the body
+
+Callables without arguments can also be called with the `call` directive,
+provided the `endcall` directive immediately follows the `call` directive. If
+there are empty lines between the `call` and the `endcall` directive, they will
+be interpreted as a positional argument::
+
+  #:def macro_noarg()
+  NOARGS
+  #:enddef macro_noarg
+
+  #:def macro_arg1(arg1)
+  ARG1:${arg1}$
+  #:enddef macro_arg1
+
+  #! Calling macro without arguments
+  #:call macro_noarg
+  #:endcall macro_noarg
+
+  #! Calling macro with one positional (empty) argument
+  #! Note the empty line between call and endcall
+  #:call macro_arg1
+  
+  #:endcall macro_arg1
 
 The `call` directive can also be used in its inline form. As this easily leads
 to code being hard to read, it should be usually avoided::
@@ -740,15 +1048,18 @@ to code being hard to read, it should be usually avoided::
   ! This form is more readable
   print *, ${choose_code('a(:)', 'size(a)')}$
 
-If the arguments need no further processing, the direct call directive can be
-also used as an alternative to the line form (see next section).
+  ! Alternatively, you may use a direct call (see next section)
+  print *, @{choose_code(a(:), size(a))}@
+
+If the callable only requires short text arguments, the more compact direct call
+directive should be used as an alternative (see next section).
 
 
 Direct call directive
 =====================
 
 In order to enable compact (single line) calls while still maintaining code
-readability, the `call` directive has an alternative short form, the direct call
+readability, the `call` directive has an alternative form, the direct call
 directive::
 
   #:def assertTrue(cond)
@@ -758,34 +1069,137 @@ directive::
     error stop
   end if
   #:endif
-  #:enddef
+  #:enddef assertTrue
 
-  @:assertTrue size(aa) >= size(bb)
+  @:assertTrue(size(aa) >= size(bb))
 
 The direct call directive starts with ``@:`` followed by the name of a Python
-callable. Everything between the callable name and the end of the line is
-treated as argument to the callable. When the callable needs more than one
-argument, the arguments must be separated by the character sequence ``@@``::
+callable and an opening paranthesis (``(``). Everything after that up to the
+closing paranthesis (``)``) is passed as *string argument* to the callable. The
+closing paranthesis may only be followed by whitespace characters.
 
-  #:def assertEqual(lhs, rhs)
-  if (lhs != rhs) then
-    print *, "AssertEqual failed!"
+When the callable needs more than one argument, the arguments must be separated
+by a comma (``,``)::
+
+  #:def assertEqual(received, expected)
+  if (${received}$ /= ${expected}$) then
+    print *, "assertEqual failed (${received}$ /= ${expected}$)!"
     error stop
   end if
-  #:enddef
+  #:enddef assertEqual
 
-  @:assertEqual size(coords, dim=2) @@ size(types)
+  @:assertEqual(size(coords, dim=2), size(atomtypes))
 
-The direct call directive can contain continuation lines::
+.. note:: In order to be able to split the argument string of a direct call
+          correctly, Fypp assumes that all provided arguments represent valid
+          Fortran expressions with balanced quotes (``'`` or ``"``) and balanced
+          brackets (``()``, ``[]`` and ``{}``) outside of quoted regions. The
+          argument string is only split around commas which are outside of any
+          quoted or bracketed regions.
 
-  @:assertEqual size(coords, dim=2) &
-      & @@ size(types)
+Arguments can be optionally enclosed within curly braces in order to avoid
+argument splitting at unwanted places or to improve readability. The outermost
+curly braces will be removed from the arguments before they are passed to the
+callable::
 
-The arguments are parsed for further directives, so the inline form of the
-eval and control directives can be used::
+  #! Passes "a**2 + b**2" and "c**2" as string arguments to assertEqual
+  @:assertEqual({a**2 + b**2}, c**2)
 
-  #:set MYSIZE 2
-  @:assertEqual size(coords, dim=2) @@ ${MYSIZE}$
+Keywords arguments can be passed by prefixing them with the keyword name
+and an equal sign::
+
+  @:assertEqual(expected=size(atomtypes), received=size(coords, dim=2))
+  @:assertEqual(expected=c**2, received={a**2 + b**2})
+
+If the equal sign is followed immediately by an other equal sign, the argument
+will be recognized as positional and not as keyword argument. This exception
+allows for passing valid Fortran code containing the comparison operator
+(``==``) without the need for special bracketing. In other cases, however,
+bracketing may be needed to avoid recognition as keyword argument::
+
+  #! Passes string "a == b" as first positional argument
+  @:assertTrue(a == b)
+
+  #! Passes string "=b" as keyword argument "a"
+  @:assertTrue(a={=b})
+
+  #! Passes string "b" as keyword argument "a"
+  @:someMacro(a = b)
+
+  #! Passes "a = b" as positional argument
+  @:someMacro({a = b})
+
+The direct call directive may contain continuation lines::
+
+  @:assertEqual(size(coords, dim=2), &
+      & size(atomtypes))
+
+The arguments are parsed for further inline eval directives (but not for any
+inline control or direct call directives), making variable substitutions in the
+arguments possible::
+
+  #:set MYSIZE = 2
+  @:assertEqual(size(coords, dim=2), ${MYSIZE}$)
+
+Whitespaces around the arguments of the direct call are stripped, but not the
+whitespaces within the optional curly braces around the argument::
+
+  #! Calls a macro without arguments
+  @:macro_without_args()
+
+  #! Calls a macro with no arguments (whitespace between () is stripped):
+  @:macro_without_args( )
+
+  #! Calls a macro with empty string as argument
+  @:macro_with_one_arg({})
+
+  #! Calls a macro with one space as argument
+  @:macro_with_one_arg({ })
+
+The direct call directive can also be used in its inline form::
+
+  #! Using choose_code() macro defined in previous section
+  print *, @{choose_code(a(:), size(a))}@
+
+
+`global` directive
+==================
+
+Global variables are by default read-only in local scopes (e.g. within
+macros). This can be changed for selected variables by using the `global`
+directive::
+
+  #:def set_debug(value)
+    #:global DEBUG
+    #:set DEBUG = value
+  #:enddef set_debug
+
+  #:set DEBUG = 1
+  $:DEBUG
+  $:set_debug(2)
+  $:DEBUG
+
+In the example above, without the `global` directive, the `set` directive would
+have created a local variable within the macro, which had shadowed the global
+variable and was destroyed at the end of the macro execution. With the `global`
+directive the `set` refers to the variable in the global scope. The
+variable in the global scope does not need to exist yet, when the `global`
+directive is executed. It will be then created at the first `set` directive, or
+remain non-existing if no assignment is made in the current scope.
+
+A variable can only made global, if it was not created in the local scope
+yet. Therefore, the following code would throw an exception::
+
+  #:def set_debug(value)
+    #! DEBUG variable created in local scope
+    #:set DEBUG = value
+
+    #! Invalid: variable DEBUG already exists in local scope
+    #:global DEBUG
+  #:enddef set_debug
+
+  # Throws exception
+  $:set_debug(2)
 
 
 `include` directive
@@ -822,7 +1236,7 @@ within the `mute` directive::
 
   #:def test(x)
   print *, "TEST: ${x}$"
-  #:enddef
+  #:enddef test
 
   #:endmute
   $:test('me')
@@ -836,18 +1250,6 @@ as output without any newlines.
 The `mute` directive does not have an inline form.
 
 
-Comment directive
-=================
-
-Comment lines can be added by using the ``#!`` preprocessor directive. The
-comment line (including the newlines at their end) will be ignored by the
-prepropessor and will not appear in the ouput::
-
-    #! This will not show up in the output
-
-There is no inline form of the comment directive.
-
-
 `stop` directive
 ================
 
@@ -858,12 +1260,56 @@ criteria. The directive expects a Python expression, which will be converted to
 string and written to standard error. After writing the error message Fypp exits
 immediately with a non-zero exit code (see `Exit Codes`_)::
 
-    #! Stop the code, if DEBUGLEVEL is not positive
+    #! Stop the code if DEBUGLEVEL is not positive
     #:if DEBUGLEVEL < 0
       #:stop 'Wrong debug level {}!'.format(DEBUGLEVEL)
     #:endif
 
 There is no inline form of the `stop` directive.
+
+
+`assert` directive
+==================
+
+The `assert` directive is a short form for the combination of an `if` and a
+`stop` directive. It evaluates a given expression and stops the code if the
+boolean value of the result is `False`. This can be very convenient, if you want
+to write robust macros containing sanity checks for their arguments::
+
+  #:def mymacro(RANK)
+    #! Macro only works for RANK 1 and above
+    #:assert RANK > 0
+    :
+  #:enddef mymacro
+
+Given the macro definition above, the macro call ::
+
+  $:mymacro(1)
+
+would pass the `assert` directive in the third line, while the call ::
+
+  $:mymacro(0)
+
+would cause Fypp to stop at it.
+
+When the expression in an `assert` directive evaluates to `False`, Fypp reports
+the failed assertion (the condition, the file name and the line number) on
+standard error and terminates immediately with a non-zero exit code (see `Exit
+Codes`_).
+
+There is no inline form of the `assert` directive.
+
+
+Comment directive
+=================
+
+Comment lines can be added by using the ``#!`` preprocessor directive. The
+comment line (including the newlines at their end) will be ignored by the
+prepropessor and will not appear in the ouput::
+
+    #! This will not show up in the output
+
+There is no inline form of the comment directive.
 
 
 ****************
@@ -942,7 +1388,7 @@ documentation or OpenMP directives)::
   ${DTYPE}$ function calcSomething(xx)
   :
   end function calcSomething
-  #:enddef
+  #:enddef macro
 
 
 Escaping
@@ -961,12 +1407,12 @@ backslash between the delimiter characters in the output. If you put more than
 one backslash between the delimiters, only one will be removed.
 
 
-Line numbering directives
-=========================
+Line numbering markers
+======================
 
 In order to support compilers in emitting messages with correct line numbers
 with respect to the original source file, Fypp can put line number directives
-(a.k.a. linemarkers) in its output. This can be enabled by using the command
+(a.k.a. line markers) in its output. This can be enabled by using the command
 line option ``-n``. Given a file ``test.fpp`` with the content ::
 
   program test
@@ -984,7 +1430,7 @@ the command ::
 
 produces the output ::
 
-  # 1 "test.fpp"
+  # 1 "test.fpp" 1
   program test
   # 3 "test.fpp"
     use mpi
@@ -1007,6 +1453,125 @@ accepts following mode arguments:
   before continuation lines. (Some compilers, like the NAG Fortran compiler,
   have difficulties with line numbering directives before continuation lines).
 
+Note: Due to a bug introduced in GFortran 5 (being also present in major
+versions 6), a workaround is needed for obtaining correct error messages when
+compiling preprocessed files with those compilers. Please use the command line
+option ``--line-marker-format 'gfortran5'`` in those cases.
+
+
+Scopes
+======
+
+Fypp uses a scope concept very similar to Pythons one. There is one global scope
+(like in Python modules), and temporary local scopes may be created in special
+cases (e.g. during macro calls).
+
+The global scope is the one, which Fypp normaly uses for defining objects. All
+imports specified on the command line are carried out in this scope And all
+definitions made by the `set` and `def` directives in the processed source file
+defines entities in that scope, unless they appear within a `call` or a `def`
+directive.
+
+Addtional temporary local scopes are opened, whenever
+
+* a macro defined by the `def` directive is called, or
+
+* the body of the `call` directive is evaluated in order to render the text,
+  which will be passed to the callable as argument.
+
+Any entity defined in a local scope is only visible within that scope and is
+unaccessible once the scope has been closed. For example the code snippet::
+
+  #:set toupper = lambda s: s.upper()
+  #:call toupper
+  #:set NUMBER = 9
+  here is the number ${NUMBER}$
+  #:endcall toupper
+  $:defined('NUMBER')
+
+results after preprocessing in ::
+
+  HERE IS THE NUMBER 9
+  False
+
+as the variable ``NUMBER`` defined in the local scope is destroyed, when the
+scope is closed (the `endcall` directive has been reached).
+
+
+Lookup rules
+------------
+
+When Fypp tries to resolve a name, the lookup rules depend on the scope, in
+which the query appears:
+
+* global scope (outside of any `def` or `call` directives): only the global
+  scope is searched.
+
+* local scope (within the body of a `call` or `def` directive): first, the
+  active local scope is searched. Then the scope embedding it (the scope which
+  contains the directive) is searched. Then further embedding scopes are
+  searched until finally also the global scope has been checked. The search is
+  immediately terminated, if the name has been found in a scope.
+
+Note, that all variables outside of the active scope are read-only. If a
+variable with the same name is created in the active scope, it will shadow the
+original definition. Once the scope is closed, the variable regains it original
+value. For example::
+
+  #:set toupper = lambda s: s.upper()
+  #:set X = 1
+  #:call toupper
+  #:set X = 2
+  value ${X}$
+  #:endcall toupper
+  value ${X}$
+
+results in ::
+
+  VALUE 2
+  value 1
+
+Also note, that if a name can not be resolved in the active scope during a macro
+evaluation, the relevant embedding scope for the next lookup is the scope, where
+the macro has been defined (where the `def` directive occurs), and *not* the
+scope, from which the macro is being called. The following snippet demonstrates
+this::
+
+  #! GLOBAL SCOPE
+  #:set toupper = lambda s: s.upper()
+  #:call toupper
+  #! LOCAL SCOPE 1
+
+  #:def macro1()
+  #! LOCAL SCOPE 2A
+  value of x: ${X}$
+  #:enddef macro1
+
+  #! LOCAL SCOPE 1
+
+  #:def macro2()
+  #! LOCAL SCOPE 2B
+  #:set X = 2
+  $:macro1()
+  #:enddef macro2
+
+  #! LOCAL SCOPE 1
+  #:set X = 1
+  $:macro2()
+  #:endcall
+
+  #! GLOBAL SCOPE
+
+After processing the code above one obtains ``VALUE OF X: 1``. Although in the
+local scope 2B, from where the macro ``macro1()`` is called, the value of X is
+defined to be ``2``, the relevant scopes for the lookup of X during the macro
+evaluation are the local scope 2A of ``macro1()`` (where the eval-directive for
+X is located), the local scope 1 (where the `def` directive for ``macro1()``
+occurs) and the global scope (which embeds local scope 1). Therefore, at the
+macro evaluation the value ``1`` will be substituted as this is the value of X
+in scope 1, and scope 1 is the first scope in the lookup order, which provides a
+value for X.
+
 
 Exit codes
 ==========
@@ -1018,7 +1583,8 @@ codes to the calling environment:
 
 * 1: Stopped due to an unexpected error.
 
-* 2: Explicitely requested stop encountered (see `stop directive`_).
+* 2: Explicitely requested stop encountered (`stop directive`_ or `assert
+  directive`_).
 
 
 
@@ -1040,22 +1606,25 @@ First, we create an include file (``checks.fypp``) with the appropriate macros::
   #:mute
 
   #! Enable debug feature if the preprocessor variable DEBUG has been defined
-  #:set DEBUG defined('DEBUG')
+  #:set DEBUG = defined('DEBUG')
 
 
   #! Stops the code, if the condition passed to it is not fulfilled
   #! Only included in debug mode.
-  #:def ensure(cond)
+  #:def ensure(cond, msg=None)
     #:if DEBUG
-  if (.not. (${cond}$)) then
-    write(*,*) 'Run-time check failed'
-    write(*,*) 'Condition: ${cond}$'
-    write(*,*) 'File: ${_FILE_}$'
-    write(*,*) 'Line: ', ${_LINE_}$
-    stop
-  end if
+      if (.not. (${cond}$)) then
+        write(*,*) 'Run-time check failed'
+        write(*,*) 'Condition: ${cond.replace("'", "''")}$'
+        #:if msg is not None
+          write(*,*) 'Message: ', ${msg}$
+        #:endif
+        write(*,*) 'File: ${_FILE_}$'
+        write(*,*) 'Line: ', ${_LINE_}$
+        stop
+      end if
     #:endif
-  #:enddef
+  #:enddef ensure
 
 
   #! Includes code if in debug mode.
@@ -1063,7 +1632,7 @@ First, we create an include file (``checks.fypp``) with the appropriate macros::
     #:if DEBUG
   $:code
     #:endif
-  #:enddef
+  #:enddef debug_code
 
   #:endmute
 
@@ -1081,6 +1650,10 @@ Remarks:
   macro. The content of both, ``ensure`` and ``debug_code``, are only included
   if the variable ``DEBUG`` has been defined.
 
+* We also want to print out the failed condition for more verbose output. As the
+  condition may contains apostrophes, we use Python's string replacement method
+  to escape them.
+
 With the definitions above, we can use the functionality in any Fortran source
 after including ``checks.fypp``::
 
@@ -1091,10 +1664,12 @@ after including ``checks.fypp``::
 
   contains
 
-    subroutine someFunction(ind)
+    subroutine someFunction(ind, uplo)
       integer, intent(in) :: ind
+      character, intent(in) :: uplo
 
-      @:ensure ind > 0
+      @:ensure(ind > 0, msg="Index must be positive")
+      @:ensure(uplo == 'U' .or. uplo == 'L')
 
       ! Do something useful here
       ! :
@@ -1102,7 +1677,7 @@ after including ``checks.fypp``::
     #:call debug_code
       print *, 'We are in debug mode'
       print *, 'The value of ind is', ind
-    #:endcall
+    #:endcall debug_code
 
     end subroutine someFunction
 
@@ -1115,8 +1690,10 @@ Now, the file ``testmod.fpp`` can be preprocessed with Fypp. When the variable
 
 the resulting routine will not contain the conditional code::
 
-  subroutine someFunction(ind)
+  subroutine someFunction(ind, uplo)
     integer, intent(in) :: ind
+    character, intent(in) :: uplo
+
 
 
 
@@ -1133,14 +1710,23 @@ On the other hand, if the ``DEBUG`` variable is set::
 
 the run-time checks and the debug code will be there::
 
-    subroutine someFunction(ind)
+    subroutine someFunction(ind, uplo)
       integer, intent(in) :: ind
+      character, intent(in) :: uplo
 
   if (.not. (ind > 0)) then
     write(*,*) 'Run-time check failed'
     write(*,*) 'Condition: ind > 0'
+    write(*,*) 'Message: ', "Index must be positive"
     write(*,*) 'File: testmod.fpp'
-    write(*,*) 'Line:', 11
+    write(*,*) 'Line: ', 12
+    stop
+  end if
+  if (.not. (uplo == 'U' .or. uplo == 'L')) then
+    write(*,*) 'Run-time check failed'
+    write(*,*) 'Condition: uplo == ''U'' .or. uplo == ''L'''
+    write(*,*) 'File: testmod.fpp'
+    write(*,*) 'Line: ', 13
     stop
   end if
 
@@ -1158,29 +1744,16 @@ Generic programming
 
 The example below shows how to create a generic function ``maxRelError()``,
 which gives the maximal elementwise relative error for any pair of arrays with
-ranks from 0 (scalar) to 7 in single or double precision. First, we create a
-trivial Python function (file ``fyppinit.py``) to enable a concise notation::
+ranks from 0 (scalar) to 7 in single or double precision. The Fortran module
+(file ``errorcalc.fpp``) contains the interface ``maxRelError`` which maps to
+all the realizations with the different array ranks and precisions::
 
-  def ranksuffix(rank):
-      '''Returns a Fortran rank specification suffix.
+  #:def ranksuffix(RANK)
+  $:'' if RANK == 0 else '(' + ':' + ',:' * (RANK - 1) + ')'
+  #:enddef ranksuffix
 
-      Args:
-          rank (int): Rank of the object (must be >= 0).
-
-      Returns:
-          str: Rank specification suffix (e.g. (:)) or empty string for rank = 0.
-      '''
-      if rank == 0:
-          return ''
-      else:
-          return '(' + ','.join([':'] * rank) + ')'
-
-We then create a Fortran module (file ``errorcalc.fpp``) containing the
-interface ``maxRelError`` which maps to all the realizations with the different
-array ranks and precisions::
-
-  #:set PRECISIONS ['sp', 'dp']
-  #:set RANKS range(0, 8)
+  #:set PRECISIONS = ['sp', 'dp']
+  #:set RANKS = range(0, 8)
 
   module errorcalc
     implicit none
@@ -1219,13 +1792,18 @@ array ranks and precisions::
 
   end module errorcalc
 
-Finally, we preprocess the Fortran source file ``errorcalc.fpp`` with Fypp by
-using the initialization file ``fyppinit.py`` with the necessary Python function
-definitions::
+The macro ``ranksuffix()`` defined at the beginning receives a rank as argument
+and returns a string, which is either the empty string (rank 0) or the
+appropriate number of dimension placeholder separated by commas and within
+parantheses (e.g. ``(:,:)`` for rank 2). The string expression is calculated as
+a Python expression, so that we can make use of the powerful string manipulation
+routines in Python and write it as a one-line routine.
 
-  fypp -i fyppinit.py errorcalc.fpp errorcalc.f90
+If we preprocess the Fortran source file ``errorcalc.fpp`` with Fypp::
 
-The resulting file ``errorcalc.f90`` will contain a module with the generic
+  fypp errorcalc.fpp errorcalc.f90
+
+the resulting file ``errorcalc.f90`` will contain a module with the generic
 interface ``maxRelError()``::
 
   interface maxRelError
@@ -1249,7 +1827,7 @@ interface ``maxRelError()``::
 
 The interface maps to the appropriate functions::
 
-   function maxRelError_0_sp(obtained, reference) result(res)
+  function maxRelError_0_sp(obtained, reference) result(res)
     real(sp), intent(in) :: obtained
     real(sp), intent(in) :: reference
     real(sp) :: res
@@ -1290,7 +1868,7 @@ the macro within the loop. The function definition would then look as follows::
 
   contains
 
-  #:def maxRelError_factory(RANK, PREC)
+  #:def maxRelError_template(RANK, PREC)
     function maxRelError_${RANK}$_${PREC}$(obtained, reference) result(res)
       real(${PREC}$), intent(in) :: obtained${ranksuffix(RANK)}$
       real(${PREC}$), intent(in) :: reference${ranksuffix(RANK)}$
@@ -1303,16 +1881,15 @@ the macro within the loop. The function definition would then look as follows::
     #:endif
 
     end function maxRelError_${RANK}$_${PREC}$
-  #:enddef
+  #:enddef maxRelError_template
 
   #:for PREC in PRECISIONS
     #:for RANK in RANKS
-      $:maxRelError_factory(RANK, PREC)
+      $:maxRelError_template(RANK, PREC)
     #:endfor
   #:endfor
 
   end module errorcalc
-
 
 
 ***********************************
@@ -1446,49 +2023,6 @@ FyppError
 
 .. autoclass:: FyppError
    :members:
-
-
-Parser
-======
-
-.. autoclass:: Parser
-   :members:
-
-
-Builder
-=======
-
-.. autoclass:: Builder
-   :members:
-
-
-Renderer
-========
-
-.. autoclass:: Renderer
-   :members:
-
-
-Evaluator
-=========
-
-.. autoclass:: Evaluator
-   :members:
-
-
-Processor
-=========
-
-.. autoclass:: Processor
-   :members:
-
-
-FortranLineFolder
-=================
-
-.. autoclass:: FortranLineFolder
-   :members:
-   :special-members: __call__
 
 
 *****

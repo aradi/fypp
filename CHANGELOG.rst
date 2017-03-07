@@ -3,6 +3,84 @@ Change Log
 ==========
 
 
+2.0
+===
+
+Added
+-----
+
+* Direct call format resembling ordinary function call.
+
+* Inline direct call directive.
+
+* Keyword arguments in direct call and call directive.
+
+* Generalized call directive with arbitrary argument types.
+
+* Macros with variable number of arguments.
+
+* Default values for macro arguments.
+
+* Allow names in enddef and endcall directives for better readability.
+
+* Del directive and delvar() function.
+
+* Assert directive.
+
+* Global directive and globalvar() function.
+
+* Python-like consistent global and local scopes and scope lookup rules.
+
+* Predefined variables _THIS_FILE_ and _THIS_LINE_.
+    
+* Additional flags in line numbering directives when opening a file or returning
+  to a previous file.
+
+* Additional testing with tox for developers.
+
+* Python 2.6, 3.0 and 3.1 compatibility.
+
+
+Changed
+-------
+
+* Setvar directive not allowed as alternative to set any more. [Backwards
+  incompatible]
+
+* Old direct call syntax (@:macro arg1) not supported any more [Backwards
+  incompatible]
+
+* Inline form of def directive not allowed any more. [Backwards incompatible]
+
+* Execution of arbitrary Python script at startup (option -i) has been
+  removed. [Backwards incompatible]
+
+* Minimal API change: process_* methods of Fypp do not accept the optional
+  argument env any more. [Backwards incompatible]
+
+* Equal sign must be used as separator in set directive for better
+  readability. [Backwards incompatible]
+
+* Function setvar() accepts arbitrary number of argument pairs.
+
+* Reverse order exception printing, exception first occuring printed as last.
+
+* Command line tool formats error messages in GNU-like format.
+
+* Make equal sign in set directive mandatory and in setvar directive forbidden.
+
+* Search paths for module imports behave more Python-like.
+
+* Removed builtins callable() and memoryview() from restricted environment as they
+  are not available in all supported Python versions.
+
+
+Fixed
+-----
+
+* Line numbering with flags fixes gfortrans confusion with line numbers.
+
+
 1.2
 ===
 
