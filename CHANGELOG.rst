@@ -3,6 +3,15 @@ Change Log
 ==========
 
 
+2.0.1
+=====
+
+Fixed
+-----
+
+* Missing files in Python source distribution package.
+
+
 2.0
 ===
 

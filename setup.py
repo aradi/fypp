@@ -11,7 +11,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 setup(
     name='fypp',
 
-    version='2.0',
+    version='2.0.1',
 
     description='Python powered Fortran preprocessor',
     long_description=long_description,
