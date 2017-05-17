@@ -1,6 +1,6 @@
-=============================================
+*********************************************
 Fypp — Python powered Fortran metaprogramming
-=============================================
+*********************************************
 
 Fypp is a Python powered preprocessor. It can be used for any programming
 languages but its primary aim is to offer a Fortran preprocessor, which helps to
@@ -10,7 +10,7 @@ expressions in its preprocessor directives, offering the consistency and
 versatility of Python when formulating metaprogramming tasks. It puts strong
 emphasis on robustness and on neat integration into developing toolchains.
 
-The project is `hosted on bitbucket <http://bitbucket.org/aradi/fypp>`_.
+The project is `hosted on github <https://github.com/aradi/fypp>`_.
 
 `Detailed DOCUMENTATION <http://fypp.readthedocs.org>`_ is available on
 `readthedocs.org <http://fypp.readthedocs.org>`_.
