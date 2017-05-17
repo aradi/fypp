@@ -24,7 +24,7 @@ automatic line folding. It generally tries to extend the modern Fortran language
 with metaprogramming capabilities without tempting you to use it for tasks which
 could/should be done in Fortran itself.
 
-The project is `hosted on bitbucket <http://bitbucket.org/aradi/fypp>`_ with
+The project is `hosted on github <https://github.com/aradi/fypp>`_ with
 documentation available on `readthedocs.org
 <http://fypp.readthedocs.org>`_. Fypp is released under the *BSD 2-clause
 license*.
