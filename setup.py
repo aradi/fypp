@@ -16,7 +16,7 @@ setup(
     description='Python powered Fortran preprocessor',
     long_description=long_description,
 
-    url='https://bitbucket.org/aradi/fypp',
+    url='https://github.com/aradi/fypp',
 
     author='Bálint Aradi',
     author_email='baradi09@gmail.com',
