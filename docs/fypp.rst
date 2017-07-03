@@ -24,12 +24,12 @@ automatic line folding. It generally tries to extend the modern Fortran language
 with metaprogramming capabilities without tempting you to use it for tasks which
 could/should be done in Fortran itself.
 
-The project is `hosted on bitbucket <http://bitbucket.org/aradi/fypp>`_ with
+The project is `hosted on github <https://github.com/aradi/fypp>`_ with
 documentation available on `readthedocs.org
 <http://fypp.readthedocs.org>`_. Fypp is released under the *BSD 2-clause
 license*.
 
-This document describes Fypp Version 2.0.
+This document describes Fypp Version 2.1.
 
 
 Features
@@ -210,25 +210,16 @@ Fypp directly from within your Python scripts.
 Manual install
 --------------
 
-For a manual install, you can download the source code from the `Fypp project
-website <http://bitbucket.org/aradi/fypp>`_ ::
+For a manual install, you can download the source code of the latest **stable**
+release from the `Fypp project website
+<https://github.com/aradi/fypp/releases>`_.
 
-  git clone https://aradi@bitbucket.org/aradi/fypp.git
+If you wish to obtain the latest **development** version, clone the projects
+repository::
 
-The project follows `Vincent Driessens git workflow
-<http://nvie.com/posts/a-successful-git-branching-model/>`_, so in order to
-obtain
+  git clone https://github.com/aradi/fypp.git
 
-* the latest **stable** version, check out the `master` branch::
-
-    cd fypp
-    git co master
-
-* the latest **development** snapshot, check out the `develop` branch::
-
-    cd fypp
-    git co develop
-
+and check out the `master` branch.
 
 The command line tool is a single stand-alone script. You can run it directly
 from the source folder ::

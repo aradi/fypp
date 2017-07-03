@@ -1011,6 +1011,12 @@ SIMPLE_TESTS = [
       '2\n',
      )
     ),
+    ('set_no_rhs',
+     ([],
+      '#:set x\n$:x\n',
+      '\n',
+     )
+    ),
     ('set_equal_sign_nospace',
      ([],
       '#:set x=2\n$: x\n',

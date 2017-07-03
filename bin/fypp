@@ -68,7 +68,7 @@ else:
 # Prevent cluttering user directory with Python bytecode
 sys.dont_write_bytecode = True
 
-VERSION = '2.0.1'
+VERSION = '2.1'
 
 STDIN = '<stdin>'
 
@@ -1622,7 +1622,11 @@ class Renderer:
     def _define_variable(self, fname, span, name, valstr):
         result = ''
         try:
-            self._define(name, self._evaluate(valstr, fname, span[0]))
+            if valstr is None:
+                expr = None
+            else:
+                expr = self._evaluate(valstr, fname, span[0])
+            self._define(name, expr)
         except Exception as exc:
             msg = "exception occured when setting variable(s) '{0}' to '{1}'"\
                 .format(name, valstr)

@@ -11,12 +11,12 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 setup(
     name='fypp',
 
-    version='2.0.1',
+    version='2.1',
 
     description='Python powered Fortran preprocessor',
     long_description=long_description,
 
-    url='https://bitbucket.org/aradi/fypp',
+    url='https://github.com/aradi/fypp',
 
     author='Bálint Aradi',
     author_email='baradi09@gmail.com',
