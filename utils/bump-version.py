@@ -57,7 +57,7 @@ txt = fp.read()
 fp.close()
 decoration = '=' * len(version)
 newtxt, nsub = re.subn(
-    '^{}\s*\n=+'.format(VERSION_PATTERN), version + '\n' + decoration, txt, 
+    '^Unreleased\s*\n=+', version + '\n' + decoration, txt, 
     count=1, flags=re.MULTILINE)
 print(nsub)
 fp = open(fname, 'w')
