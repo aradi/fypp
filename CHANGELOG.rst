@@ -3,16 +3,8 @@ Change Log
 ==========
 
 
-Unreleased
-==========
-
-Added
------
-
-
-Changed
--------
-
+2.1.1
+=====
 
 Fixed
 -----

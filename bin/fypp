@@ -68,7 +68,7 @@ else:
 # Prevent cluttering user directory with Python bytecode
 sys.dont_write_bytecode = True
 
-VERSION = '2.1'
+VERSION = '2.1.1'
 
 STDIN = '<stdin>'
 
@@ -1134,7 +1134,7 @@ class Builder:
         # If nextarg or endcall immediately followed call, then first argument
         # is empty and should be removed (to allow for calls without arguments
         # and named first argument in calls)
-        if len(args) and not len(args[0]):
+        if args and not args[0]:
             if len(argnames) == len(args):
                 del argnames[0]
             del args[0]
@@ -2015,7 +2015,7 @@ class Evaluator:
                     deleted = True
                 elif varname in self._globalrefs and varname in self._globals:
                     del self._globals[varname]
-                    del self._scope[varname] 
+                    del self._scope[varname]
                     deleted = True
             if not deleted:
                 msg = "lookup for an erasable instance of '{0}' failed"\
