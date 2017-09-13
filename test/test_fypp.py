@@ -1428,18 +1428,25 @@ SIMPLE_TESTS = [
       '1 - 2\n'
      )
     ),
-    ('global_local_line_numbering_macro',
+    ('line_numbering_macro',
      ([],
       '#:def macro()\n${_THIS_LINE_}$,${_LINE_}$\n#:enddef macro\n'\
       '${_THIS_LINE_}$,${_LINE_}$|${macro()}$\n',
       '4,4|2,4\n'
      )
     ),
-    ('global_local_line_numbering_argeval',
+    ('line_numbering_argeval',
      ([],
       "#:set func = lambda s: str(_THIS_LINE_) + ',' + str(_LINE_) + '|' + s\n"\
       "#:call func\n${_THIS_LINE_}$,${_LINE_}$\n#:endcall\n",
       '2,2|3,3\n'
+     )
+    ),
+    ('line_numbering_argeval_macrocall',
+     ([_incdir('include')],
+      "#:include 'assert.inc'\n"\
+      "#:call ASSERT_CODE\n@:ASSERT()\n#:endcall ASSERT_CODE\n",
+      'include/assert.inc:7|<string>:3\n'
      )
     ),
     ('global_existing',
