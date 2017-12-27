@@ -100,7 +100,6 @@ class fypp_preprocessor(Task.Task):
                 return 'Preprocessing'
         
 	def run(self):
-                opts = fypp.FyppOptions()
                 argparser = fypp.get_option_parser()
                 args = [FYPP_LINENUM_FLAG]
                 args += self.env.FYPP_FLAGS
@@ -108,7 +107,7 @@ class fypp_preprocessor(Task.Task):
 		args += [FYPP_INCPATH_ST % ss for ss in self.env['INCLUDES']]
                 args += [FYPP_INIFILES_ST % ss for ss in self.env['INIFILES']]
                 args += [FYPP_MODULES_ST % ss for ss in self.env['MODULES']]
-                opts = argparser.parse_args(args, namespace=opts)
+                opts, leftover = argparser.parse_args(args)
                 infile = self.inputs[0].abspath()
                 outfile = self.outputs[0].abspath()
                 if Logs.verbose:
