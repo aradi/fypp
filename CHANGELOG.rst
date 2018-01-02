@@ -17,6 +17,8 @@ Changed
 Fixed
 -----
 
+* Wrong command-line parser initialisation in waf frontend.
+
 
 2.1.1
 =====
