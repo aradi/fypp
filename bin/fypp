@@ -60,6 +60,9 @@ import os
 import errno
 import time
 import optparse
+import json
+import subprocess
+import distutils.spawn
 if sys.version_info[0] >= 3:
     import builtins
 else:
@@ -561,6 +564,18 @@ class Parser:
         self._log_event('assert', span)
 
 
+    def handle_emit(self, span, payload):
+        '''Called when parser finds an emit directive.
+
+        It is a dummy method and should be overriden for actual use.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+            payload (any json serializable): The payload to emit
+        '''
+        self._log_event('emit', span, msg=json.dumps(payload))
+
+
     @staticmethod
     def _log_event(event, span=(-1, -1), **params):
         print('{0}: {1} --> {2}'.format(event, span[0], span[1]))
@@ -684,6 +699,10 @@ class Parser:
         elif directive == 'global':
             self._check_param_presence(True, 'global', param, span)
             self._process_global(param, span)
+        elif directive == 'emit':
+            self._check_param_presence(True, 'emit', param, span)
+            self._check_not_inline_directive('emit', span)
+            self.handle_emit(span, param)
         else:
             msg = "unknown directive '{0}'".format(directive)
             raise FyppFatalError(msg, self._curfile, span)
@@ -1256,6 +1275,16 @@ class Builder:
         self._curnode.append(('assert', self._curfile, span, cond))
 
 
+    def handle_emit(self, span, payload):
+        '''Should be called to signalize an emit directive.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+            payload (any json serializable): The payload to emit
+        '''
+        self._curnode.append(('emit', self._curfile, span, payload))
+
+
     @property
     def tree(self):
         '''Returns the tree built by the Builder.'''
@@ -1288,6 +1317,39 @@ class Builder:
             raise FyppFatalError(msg, self._curfile, curspan)
 
 
+def dummy_emitter(*args, **kwargs):
+    pass
+
+
+class ProcessEmitter:
+    '''Calls a process to emit payloads
+
+    Args:
+        emitter_exe (str): Path to the emitter executable
+    '''
+
+    def __init__(self, emitter_exe):
+        emitter_full_path = distutils.spawn.find_executable(emitter_exe)
+
+        if not emitter_full_path:
+            raise RuntimeError("the specified emitter '{}' could not be found or is not an executable"
+                               .format(emitter_exe))
+
+        self._emitter = emitter_full_path
+
+
+    def __call__(self, fname, payload):
+        data = json.dumps({
+            u'fname': fname,  # use unicode literals to ensure we get a unicode string
+            u'payload': payload,
+            },
+            ensure_ascii=False).encode('utf-8')
+        proc = subprocess.Popen(self._emitter, stdin=subprocess.PIPE)
+        # communicate() will close the process' stdin after writing
+        # we expect the process to terminate after receiving that SIGPIPE
+        proc.communicate(data)
+
+
 class Renderer:
 
     ''''Renders a tree.
@@ -1306,7 +1368,8 @@ class Renderer:
     '''
 
     def __init__(self, evaluator=None, linenums=False, contlinenums=False,
-                 linenumformat=None, linefolder=None):
+                 linenumformat=None, linefolder=None,
+                 emitter=dummy_emitter):
         # Evaluator to use for Python expressions
         self._evaluator = Evaluator() if evaluator is None else evaluator
 
@@ -1332,6 +1395,8 @@ class Renderer:
             self._linefolder = lambda line: [line]
         else:
             self._linefolder = linefolder
+
+        self._emitter = emitter
 
 
     def render(self, tree, divert=False, fixposition=False):
@@ -1414,6 +1479,8 @@ class Renderer:
                 output.append(result)
             elif cmd == 'global':
                 self._add_global(*node[1:4])
+            elif cmd == 'emit':
+                self._handle_emit(*node[1:4])
             else:
                 msg = "internal error: unknown command '{0}'".format(cmd)
                 raise FyppFatalError(msg)
@@ -1703,6 +1770,9 @@ class Renderer:
             result = linenumdir(span[1], fname)
         return result
 
+
+    def _handle_emit(self, fname, span, payload):
+        self._emitter(fname, self._evaluate(payload, fname, span[0]))
 
     def _evaluate(self, expr, fname, linenr):
         self._update_predef_globals(fname, linenr)
@@ -2319,12 +2389,12 @@ class Processor:
     '''
 
     def __init__(self, parser=None, builder=None, renderer=None,
-                 evaluator=None):
+                 evaluator=None, emitter=dummy_emitter):
         self._parser = Parser() if parser is None else parser
         self._builder = Builder() if builder is None else builder
         if renderer is None:
             evaluator = Evaluator() if evaluator is None else evaluator
-            self._renderer = Renderer(evaluator)
+            self._renderer = Renderer(evaluator, emitter=emitter)
         else:
             self._renderer = renderer
 
@@ -2351,6 +2421,7 @@ class Processor:
         self._parser.handle_endmute = self._builder.handle_endmute
         self._parser.handle_stop = self._builder.handle_stop
         self._parser.handle_assert = self._builder.handle_assert
+        self._parser.handle_emit = self._builder.handle_emit
 
 
     def process_file(self, fname):
@@ -2462,9 +2533,16 @@ class Fypp:
         linenums = options.line_numbering
         contlinenums = (options.line_numbering_mode != 'nocontlines')
         self._create_parent_folder = options.create_parent_folder
+
+        if options.emitter:
+            emitter = ProcessEmitter(options.emitter)
+        else:
+            emitter = dummy_emitter
+
         renderer = Renderer(
             evaluator, linenums=linenums, contlinenums=contlinenums,
-            linenumformat=options.line_marker_format, linefolder=linefolder)
+            linenumformat=options.line_marker_format, linefolder=linefolder,
+            emitter=emitter)
         self._preprocessor = Processor(parser, builder, renderer)
 
 
@@ -2598,6 +2676,7 @@ class FyppOptions(optparse.Values):
         self.moduledirs = []
         self.fixed_format = False
         self.create_parent_folder = False
+        self.emitter = None
 
 
 class FortranLineFolder:
@@ -2796,6 +2875,10 @@ def get_option_parser():
     parser.add_option('-p', '--create-parents', action='store_true',
                       dest='create_parent_folder',
                       default=defs.create_parent_folder, help=msg)
+    msg = 'emitter URL to call for emitting payloads'
+    parser.add_option('-e', '--emitter', type=str, metavar='URL',
+                      dest='emitter',
+                      default=defs.emitter, help=msg)
     return parser
 
 
