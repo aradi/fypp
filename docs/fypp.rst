@@ -1291,6 +1291,36 @@ Codes`_).
 There is no inline form of the `assert` directive.
 
 
+`emit` directive
+==================
+
+The `emit` directive can be used to pass specified data to an external process::
+
+  #:def output(NAME)
+    #:emit NAME
+  #:enddef output
+
+Given the macro definition above in a file `myprog.f90`, the macro call ::
+
+  $:output("foo")
+
+will pass the following payload via the standard input to an emitter registered
+using the `--emitter ...` option ::
+
+  {"payload": "foo", "fname": "myprog.f90"}
+
+Any json-serializable structure may be passed to the `emit` directive.
+The executable called by Fypp will be called once per directive, gets the data
+via standard input and is expected to terminate immediately when its stdin is
+closed (which is the case after the payload is written).
+
+A simple example using `cat` ::
+
+  fypp --emitter cat myprog.f90
+
+There is no inline form of the `emit` directive.
+
+
 Comment directive
 =================
 
