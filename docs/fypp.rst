@@ -1318,6 +1318,13 @@ A simple example using `cat` ::
 
   fypp --emitter cat myprog.f90
 
+The emitter command can be any executable and is executed in a subshell, meaning
+that output redirection also works ::
+
+  fypp --emitter 'cat > /tmp/bar' myprog.f90
+
+Would write the emitted output to a file `/tmp/bar`.
+
 There is no inline form of the `emit` directive.
 
 

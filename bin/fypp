@@ -62,7 +62,6 @@ import time
 import optparse
 import json
 import subprocess
-import distutils.spawn
 if sys.version_info[0] >= 3:
     import builtins
 else:
@@ -1329,13 +1328,7 @@ class ProcessEmitter:
     '''
 
     def __init__(self, emitter_exe):
-        emitter_full_path = distutils.spawn.find_executable(emitter_exe)
-
-        if not emitter_full_path:
-            raise RuntimeError("the specified emitter '{}' could not be found or is not an executable"
-                               .format(emitter_exe))
-
-        self._emitter = emitter_full_path
+        self._emitter = emitter_exe
 
 
     def __call__(self, fname, payload):
@@ -1344,7 +1337,7 @@ class ProcessEmitter:
             u'payload': payload,
             },
             ensure_ascii=False).encode('utf-8')
-        proc = subprocess.Popen(self._emitter, stdin=subprocess.PIPE)
+        proc = subprocess.Popen(self._emitter, stdin=subprocess.PIPE, shell=True)
         # communicate() will close the process' stdin after writing
         # we expect the process to terminate after receiving that SIGPIPE
         proc.communicate(data)
