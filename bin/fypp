@@ -427,7 +427,7 @@ class Parser:
         self._log_event('endfor', span)
 
 
-    def handle_call(self, span, name, argexpr):
+    def handle_call(self, span, name, argexpr, blockcall):
         '''Called when parser encounters a call directive.
 
         It is a dummy method and should be overriden for actual use.
@@ -437,11 +437,14 @@ class Parser:
             name (str): Name of the callable to call
             argexpr (str or None): Argument expression containing additional
                 arguments for the call.
+            blockcall (bool): Whether the alternative "block / contains /
+                endblock" calling directive has been used.
         '''
-        self._log_event('call', span, name=name, argexpr=argexpr)
+        self._log_event('call', span, name=name, argexpr=argexpr,
+                        blockcall=blockcall)
 
 
-    def handle_nextarg(self, span, name):
+    def handle_nextarg(self, span, name, blockcall):
         '''Called when parser encounters a nextarg directive.
 
         It is a dummy method and should be overriden for actual use.
@@ -450,11 +453,13 @@ class Parser:
             span (tuple of int): Start and end line of the directive.
             name (str or None): Name of the argument following next or
                 None if it should be the next positional argument.
+            blockcall (bool): Whether the alternative "block / contains /
+                endblock" calling directive has been used.
         '''
-        self._log_event('nextarg', span, name=name)
+        self._log_event('nextarg', span, name=name, blockcall=blockcall)
 
 
-    def handle_endcall(self, span, name):
+    def handle_endcall(self, span, name, blockcall):
         '''Called when parser encounters an endcall directive.
 
         It is a dummy method and should be overriden for actual use.
@@ -462,8 +467,10 @@ class Parser:
         Args:
             span (tuple of int): Start and end line of the directive.
             name (str): Name found after the endcall directive.
+            blockcall (bool): Whether the alternative "block / contains /
+                endblock" calling directive has been used.
         '''
-        self._log_event('endcall', span, name=name)
+        self._log_event('endcall', span, name=name, blockcall=blockcall)
 
 
     def handle_eval(self, span, expr):
@@ -652,13 +659,13 @@ class Parser:
         elif directive == 'endfor':
             self._check_param_presence(False, 'endfor', param, span)
             self.handle_endfor(span)
-        elif directive == 'call':
-            self._check_param_presence(True, 'call', param, span)
-            self._process_call(param, span)
-        elif directive == 'nextarg':
-            self._process_nextarg(param, span)
-        elif directive == 'endcall':
-            self._process_endcall(param, span)
+        elif directive == 'call' or directive == 'block':
+            self._check_param_presence(True, directive, param, span)
+            self._process_call(param, span, directive == 'block')
+        elif directive == 'nextarg' or directive == 'contains':
+            self._process_nextarg(param, span, directive == 'contains')
+        elif directive == 'endcall' or directive == 'endblock':
+            self._process_endcall(param, span, directive == 'endblock')
         elif directive == 'include':
             self._check_param_presence(True, 'include', param, span)
             self._check_not_inline_directive('include', span)
@@ -693,7 +700,7 @@ class Parser:
             msg = "invalid direct call expression"
             raise FyppFatalError(msg, self._curfile, span)
         callname = match.group('callname')
-        self.handle_call(span, callname, None)
+        self.handle_call(span, callname, None, False)
         callparams = match.group('callparams')
         if callparams is None or not callparams.strip():
             args = []
@@ -710,9 +717,9 @@ class Parser:
             if argval.startswith('{'):
                 argval = argval[1:-1]
             keyword = match.group('kwname')
-            self.handle_nextarg(span, keyword)
+            self.handle_nextarg(span, keyword, False)
             self._parse(argval, linenr=span[0], directcall=True)
-        self.handle_endcall(span, callname)
+        self.handle_endcall(span, callname, False)
 
 
     def _process_def(self, param, span):
@@ -769,33 +776,33 @@ class Parser:
         self.handle_for(span, loopvars, match.group('iter'))
 
 
-    def _process_call(self, param, span):
+    def _process_call(self, param, span, blockcall):
         match = _SIMPLE_CALLABLE_REGEXP.match(param)
         if not match:
             msg = "invalid callable expression '{}'".format(param)
             raise FyppFatalError(msg, self._curfile, span)
         name, args = match.groups()
-        self.handle_call(span, name, args)
+        self.handle_call(span, name, args, blockcall)
 
 
-    def _process_nextarg(self, param, span):
+    def _process_nextarg(self, param, span, blockcall):
         if param is not None:
             match = _IDENTIFIER_NAME_REGEXP.match(param)
             if not match:
                 msg = "invalid nextarg parameter '{0}'".format(param)
                 raise FyppFatalError(msg, self._curfile, span)
             param = match.group('name')
-        self.handle_nextarg(span, param)
+        self.handle_nextarg(span, param, blockcall)
 
 
-    def _process_endcall(self, param, span):
+    def _process_endcall(self, param, span, blockcall):
         if param is not None:
             match = _PREFIXED_IDENTIFIER_NAME_REGEXP.match(param)
             if not match:
                 msg = "invalid endcall parameter '{0}'".format(param)
                 raise FyppFatalError(msg, self._curfile, span)
             param = match.group('name')
-        self.handle_endcall(span, param)
+        self.handle_endcall(span, param, blockcall)
 
 
     def _process_include(self, param, span):
@@ -1071,7 +1078,7 @@ class Builder:
         self._curnode.append(block)
 
 
-    def handle_call(self, span, name, argexpr):
+    def handle_call(self, span, name, argexpr, blockcall):
         '''Should be called to signalize a call directive.
 
         Args:
@@ -1079,26 +1086,34 @@ class Builder:
             name (str): Name of the callable to call
             argexpr (str or None): Argument expression containing additional
                 arguments for the call.
+            blockcall (bool): Whether the alternative "block / contains /
+                endblock" calling directive has been used.
         '''
         self._path.append(self._curnode)
         self._curnode = []
+        directive = 'block' if blockcall else 'call'
         self._open_blocks.append(
-            ('call', self._curfile, [span, span], name, argexpr, [], []))
+            (directive, self._curfile, [span, span], name, argexpr, [], []))
 
 
-    def handle_nextarg(self, span, name):
+    def handle_nextarg(self, span, name, blockcall):
         '''Should be called to signalize a nextarg directive.
 
         Args:
             span (tuple of int): Start and end line of the directive.
             name (str or None): Name of the argument following next or
                 None if it should be the next positional argument.
+            blockcall (bool): Whether the alternative "block / contains /
+                endblock" calling directive has been used.
         '''
         self._check_for_open_block(span, 'nextarg')
         block = self._open_blocks[-1]
         directive, fname, spans = block[0:3]
-        self._check_if_matches_last(
-            directive, 'call', spans[-1], span, 'nextarg')
+        if blockcall:
+            opened, current = 'block', 'contains'
+        else:
+            opened, current = 'call', 'nextarg'
+        self._check_if_matches_last(directive, opened, spans[-1], span, current)
         args, argnames = block[5:7]
         args.append(self._curnode)
         spans.append(span)
@@ -1110,23 +1125,29 @@ class Builder:
         self._curnode = []
 
 
-    def handle_endcall(self, span, name):
+    def handle_endcall(self, span, name, blockcall):
         '''Should be called to signalize an endcall directive.
 
         Args:
             span (tuple of int): Start and end line of the directive.
             name (str): Name of the endcall statement. Could be None, if endcall
                 was specified without name.
+            blockcall (bool): Whether the alternative "block / contains /
+                endblock" calling directive has been used.
         '''
         self._check_for_open_block(span, 'endcall')
         block = self._open_blocks.pop(-1)
         directive, fname, spans = block[0:3]
-        self._check_if_matches_last(directive, 'call', spans[0], span,
-                                    'endcall')
         callname, callargexpr, args, argnames = block[3:7]
+        if blockcall:
+            opened, current = 'block', 'endblock'
+        else:
+            opened, current = 'call', 'endcall'
+        self._check_if_matches_last(directive, opened, spans[0], span, current)
+
         if name is not None and name != callname:
-            msg = "wrong name in endcall directive "\
-                  "(expected '{0}', got '{1}')".format(callname, name)
+            msg = "wrong name in {0} directive "\
+                  "(expected '{1}', got '{2}')".format(current, callname, name)
             raise FyppFatalError(msg, fname, span)
         args.append(self._curnode)
         # If nextarg or endcall immediately followed call, then first argument
@@ -1391,7 +1412,7 @@ class Renderer:
                 eval_inds += _shiftinds(ieval, len(output))
                 eval_pos += peval
                 output += out
-            elif cmd == 'call':
+            elif cmd == 'call' or cmd == 'block':
                 out, ieval, peval = self._get_called_content(*node[1:7])
                 eval_inds += _shiftinds(ieval, len(output))
                 eval_pos += peval

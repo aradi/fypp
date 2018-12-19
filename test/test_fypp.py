@@ -302,10 +302,24 @@ SIMPLE_TESTS = [
       'A=1,B=2\n'
       )
     ),
+    ('optarg_macro_block_all_args',
+     ([],
+      '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '#:block mymacro\n1\n#:contains\n2\n#:endblock\n',
+      'A=1,B=2\n'
+      )
+    ),
     ('optarg_macro_call_missing_args',
      ([],
       '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
       '#:call mymacro\n1\n#:endcall\n',
+      'A=1,B=2\n'
+      )
+    ),
+    ('optarg_macro_block_missing_args',
+     ([],
+      '#:def mymacro(A, B=2)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
+      '#:block mymacro\n1\n#:endblock\n',
       'A=1,B=2\n'
       )
     ),
@@ -400,10 +414,24 @@ SIMPLE_TESTS = [
       '|12[]|\n'
      )
     ),
+    ('macro_vararg_named_arguments_block',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
+      '#:block macro\n#:contains y\n2\n#:contains x\n1\n#:endblock\n',
+      '|12[]|\n'
+     )
+    ),
     ('macro_vararg_named_arguments_inline_call',
      ([],
       '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
       '#{call macro}##{nextarg y}#2#{nextarg x}#1#{endcall}#',
+      '|12[]|'
+     )
+    ),
+    ('macro_vararg_named_arguments_inline_block',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
+      '#{block macro}##{contains y}#2#{contains x}#1#{endblock}#',
       '|12[]|'
      )
     ),
@@ -428,10 +456,29 @@ SIMPLE_TESTS = [
       '|123[]|\n'
      )
     ),
+    ('macro_vararg_mixed_arguments_block',
+     ([],
+      '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '#:block macro\n1\n#:contains z\n3\n#:contains y\n2\n#:endblock\n',
+      '|123[]|\n'
+     )
+    ),
     ('macro_vararg_mixed_arguments_call2',
      ([],
       '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
       '#:call macro\n#:nextarg\n1\n#:nextarg z\n3\n#:nextarg y\n2\n#:endcall\n',
+      '|123[]|\n'
+     )
+    ),
+    ('macro_vararg_mixed_arguments_block2',
+     ([],
+      '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '#:block macro\n'\
+      '#:contains\n1\n'\
+      '#:contains z\n3\n'\
+      '#:contains y\n'\
+      '2\n'\
+      '#:endblock\n',
       '|123[]|\n'
      )
     ),
@@ -442,10 +489,24 @@ SIMPLE_TESTS = [
       '|123[]|'
      )
     ),
+    ('macro_vararg_mixed_arguments_inline_block',
+     ([],
+      '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '#{block macro}#1#{contains z}#3#{contains y}#2#{endblock}#',
+      '|123[]|'
+     )
+    ),
     ('macro_vararg_mixed_arguments_inline_call2',
      ([],
       '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
       '#{call macro}##{nextarg}#1#{nextarg z}#3#{nextarg y}#2#{endcall}#',
+      '|123[]|'
+     )
+    ),
+    ('macro_vararg_mixed_arguments_inline_block2',
+     ([],
+      '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '#{block macro}##{contains}#1#{contains z}#3#{contains y}#2#{endblock}#',
       '|123[]|'
      )
     ),
@@ -509,10 +570,24 @@ SIMPLE_TESTS = [
       '|L1\nL2\nL3|\n',
      )
     ),
+    ('block_directive',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '#:block mymacro\nL1\nL2\nL3\n#:endblock\n',
+      '|L1\nL2\nL3|\n',
+     )
+    ),
     ('call_directive_named_endcall',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '#:call mymacro\nL1\nL2\nL3\n#:endcall mymacro\n',
+      '|L1\nL2\nL3|\n',
+     )
+    ),
+    ('block_directive_named_endblock',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '#:block mymacro\nL1\nL2\nL3\n#:endblock mymacro\n',
       '|L1\nL2\nL3|\n',
      )
     ),
@@ -523,10 +598,24 @@ SIMPLE_TESTS = [
       '|L1 L2 L3|',
      )
     ),
+    ('inine_block_directive_named_endblock',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '#{block mymacro}#L1 L2 L3#{endblock mymacro}#',
+      '|L1 L2 L3|',
+     )
+    ),
     ('call_directive_quotation',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '#:call mymacro\n"""L1"""\nL2\nL3\n#:endcall\n',
+      '|"""L1"""\nL2\nL3|\n',
+     )
+    ),
+    ('block_directive_quotation',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '#:block mymacro\n"""L1"""\nL2\nL3\n#:endblock\n',
       '|"""L1"""\nL2\nL3|\n',
      )
     ),
@@ -537,10 +626,24 @@ SIMPLE_TESTS = [
       '|L1\\n\nL2\nL3|\n',
      )
     ),
+    ('block_directive_backslash_escape1',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '#:block mymacro\nL1\\n\nL2\nL3\n#:endblock\n',
+      '|L1\\n\nL2\nL3|\n',
+     )
+    ),
     ('call_directive_backslash_escape2',
      ([],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '#:call mymacro\nL1\\"a\\"\\n\nL2\nL3\n#:endcall\n',
+      '|L1\\"a\\"\\n\nL2\nL3|\n',
+     )
+    ),
+    ('block_directive_backslash_escape2',
+     ([],
+      '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
+      '#:block mymacro\nL1\\"a\\"\\n\nL2\nL3\n#:endblock\n',
       '|L1\\"a\\"\\n\nL2\nL3|\n',
      )
     ),
@@ -551,10 +654,24 @@ SIMPLE_TESTS = [
       '|"""L1"""\nL2|L3|\n',
      )
     ),
+    ('block_directive_2_args',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '#:block mymacro\n"""L1"""\nL2\n#:contains\nL3\n#:endblock\n',
+      '|"""L1"""\nL2|L3|\n',
+     )
+    ),
     ('call_directive_2_args_inline',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '#{call mymacro}#A1#{nextarg}#A2#{endcall}#',
+      '|A1|A2|',
+     )
+    ),
+    ('block_directive_2_args_inline',
+     ([],
+      '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
+      '#{block mymacro}#A1#{contains}#A2#{endblock}#',
       '|A1|A2|',
      )
     ),
@@ -572,10 +689,24 @@ SIMPLE_TESTS = [
       'NOARG\n',
      )
     ),
+    ('block_no_header_arg_no_body_arg',
+     ([],
+      '#:def macro0()\nNOARG\n#:enddef\n'\
+      '#:block macro0()\n#:endblock\n',
+      'NOARG\n',
+     )
+    ),
     ('call_header_pos_arg_no_body_arg',
      ([],
       '#:def macro(arg)\n|${arg}$|\n#:enddef\n'\
       '#:call macro("h1")\n#:endcall\n',
+      '|h1|\n',
+     )
+    ),
+    ('block_header_pos_arg_no_body_arg',
+     ([],
+      '#:def macro(arg)\n|${arg}$|\n#:enddef\n'\
+      '#:block macro("h1")\n#:endblock\n',
       '|h1|\n',
      )
     ),
@@ -586,10 +717,24 @@ SIMPLE_TESTS = [
       '|h1|\n',
      )
     ),
+    ('block_header_kwarg_no_body_arg',
+     ([],
+      '#:def macro(arg)\n|${arg}$|\n#:enddef\n'\
+      '#:block macro(arg="h1")\n#:endblock\n',
+      '|h1|\n',
+     )
+    ),
     ('call_header_mixed_args_no_body_arg',
      ([],
       '#:def macro(arg, arg2)\n|${arg}$|${arg2}$|\n#:enddef\n'\
       '#:call macro("h1", arg2="h2")\n#:endcall\n',
+      '|h1|h2|\n',
+     )
+    ),
+    ('block_header_mixed_args_no_body_arg',
+     ([],
+      '#:def macro(arg, arg2)\n|${arg}$|${arg2}$|\n#:enddef\n'\
+      '#:block macro("h1", arg2="h2")\n#:endblock\n',
       '|h1|h2|\n',
      )
     ),
@@ -600,6 +745,13 @@ SIMPLE_TESTS = [
       '|h1|B1|h3|\n',
      )
     ),
+    ('block_header_mixed_args_body_pos_arg',
+     ([],
+      '#:def macro(arg, arg2, arg3)\n|${arg}$|${arg2}$|${arg3}$|\n#:enddef\n'\
+      '#:block macro("h1", arg3="h3")\nB1\n#:endblock\n',
+      '|h1|B1|h3|\n',
+     )
+    ),
     ('call_header_kwargs_body_pos_arg',
      ([],
       '#:def macro(arg, arg2, arg3)\n|${arg}$|${arg2}$|${arg3}$|\n#:enddef\n'\
@@ -607,10 +759,24 @@ SIMPLE_TESTS = [
       '|B1|h2|h3|\n',
      )
     ),
+    ('block_header_kwargs_body_pos_arg',
+     ([],
+      '#:def macro(arg, arg2, arg3)\n|${arg}$|${arg2}$|${arg3}$|\n#:enddef\n'\
+      '#:block macro(arg3="h3", arg2="h2")\nB1\n#:endblock\n',
+      '|B1|h2|h3|\n',
+     )
+    ),
     ('call_header_kwargs_body_kwarg',
      ([],
       '#:def macro(arg1, arg2, arg3)\n|${arg1}$|${arg2}$|${arg3}$|\n#:enddef\n'\
       '#:call macro(arg1="h1", arg3="h3")\n#:nextarg arg2\nB1\n#:endcall\n',
+      '|h1|B1|h3|\n',
+     )
+    ),
+    ('block_header_kwargs_body_kwarg',
+     ([],
+      '#:def macro(arg1, arg2, arg3)\n|${arg1}$|${arg2}$|${arg3}$|\n#:enddef\n'\
+      '#:block macro(arg1="h1", arg3="h3")\n#:contains arg2\nB1\n#:endblock\n',
       '|h1|B1|h3|\n',
      )
     ),
@@ -957,10 +1123,24 @@ SIMPLE_TESTS = [
       '||\n'
      )
     ),
+    ('block_no_param_inline',
+     ([],
+      '#:def mymacro()\n||\n#:enddef mymacro\n'\
+      '#{block mymacro}##{endblock}#\n',
+      '||\n'
+     )
+    ),
     ('call_no_param',
      ([],
       '#:def mymacro()\n||\n#:enddef mymacro\n'\
       '#:call mymacro\n#:endcall\n',
+      '||\n'
+     )
+    ),
+    ('block_no_param',
+     ([],
+      '#:def mymacro()\n||\n#:enddef mymacro\n'\
+      '#:block mymacro\n#:endblock\n',
       '||\n'
      )
     ),
@@ -971,10 +1151,24 @@ SIMPLE_TESTS = [
       '| |\n'
      )
     ),
+    ('block_empty_param_inline',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
+      '#{block mymacro}# #{endblock}#\n',
+      '| |\n'
+     )
+    ),
     ('call_empty_param',
      ([],
       '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
       '#:call mymacro\n\n#:endcall\n',
+      '||\n'
+     )
+    ),
+    ('block_empty_param',
+     ([],
+      '#:def mymacro(txt)\n|${txt}$|\n#:enddef mymacro\n'\
+      '#:block mymacro\n\n#:endblock\n',
       '||\n'
      )
     ),
@@ -2314,6 +2508,30 @@ EXCEPTION_TESTS = [
       '#{if(1 > 2)}#A#{endif}#',
       [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
      )
+    ),
+    ('mixing_block_and_endcall',
+     ([],
+      '#:def test(x)\n#:enddef\n#:block test\n1\n#:endcall\n',
+      [(fypp.FyppFatalError, fypp.STRING, (4, 5))]
+      )
+    ),
+    ('mixing_call_and_endblock',
+     ([],
+      '#:def test(x)\n#:enddef\n#:call test\n1\n#:endblock\n',
+      [(fypp.FyppFatalError, fypp.STRING, (4, 5))]
+      )
+    ),
+    ('mixing_call_and_contains',
+     ([],
+      '#:def test(x,y)\n#:enddef\n#:call test\n1\n#:contains\n2\n#:endcall\n',
+      [(fypp.FyppFatalError, fypp.STRING, (4, 5))]
+      )
+    ),
+    ('mixing_block_and_nextarg',
+     ([],
+      '#:def test(x,y)\n#:enddef\n#:block test\n1\n#:nextarg\n2\n#:endblock\n',
+      [(fypp.FyppFatalError, fypp.STRING, (4, 5))]
+      )
     ),
     #
     # Renderer errors

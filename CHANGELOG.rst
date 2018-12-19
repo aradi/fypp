@@ -10,6 +10,9 @@ Added
 -----
 
 * Implement variable keyword argument in macros.
+
+* Add block / contains / endblock construct as alternative for call / nextarg /
+  endcall.
   
 
 Changed
