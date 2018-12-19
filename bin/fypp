@@ -208,12 +208,10 @@ class FyppError(Exception):
 
 class FyppFatalError(FyppError):
     '''Signalizes an unexpected error during processing.'''
-    pass
 
 
 class FyppStopRequest(FyppError):
     '''Signalizes an explicitely triggered stop (e.g. via stop directive)'''
-    pass
 
 
 class Parser:
@@ -1580,7 +1578,8 @@ class Renderer:
         if argexpr is None:
             args = []
             defaults = {}
-            varargs = None
+            varpos = None
+            varkw = None
         else:
             # Try to create a lambda function with the argument expression
             self._evaluator.openscope()
@@ -1593,11 +1592,12 @@ class Renderer:
                 raise FyppFatalError(msg, fname, spans[0], exc)
             self._evaluator.closescope()
             try:
-                args, defaults, varargs = _get_callable_argspec(func)
+                args, defaults, varpos, varkw = _GET_CALLABLE_ARGSPEC(func)
             except Exception as exc:
                 msg = "invalid argument expression '{0}'".format(argexpr)
                 raise FyppFatalError(msg, fname, spans[0], exc)
-            named_args = args if varargs is None else args + [varargs]
+            named_args = args if varpos is None else args + [varpos]
+            named_args = named_args if varkw is None else named_args + [varkw]
             for arg in named_args:
                 if arg in _RESERVED_NAMES or arg.startswith(_RESERVED_PREFIX):
                     msg = "invalid argument name '{0}'".format(arg)
@@ -1605,8 +1605,8 @@ class Renderer:
         result = ''
         try:
             macro = _Macro(
-                name, fname, spans, args, defaults, varargs, content, self,
-                self._evaluator, self._evaluator.localscope)
+                name, fname, spans, args, defaults, varpos, varkw, content,
+                self, self._evaluator, self._evaluator.localscope)
             self._define(name, macro)
         except Exception as exc:
             msg = "exception occured when defining macro '{0}'"\
@@ -1666,16 +1666,14 @@ class Renderer:
     def _get_comment(self, fname, span):
         if self._linenums and not self._diverted:
             return linenumdir(span[1], fname)
-        else:
-            return ''
+        return ''
 
 
     def _get_muted_content(self, fname, spans, content):
         self._render(content)
         if self._linenums and not self._diverted:
             return linenumdir(spans[-1][1], fname)
-        else:
-            return ''
+        return ''
 
 
     def _handle_stop(self, fname, span, msgstr):
@@ -1825,8 +1823,7 @@ class Renderer:
     def _foldline(self, line):
         if _COMMENTLINE_REGEXP.match(line) is None:
             return self._linefolder(line)
-        else:
-            return [line]
+        return [line]
 
 
 class Evaluator:
@@ -2181,10 +2178,8 @@ class Evaluator:
         module = self._scope.get(name, None)
         if module is not None and isinstance(module, types.ModuleType):
             return module
-        else:
-            msg = "Import of module '{0}' via '__import__' not allowed"\
-                  .format(name)
-            raise ImportError(msg)
+        msg = "Import of module '{0}' via '__import__' not allowed".format(name)
+        raise ImportError(msg)
 
 
     def _func_setvar(self, *namesvalues):
@@ -2198,8 +2193,7 @@ class Evaluator:
     def _func_getvar(self, name, defvalue=None):
         if name in self._scope:
             return self._scope[name]
-        else:
-            return defvalue
+        return defvalue
 
 
     def _func_delvar(self, *names):
@@ -2230,7 +2224,8 @@ class _Macro:
         fname (str): The file where the macro was defined.
         spans (str): Line spans of macro defintion.
         argnames (list of str): Macro dummy arguments.
-        varargs (str): Name of variable positional arguments or None.
+        varpos (str): Name of variable positional argument or None.
+        varkw (str): Name of variable keyword argument or None.
         content (list): Content of the macro as tree.
         renderer (Renderer): Renderer to use for evaluating macro content.
         localscope (dict): Dictionary with local variables, which should be used
@@ -2238,14 +2233,15 @@ class _Macro:
             local scope).
     '''
 
-    def __init__(self, name, fname, spans, argnames, defaults, varargs, content,
-                 renderer, evaluator, localscope=None):
+    def __init__(self, name, fname, spans, argnames, defaults, varpos, varkw,
+                 content, renderer, evaluator, localscope=None):
         self._name = name
         self._fname = fname
         self._spans = spans
         self._argnames = argnames
         self._defaults = defaults
-        self._varargs = varargs
+        self._varpos = varpos
+        self._varkw = varkw
         self._content = content
         self._renderer = renderer
         self._evaluator = evaluator
@@ -2261,43 +2257,46 @@ class _Macro:
         self._evaluator.closescope()
         if output.endswith('\n'):
             return output[:-1]
-        else:
-            return output
+        return output
 
 
     def _process_arguments(self, args, keywords):
+        kwdict = dict(keywords)
         argdict = {}
         nargs = min(len(args), len(self._argnames))
         for iarg in range(nargs):
             argdict[self._argnames[iarg]] = args[iarg]
         if nargs < len(args):
-            if self._varargs is None:
+            if self._varpos is None:
                 msg = "macro '{0}' called with too many positional arguments "\
                       "(expected: {1}, received: {2})"\
                       .format(self._name, len(self._argnames), len(args))
                 raise FyppFatalError(msg, self._fname, self._spans[0])
             else:
-                argdict[self._varargs] = tuple(args[nargs:])
-        elif self._varargs is not None:
-            argdict[self._varargs] = ()
+                argdict[self._varpos] = list(args[nargs:])
+        elif self._varpos is not None:
+            argdict[self._varpos] = []
         for argname in self._argnames[:nargs]:
-            if argname in keywords:
+            if argname in kwdict:
                 msg = "got multiple values for argument '{0}'".format(argname)
                 raise FyppFatalError(msg, self._fname, self._spans[0])
-        if self._varargs is not None and self._varargs in keywords:
-            msg = "got unexpected keyword argument '{0}'".format(self._varargs)
-            raise FyppFatalError(msg, self._fname, self._spans[0])
-        argdict.update(keywords)
         if nargs < len(self._argnames):
             for argname in self._argnames[nargs:]:
-                if argname in argdict:
-                    pass
+                if argname in kwdict:
+                    argdict[argname] = kwdict.pop(argname)
                 elif argname in self._defaults:
                     argdict[argname] = self._defaults[argname]
                 else:
                     msg = "macro '{0}' called without mandatory positional "\
                           "argument '{1}'".format(self._name, argname)
                     raise FyppFatalError(msg, self._fname, self._spans[0])
+        if kwdict and self._varkw is None:
+            kwstr = "', '".join(kwdict.keys())
+            msg = "macro '{0}' called with unknown keyword argument(s) '{1}'"\
+                  .format(self._name, kwstr)
+            raise FyppFatalError(msg, self._fname, self._spans[0])
+        if self._varkw is not None:
+            argdict[self._varkw] = kwdict
         return argdict
 
 
@@ -2486,14 +2485,14 @@ class Fypp:
         output = self._preprocessor.process_file(infile)
         if outfile is None:
             return output
+        if outfile == '-':
+            outfile = sys.stdout
         else:
-            if outfile == '-':
-                outfile = sys.stdout
-            else:
-                outfile = _open_output_file(outfile, self._create_parent_folder)
-            outfile.write(output)
-            if outfile != sys.stdout:
-                outfile.close()
+            outfile = _open_output_file(outfile, self._create_parent_folder)
+        outfile.write(output)
+        if outfile != sys.stdout:
+            outfile.close()
+        return None
 
 
     def process_text(self, txt):
@@ -2702,8 +2701,7 @@ class FortranLineFolder:
         # The space we waste for smart folding should be max. 1/3rd of the line
         if ispace != -1 and ispace >= start + (2 * linelen) // 3:
             return ispace
-        else:
-            return end
+        return end
 
 
 class DummyLineFolder:
@@ -2826,8 +2824,7 @@ def linenumdir(linenr, fname, flag=None):
     '''
     if flag is None:
         return '# {0} "{1}"\n'.format(linenr + 1, fname)
-    else:
-        return '# {0} "{1}" {2}\n'.format(linenr + 1, fname, flag)
+    return '# {0} "{1}" {2}\n'.format(linenr + 1, fname, flag)
 
 
 def _shiftinds(inds, shift):
@@ -2864,11 +2861,8 @@ def _open_output_file(outfile, create_parents=False):
 
 def _get_callable_argspec_py2(func):
     argspec = inspect.getargspec(func)
-    if argspec.keywords is not None:
-        msg = "variable length keyword argument '{0}' found"\
-            .format(argspec.keywords)
-        raise FyppFatalError(msg)
-    vararg = argspec.varargs
+    varpos = argspec.varargs
+    varkw = argspec.keywords
     args = argspec.args
     tuplearg = False
     for elem in args:
@@ -2881,33 +2875,36 @@ def _get_callable_argspec_py2(func):
         for ind, default in enumerate(argspec.defaults):
             iarg = len(args) - len(argspec.defaults) + ind
             defaults[args[iarg]] = default
-    return args, defaults, vararg
+    return args, defaults, varpos, varkw
 
 
 def _get_callable_argspec_py3(func):
     sig = inspect.signature(func)
     args = []
     defaults = {}
-    vararg = None
+    varpos = None
+    varkw = None
     for param in sig.parameters.values():
         if param.kind == param.POSITIONAL_OR_KEYWORD:
             args.append(param.name)
             if param.default != param.empty:
                 defaults[param.name] = param.default
         elif param.kind == param.VAR_POSITIONAL:
-            vararg = param.name
+            varpos = param.name
+        elif param.kind == param.VAR_KEYWORD:
+            varkw = param.name
         else:
             msg = "argument '{0}' has invalid argument type".format(param.name)
             raise FyppFatalError(msg)
-    return args, defaults, vararg
+    return args, defaults, varpos, varkw
 
 
 # Signature objects are available from Python 3.3 (and deprecated from 3.5)
 
 if sys.version_info[0] >= 3 and sys.version_info[1] >= 3:
-    _get_callable_argspec = _get_callable_argspec_py3
+    _GET_CALLABLE_ARGSPEC = _get_callable_argspec_py3
 else:
-    _get_callable_argspec = _get_callable_argspec_py2
+    _GET_CALLABLE_ARGSPEC = _get_callable_argspec_py2
 
 
 def _blank_match(match):

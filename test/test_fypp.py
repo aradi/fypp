@@ -269,13 +269,6 @@ SIMPLE_TESTS = [
       'MACRO|2-1|'
      )
     ),
-    ('macrosubs_extvar_override',
-     ([_defvar('TESTVAR', 1)],
-      '#:def macro(var)\nMACRO|${var}$-${TESTVAR}$|\n#:enddef\n'
-      '${macro(2, TESTVAR=4)}$',
-      'MACRO|2-4|'
-     )
-    ),
     ('macro_trailing_newlines',
      ([],
       '#:def macro()\nL1\n\n#:enddef\n$: macro()\n',
@@ -369,112 +362,118 @@ SIMPLE_TESTS = [
      ([],
       '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
       '$:macro(1, 2)\n',
-      '|12()|\n'
+      '|12[]|\n'
      )
     ),
     ('macro_vararg_one_vararg',
      ([],
       '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
       '$:macro(1, 2, 3)\n',
-      '|12(3,)|\n'
+      '|12[3]|\n'
      )
     ),
     ('macro_vararg_two_varargs',
      ([],
       '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
       '$:macro(1, 2, 3, 4)\n',
-      '|12(3, 4)|\n'
+      '|12[3, 4]|\n'
      )
     ),
     ('macro_vararg_named_arguments_eval',
      ([],
       '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
       '$:macro(y=2, x=1)\n',
-      '|12()|\n'
+      '|12[]|\n'
      )
     ),
     ('macro_vararg_named_arguments_directcall',
      ([],
       '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
       '@:macro(y=2, x=1)\n',
-      '|12()|\n'
+      '|12[]|\n'
      )
     ),
     ('macro_vararg_named_arguments_call',
      ([],
       '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
       '#:call macro\n#:nextarg y\n2\n#:nextarg x\n1\n#:endcall\n',
-      '|12()|\n'
+      '|12[]|\n'
      )
     ),
     ('macro_vararg_named_arguments_inline_call',
      ([],
       '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
       '#{call macro}##{nextarg y}#2#{nextarg x}#1#{endcall}#',
-      '|12()|'
+      '|12[]|'
      )
     ),
     ('macro_vararg_mixed_arguments_eval',
      ([],
       '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
       '$:macro(1, z=3, y=2)\n',
-      '|123()|\n'
+      '|123[]|\n'
      )
     ),
     ('macro_vararg_mixed_arguments_directcall',
      ([],
       '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
       '@:macro(1, z=3, y=2)\n',
-      '|123()|\n'
+      '|123[]|\n'
      )
     ),
     ('macro_vararg_mixed_arguments_call',
      ([],
       '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
       '#:call macro\n1\n#:nextarg z\n3\n#:nextarg y\n2\n#:endcall\n',
-      '|123()|\n'
+      '|123[]|\n'
      )
     ),
     ('macro_vararg_mixed_arguments_call2',
      ([],
       '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
       '#:call macro\n#:nextarg\n1\n#:nextarg z\n3\n#:nextarg y\n2\n#:endcall\n',
-      '|123()|\n'
+      '|123[]|\n'
      )
     ),
     ('macro_vararg_mixed_arguments_inline_call',
      ([],
       '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
       '#{call macro}#1#{nextarg z}#3#{nextarg y}#2#{endcall}#',
-      '|123()|'
+      '|123[]|'
      )
     ),
     ('macro_vararg_mixed_arguments_inline_call2',
      ([],
       '#:def macro(x, y, z, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
       '#{call macro}##{nextarg}#1#{nextarg z}#3#{nextarg y}#2#{endcall}#',
-      '|123()|'
+      '|123[]|'
      )
     ),
-    ('macro_vararg_keyword_arguments',
+    ('macro_varpos_varkw_with_keyword_arguments',
      ([],
-      '#:def macro(x, y, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '#:def macro(x, y, *vararg, **varkw)\n'\
+      '|${x}$${y}$${varkw["z"]}$${vararg}$|\n'\
+      '#:enddef\n'\
       '$:macro(1, 2, z=3)\n',
-      '|123()|\n'
+      '|123[]|\n'
      )
     ),
-    ('macro_vararg_keyword_arguments2',
+    ('macro_varpos_varkw_with_pos_arguments',
      ([],
-      '#:def macro(x, y, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
-      '$:macro(1, 2, 4, 5, z=3)\n',
-      '|123(4, 5)|\n'
+      '#:def macro(x, y, *vararg, **varkw)\n'\
+      '|${x}$${y}$${vararg}$|\n'\
+      '#:enddef\n'\
+      '$:macro(1, 2, 4, 5)\n',
+      '|12[4, 5]|\n'
      )
     ),
-    ('macro_missing_',
+    ('macro_varpos_varkw_with_pos_and_kw_arguments',
      ([],
-      '#:def macro(x, y, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '#:def macro(x, y, *vararg, **varkw)\n'\
+      '|${x}$${y}$${varkw["z"]}$${vararg}$|\n'\
+      '#:enddef\n'\
       '$:macro(1, 2, 4, 5, z=3)\n',
-      '|123(4, 5)|\n'
+      '|123[4, 5]|\n'
      )
     ),
     ('for',
@@ -2384,13 +2383,6 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
-    ('macrodef_var_keyword_arg',
-     ([],
-      '#:def mymacro(A, **B)\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
-       (fypp.FyppFatalError, None, None)]
-     )
-    ),
     ('macrodef_pos_arg_after_var_arg_py2_py32',
      ([],
       '#:def mymacro(A, *B, C)\n#:enddef\n',
@@ -2470,6 +2462,30 @@ EXCEPTION_TESTS = [
     ('macro_call_less_args',
      ([],
       '#:def test(x)\n${x}$\n#:enddef\n$: test()\n',
+      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
+       (fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('macro_invalid_keyword_arguments',
+     ([],
+      '#:def macro(x, y)\n|${x}$${y}$|\n#:enddef\n'\
+      '$:macro(1, 2, z=3)\n',
+      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
+       (fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('macro_vararg_invalid_keyword_arguments',
+     ([],
+      '#:def macro(x, y, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
+      '$:macro(1, 2, z=3)\n',
+      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
+       (fypp.FyppFatalError, fypp.STRING, (0, 1))]
+     )
+    ),
+    ('macro_kwarg_invalid_posarg',
+     ([],
+      '#:def macro(x, y, **varkw)\n|${x}$${y}$${varkw}$|\n#:enddef\n'\
+      '$:macro(1, 2, 3, z=3)\n',
       [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
        (fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )

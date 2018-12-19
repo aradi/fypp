@@ -9,9 +9,19 @@ Unreleased
 Added
 -----
 
+* Implement variable keyword argument in macros.
+  
 
 Changed
 -------
+
+* Injecting local variables into macros by passing additional (non-declared)
+  keyword arguments is not possible any more. It was too fragile as it covered
+  typos occuring during passing positional arguments as keywords. [Backwards
+  incompatible]
+
+* Variable positional argument in a macro resolves to a list not to a tuple for
+  more consistency with Python.
 
 
 Fixed

@@ -825,15 +825,6 @@ would all yield ::
 if the variable `DEBUG` had a value greater than zero or an empty string
 otherwise.
 
-When calling a macro, arbitrary optional parameters can be passed additional to
-the regular macro arguments. The optional parameters are converted to local
-variables when the macro content is rendered. For example given the defintion of
-the ``assertTrue()`` macro from above, the call ::
-
-  $:assertTrue('x > y', DEBUG=1)
-
-would override the global value of the `DEBUG` variable within the macro.
-
 It is possible to declare default values for the positional arguments of a
 macro. If for a given positional argument such a value is provided, then default
 values must be provided for all following arguments as well. When the macro is
@@ -846,13 +837,29 @@ called, missing positional arguments will be replaced by their default value::
   $:macro(1)   #! Returns "X=1, Y=2, Z=3"
 
 Similar to Python, it is also possible to define macros with a variable number
-of positional arguments::
+of positional or keyword arguments with the ``*`` and ``**`` argument
+prefixes. The corresponding arguments will contain the unprocessed positional
+and keywords arguments as a list and a dictionary, respectively::
 
-  #:def macro(X, *VARARGS)
-  X=${X}$, VARARGS=#{for ARG in VARARGS}#${ARG}$#{endfor}#
+  #:def macro(X, *VARPOS, **VARKW)
+  pos: ${X}$
+  varpos: #{for ARG in VARPOS}#${ARG}$, #{endfor}#
+  varkw: #{for KEYWORD in VARKW}#${KEYWORD}$=${VARKW[KEYWORD]}$, #{endfor}#
   #:enddef macro
 
-  $:macro(1, 2, 3)   #! Returns "X=1, VARARGS=23"
+Calling the example macro above with ::
+
+  $:macro(1, 2, 3, kw1=4, kw2=5)
+
+yields::
+
+  pos: 1
+  varpos: 2, 3, 
+  varkw: kw1=4, kw2=5, 
+
+
+Scopes
+------
 
 Scopes in general follow the Python convention: Within the macro, all variables
 from the encompassing scope are available (as `DEBUG` in the example above), and
