@@ -132,7 +132,9 @@ _CONTLINE_REGEXP = re.compile(r'&[ \t]*\n(?:[ \t]*&)?')
 
 _UNESCAPE_TEXT_REGEXP1 = re.compile(r'([$#@])\\(\\*)([{:])')
 
-_UNESCAPE_TEXT_REGEXP2 = re.compile(r'(\})\\(\\*)([$#@])')
+_UNESCAPE_TEXT_REGEXP2 = re.compile(r'#\\(\\*)([!])')
+
+_UNESCAPE_TEXT_REGEXP3 = re.compile(r'(\})\\(\\*)([$#@])')
 
 _INLINE_EVAL_REGION_REGEXP = re.compile(r'\${.*?}\$')
 
@@ -259,9 +261,7 @@ class Parser:
         olddir = self._curdir
         self._curfile = fname
         self._curdir = curdir
-        self.handle_include(span, fname)
-        self._parse(fobj.read())
-        self.handle_endinclude(span, fname)
+        self._parse_txt(span, fname, fobj.read())
         self._curfile = oldfile
         self._curdir = olddir
 
@@ -274,9 +274,7 @@ class Parser:
         '''
         self._curfile = STRING
         self._curdir = ''
-        self.handle_include(None, self._curfile)
-        self._parse(txt)
-        self.handle_endinclude(None, self._curfile)
+        self._parse_txt(None, self._curfile, txt)
 
 
     def handle_include(self, span, fname):
@@ -574,6 +572,12 @@ class Parser:
         print()
 
 
+    def _parse_txt(self, includespan, fname, txt):
+        self.handle_include(includespan, fname)
+        self._parse(txt)
+        self.handle_endinclude(includespan, fname)    
+        
+
     def _parse(self, txt, linenr=0, directcall=False):
         pos = 0
         for match in _ALL_DIRECTIVES_REGEXP.finditer(txt):
@@ -855,7 +859,8 @@ class Parser:
     @staticmethod
     def _unescape(txt):
         txt = _UNESCAPE_TEXT_REGEXP1.sub(r'\1\2\3', txt)
-        txt = _UNESCAPE_TEXT_REGEXP2.sub(r'\1\2\3', txt)
+        txt = _UNESCAPE_TEXT_REGEXP2.sub(r'#\1\2', txt)
+        txt = _UNESCAPE_TEXT_REGEXP3.sub(r'\1\2\3', txt)
         return txt
 
 

@@ -14,6 +14,8 @@ Added
 * Add block / contains / endblock construct as alternative for call / nextarg /
   endcall.
   
+* Escaping of preprocessor comments
+
 
 Changed
 -------

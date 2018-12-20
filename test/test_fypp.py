@@ -1405,6 +1405,12 @@ SIMPLE_TESTS = [
       '@{assertTrue(x > y)}@'
      )
     ),
+    ('escape_comment',
+     ([],
+      'A\n  #\! Comment\n',
+      'A\n  #! Comment\n',
+     )
+    ),
     ('fold_lines',
      ([_linelen(10), _indentation(2), _folding('simple')],
       'This line is not folded\nThis line ${1 + 1}$ is folded\n',
