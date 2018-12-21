@@ -1374,13 +1374,13 @@ class Renderer:
         '''
         diverted = self._diverted
         self._diverted = divert
-        fixedposition = self._fixedposition
-        self._fixedposition = fixposition
+        fixedposition_old = self._fixedposition
+        self._fixedposition = self._fixedposition or fixposition
         output, eval_inds, eval_pos = self._render(tree)
         if not self._diverted and eval_inds:
             self._postprocess_eval_lines(output, eval_inds, eval_pos)
         self._diverted = diverted
-        self._fixedposition = fixedposition
+        self._fixedposition = fixedposition_old
         txt = ''.join(output)
 
         return txt

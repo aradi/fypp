@@ -1648,6 +1648,14 @@ SIMPLE_TESTS = [
       'include/assert.inc:7|<string>:3\n'
      )
     ),
+    ('line_numbering_eval_within_macro',
+     ([],
+      '#:def m1(A)\n${_LINE_}$\n#:enddef\n'\
+      '#:def m2(A)\n#:call m1\n${A}$\n#:endcall\n#:enddef\n'\
+      '$:m2(1)\n',
+      '9\n'
+     )
+    ),
     ('global_existing',
      ([],
       '#:set A = 1\n#:def macro()\n#:global A\n#:set A = 2\n#:enddef macro\n'\

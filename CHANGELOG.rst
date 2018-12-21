@@ -20,9 +20,9 @@ Added
 Changed
 -------
 
-* Injecting local variables into macros by passing additional (non-declared)
-  keyword arguments is not possible any more. It was too fragile as it covered
-  typos occuring during passing positional arguments as keywords. [Backwards
+* Injecting local variables into macros by passing arbitrary (non-declared)
+  keyword arguments is not possible any more. This feature made it impossible to
+  detect typos in keyword argument names in macro calls. [Backwards
   incompatible]
 
 * Variable positional argument in a macro resolves to a list not to a tuple for
@@ -33,6 +33,9 @@ Fixed
 -----
 
 * Wrong command-line parser initialisation in waf frontend.
+
+* _LINE_ and _FILE_ were incorrect if the called macro contained a call
+  directive with an evaluation in its argument.
 
 
 2.1.1
