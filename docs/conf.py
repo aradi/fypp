@@ -46,7 +46,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Fypp'
-copyright = '2017, Bálint Aradi'
+copyright = '2019, Bálint Aradi'
 author = 'Bálint Aradi'
 
 # The version info for the project you're documenting, acts as replacement for
