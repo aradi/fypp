@@ -29,7 +29,7 @@ documentation available on `readthedocs.org
 <http://fypp.readthedocs.org>`_. Fypp is released under the *BSD 2-clause
 license*.
 
-This document describes Fypp Version 2.1.
+This document describes Fypp Version 3.0.
 
 
 Features

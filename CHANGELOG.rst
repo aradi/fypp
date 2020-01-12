@@ -3,8 +3,8 @@ Change Log
 ==========
 
 
-Unreleased
-==========
+3.0
+===
 
 Added
 -----
