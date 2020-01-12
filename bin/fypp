@@ -60,6 +60,7 @@ import os
 import errno
 import time
 import optparse
+import io
 if sys.version_info[0] >= 3:
     import builtins
 else:
@@ -222,15 +223,20 @@ class Parser:
     Args:
         includedirs (list): List of directories, in which include files should
             be searched for, when they are not found at the default location.
+
+        encoding (str): Encoding to use when reading the file (default: utf-8)
     '''
 
-    def __init__(self, includedirs=None):
+    def __init__(self, includedirs=None, encoding='utf-8'):
 
         # Directories to search for include files
         if includedirs is None:
             self._includedirs = []
         else:
             self._includedirs = includedirs
+
+        # Encoding
+        self._encoding = encoding
 
         # Name of current file
         self._curfile = None
@@ -249,7 +255,7 @@ class Parser:
             if fobj == STDIN:
                 self._includefile(None, sys.stdin, STDIN, os.getcwd())
             else:
-                inpfp = _open_input_file(fobj)
+                inpfp = _open_input_file(fobj, self._encoding)
                 self._includefile(None, inpfp, fobj, os.path.dirname(fobj))
                 inpfp.close()
         else:
@@ -822,7 +828,7 @@ class Parser:
         else:
             msg = "include file '{0}' not found".format(fname)
             raise FyppFatalError(msg, self._curfile, span)
-        inpfp = _open_input_file(fpath)
+        inpfp = _open_input_file(fpath, self._encoding)
         self._includefile(span, inpfp, fpath, os.path.dirname(fpath))
         inpfp.close()
 
@@ -2464,12 +2470,13 @@ class Fypp:
         if options is None:
             options = FyppOptions()
         evaluator = Evaluator()
+        self._encoding = options.encoding
         if options.modules:
             self._import_modules(options.modules, evaluator, syspath,
                                  options.moduledirs)
         if options.defines:
             self._apply_definitions(options.defines, evaluator)
-        parser = Parser(options.includes)
+        parser = Parser(includedirs=options.includes, encoding=self._encoding)
         builder = Builder()
 
         fixed_format = options.fixed_format
@@ -2514,7 +2521,8 @@ class Fypp:
         if outfile == '-':
             outfile = sys.stdout
         else:
-            outfile = _open_output_file(outfile, self._create_parent_folder)
+            outfile = _open_output_file(outfile, self._encoding,
+                                        self._create_parent_folder)
         outfile.write(output)
         if outfile != sys.stdout:
             outfile.close()
@@ -2604,6 +2612,11 @@ class FyppOptions(optparse.Values):
             standard module locations in sys.path.
         fixed_format (bool): Whether input file is in fixed format.
             Default: False.
+        encoding (str): Character encoding for reading/writing files. Allowed
+            values are Pythons codec identifiers, e.g. 'ascii', 'utf-8', etc.
+            Default: 'utf-8'. Reading from stdin and writing to stdout is always
+            encoded according to the current locale and is not affected by this
+            setting.
         create_parent_folder (bool): Whether the parent folder for the output
             file should be created if it does not exist. Default: False.
     '''
@@ -2622,6 +2635,7 @@ class FyppOptions(optparse.Values):
         self.modules = []
         self.moduledirs = []
         self.fixed_format = False
+        self.encoding = 'utf-8'
         self.create_parent_folder = False
 
 
@@ -2816,6 +2830,11 @@ def get_option_parser():
           '--line-length, --folding-method and --indentation are ignored)'
     parser.add_option('--fixed-format', action='store_true',
                       dest='fixed_format', default=defs.fixed_format, help=msg)
+    msg = 'character encoding for reading/writing files. Default: \'utf-8\'. '\
+          'Note: reading from stdin and writing to stdout is encoded '\
+          'according to the current locale and is not affected by this setting.'
+    parser.add_option('--encoding', metavar='ENC', default=defs.encoding,
+                      help=msg)
     msg = 'create parent folders of the output file if they do not exist'
     parser.add_option('-p', '--create-parents', action='store_true',
                       dest='create_parent_folder',
@@ -2857,16 +2876,16 @@ def _shiftinds(inds, shift):
     return [ind + shift for ind in inds]
 
 
-def _open_input_file(inpfile):
+def _open_input_file(inpfile, encoding=None):
     try:
-        inpfp = open(inpfile, 'r')
+        inpfp = io.open(inpfile, 'r', encoding=encoding)
     except IOError as exc:
         msg = "Failed to open file '{0}' for read".format(inpfile)
         raise FyppFatalError(msg, cause=exc)
     return inpfp
 
 
-def _open_output_file(outfile, create_parents=False):
+def _open_output_file(outfile, encoding=None, create_parents=False):
     if create_parents:
         parentdir = os.path.abspath(os.path.dirname(outfile))
         if not os.path.exists(parentdir):
@@ -2878,7 +2897,7 @@ def _open_output_file(outfile, create_parents=False):
                         .format(parentdir)
                     raise FyppFatalError(msg, cause=exc)
     try:
-        outfp = open(outfile, 'w')
+        outfp = io.open(outfile, 'w', encoding=encoding)
     except IOError as exc:
         msg = "Failed to open file '{0}' for write".format(outfile)
         raise FyppFatalError(msg, cause=exc)
