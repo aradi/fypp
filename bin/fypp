@@ -69,7 +69,7 @@ else:
 # Prevent cluttering user directory with Python bytecode
 sys.dont_write_bytecode = True
 
-VERSION = '2.1.1'
+VERSION = '3.0'
 
 STDIN = '<stdin>'
 
