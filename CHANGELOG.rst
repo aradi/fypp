@@ -16,6 +16,9 @@ Added
   
 * Escaping of preprocessor comments
 
+* Possibility of specifying character encoding for file I/O with UTF-8 as
+  default.
+
 
 Changed
 -------
