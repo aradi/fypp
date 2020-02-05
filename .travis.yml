@@ -8,6 +8,4 @@ python:
     - "3.7"
     - "3.8"
     
-install: yes
-
 script: test/runtests.sh
