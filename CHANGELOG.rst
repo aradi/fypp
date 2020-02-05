@@ -150,7 +150,7 @@ Changed
 
 * Function setvar() accepts arbitrary number of argument pairs.
 
-* Reverse order exception printing, exception first occuring printed as last.
+* Reverse order exception printing, exception first occurring printed as last.
 
 * Command line tool formats error messages in GNU-like format.
 

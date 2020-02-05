@@ -37,7 +37,7 @@ Python, one usually interacts with the following two classes:
 * `Fypp`_: The actual Fypp preprocessor. It returns for a given input
   the preprocessed output.
 
-* `FyppOptions`_: Contains customizable settings controling the behaviour of
+* `FyppOptions`_: Contains customizable settings controlling the behaviour of
   `Fypp`_. Alternatively, the function `get_option_parser()`_ can be used to
   obtain an option parser, which can create settings based on command line
   arguments.
@@ -159,13 +159,13 @@ _ARGUMENT_SPLIT_CHAR_FORTRAN = ','
 
 
 class FyppError(Exception):
-    '''Signalizes error occuring during preprocessing.
+    '''Signalizes error occurring during preprocessing.
 
     Args:
         msg (str): Error message.
         fname (str): File name. None (default) if file name is not available.
         span (tuple of int): Beginning and end line of the region where error
-            occured or None if not available. If fname was not None, span must
+            occurred or None if not available. If fname was not None, span must
             not be None.
         cause (Exception): Contains the exception, which triggered this
             exception or None, if this exception is not masking any underlying
@@ -176,7 +176,7 @@ class FyppError(Exception):
         msg (str): Error message.
         fname (str or None): File name or None if not available.
         span (tuple of int or None): Beginning and end line of the region
-            where error occured or None if not available. Line numbers start
+            where error occurred or None if not available. Line numbers start
             from zero. For directives, which do not consume end of the line,
             start and end lines are identical.
         cause (Exception): In case this exception is raised in an except block,
@@ -286,7 +286,7 @@ class Parser:
     def handle_include(self, span, fname):
         '''Called when parser starts to process a new file.
 
-        It is a dummy methond and should be overriden for actual use.
+        It is a dummy methond and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the include directive
@@ -299,7 +299,7 @@ class Parser:
     def handle_endinclude(self, span, fname):
         '''Called when parser finished processing a file.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the include directive
@@ -312,7 +312,7 @@ class Parser:
     def handle_set(self, span, name, expr):
         '''Called when parser encounters a set directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -326,7 +326,7 @@ class Parser:
     def handle_def(self, span, name, args):
         '''Called when parser encounters a def directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -339,7 +339,7 @@ class Parser:
     def handle_enddef(self, span, name):
         '''Called when parser encounters an enddef directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -351,7 +351,7 @@ class Parser:
     def handle_del(self, span, name):
         '''Called when parser encounters a del directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -363,7 +363,7 @@ class Parser:
     def handle_if(self, span, cond):
         '''Called when parser encounters an if directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -375,7 +375,7 @@ class Parser:
     def handle_elif(self, span, cond):
         '''Called when parser encounters an elif directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -387,7 +387,7 @@ class Parser:
     def handle_else(self, span):
         '''Called when parser encounters an else directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -398,7 +398,7 @@ class Parser:
     def handle_endif(self, span):
         '''Called when parser encounters an endif directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -409,7 +409,7 @@ class Parser:
     def handle_for(self, span, varexpr, iterator):
         '''Called when parser encounters a for directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -423,7 +423,7 @@ class Parser:
     def handle_endfor(self, span):
         '''Called when parser encounters an endfor directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -434,7 +434,7 @@ class Parser:
     def handle_call(self, span, name, argexpr, blockcall):
         '''Called when parser encounters a call directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -451,7 +451,7 @@ class Parser:
     def handle_nextarg(self, span, name, blockcall):
         '''Called when parser encounters a nextarg directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -466,7 +466,7 @@ class Parser:
     def handle_endcall(self, span, name, blockcall):
         '''Called when parser encounters an endcall directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -480,7 +480,7 @@ class Parser:
     def handle_eval(self, span, expr):
         '''Called when parser encounters an eval directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -493,7 +493,7 @@ class Parser:
     def handle_global(self, span, name):
         '''Called when parser encounters a global directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -505,7 +505,7 @@ class Parser:
     def handle_text(self, span, txt):
         '''Called when parser finds text which must left unaltered.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -517,7 +517,7 @@ class Parser:
     def handle_comment(self, span):
         '''Called when parser finds a preprocessor comment.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -528,7 +528,7 @@ class Parser:
     def handle_mute(self, span):
         '''Called when parser finds a mute directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -539,7 +539,7 @@ class Parser:
     def handle_endmute(self, span):
         '''Called when parser finds an endmute directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -550,7 +550,7 @@ class Parser:
     def handle_stop(self, span, msg):
         '''Called when parser finds an stop directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -562,7 +562,7 @@ class Parser:
     def handle_assert(self, span):
         '''Called when parser finds an assert directive.
 
-        It is a dummy method and should be overriden for actual use.
+        It is a dummy method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -1454,7 +1454,7 @@ class Renderer:
         try:
             result = self._evaluate(expr, fname, span[0])
         except Exception as exc:
-            msg = "exception occured when evaluating '{0}'".format(expr)
+            msg = "exception occurred when evaluating '{0}'".format(expr)
             raise FyppFatalError(msg, fname, span, exc)
         out = []
         ieval = []
@@ -1478,7 +1478,7 @@ class Renderer:
             try:
                 cond = bool(self._evaluate(condition, fname, span[0]))
             except Exception as exc:
-                msg = "exception occured when evaluating '{0}'"\
+                msg = "exception occurred when evaluating '{0}'"\
                       .format(condition)
                 raise FyppFatalError(msg, fname, span, exc)
             if cond:
@@ -1501,7 +1501,7 @@ class Renderer:
         try:
             iterobj = iter(self._evaluate(loopiter, fname, spans[0][0]))
         except Exception as exc:
-            msg = "exception occured when evaluating '{0}'"\
+            msg = "exception occurred when evaluating '{0}'"\
                 .format(loopiter)
             raise FyppFatalError(msg, fname, spans[0], exc)
         multiline = (spans[0][0] != spans[-1][1])
@@ -1530,7 +1530,7 @@ class Renderer:
             callobj = self._evaluate(name, fname, spans[0][0])
             result = callobj(*posargs, **kwargs)
         except Exception as exc:
-            msg = "exception occured when calling '{0}'".format(name)
+            msg = "exception occurred when calling '{0}'".format(name)
             raise FyppFatalError(msg, fname, spans[0], exc)
         self._update_predef_globals(fname, spans[0][0])
         span = (spans[0][0], spans[-1][1])
@@ -1619,7 +1619,7 @@ class Renderer:
             try:
                 func = self._evaluate(lambdaexpr, fname, spans[0][0])
             except Exception as exc:
-                msg = "exception occured when evaluating argument expression "\
+                msg = "exception occurred when evaluating argument expression "\
                       "'{0}'".format(argexpr)
                 raise FyppFatalError(msg, fname, spans[0], exc)
             self._evaluator.closescope()
@@ -1641,7 +1641,7 @@ class Renderer:
                 self, self._evaluator, self._evaluator.localscope)
             self._define(name, macro)
         except Exception as exc:
-            msg = "exception occured when defining macro '{0}'"\
+            msg = "exception occurred when defining macro '{0}'"\
                 .format(name)
             raise FyppFatalError(msg, fname, spans[0], exc)
         if self._linenums and not self._diverted:
@@ -1658,7 +1658,7 @@ class Renderer:
                 expr = self._evaluate(valstr, fname, span[0])
             self._define(name, expr)
         except Exception as exc:
-            msg = "exception occured when setting variable(s) '{0}' to '{1}'"\
+            msg = "exception occurred when setting variable(s) '{0}' to '{1}'"\
                 .format(name, valstr)
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
@@ -1672,7 +1672,7 @@ class Renderer:
         try:
             self._evaluator.undefine(name)
         except Exception as exc:
-            msg = "exception occured when deleting variable(s) '{0}'"\
+            msg = "exception occurred when deleting variable(s) '{0}'"\
                   .format(name)
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
@@ -1686,7 +1686,7 @@ class Renderer:
         try:
             self._evaluator.addglobal(name)
         except Exception as exc:
-            msg = "exception occured when making variable(s) '{0}' global"\
+            msg = "exception occurred when making variable(s) '{0}' global"\
                 .format(name)
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
@@ -1712,7 +1712,7 @@ class Renderer:
         try:
             msg = str(self._evaluate(msgstr, fname, span[0]))
         except Exception as exc:
-            msg = "exception occured when evaluating stop message '{0}'"\
+            msg = "exception occurred when evaluating stop message '{0}'"\
                 .format(msgstr)
             raise FyppFatalError(msg, fname, span, exc)
         raise FyppStopRequest(msg, fname, span)
@@ -1723,7 +1723,7 @@ class Renderer:
         try:
             cond = bool(self._evaluate(expr, fname, span[0]))
         except Exception as exc:
-            msg = "exception occured when evaluating assert condition '{0}'"\
+            msg = "exception occurred when evaluating assert condition '{0}'"\
                 .format(expr)
             raise FyppFatalError(msg, fname, span, exc)
         if not cond:
@@ -2082,7 +2082,7 @@ class Evaluator:
         (e.g. should only contain variables with forbidden prefix).
 
         Args:
-            **vardict: variable defintions.
+            **vardict: variable definitions.
 
         '''
         self._scope.update(vardict)
@@ -2101,7 +2101,7 @@ class Evaluator:
         (e.g variables starting with forbidden prefix)
 
         Args:
-            **vardict: variable defintions.
+            **vardict: variable definitions.
         '''
         self._scope.update(vardict)
         if self._locals is not None:
@@ -2180,7 +2180,7 @@ class Evaluator:
         lpar = varexpr.startswith('(')
         rpar = varexpr.endswith(')')
         if lpar != rpar:
-            msg = "unbalanced paranthesis around variable varexpr(s) in '{0}'"\
+            msg = "unbalanced parenthesis around variable varexpr(s) in '{0}'"\
                 .format(varexpr)
             raise FyppFatalError(msg, None, None)
         if lpar:
@@ -2254,7 +2254,7 @@ class _Macro:
     Args:
         name (str): Name of the macro.
         fname (str): The file where the macro was defined.
-        spans (str): Line spans of macro defintion.
+        spans (str): Line spans of macro definition.
         argnames (list of str): Macro dummy arguments.
         varpos (str): Name of variable positional argument or None.
         varkw (str): Name of variable keyword argument or None.
@@ -2604,7 +2604,7 @@ class FyppOptions(optparse.Values):
         line_length (int): Length of output lines. Default: 132.
         folding_mode (str): Folding mode 'smart', 'simple' or 'brute'. Default:
             'smart'.
-        no_folding (bool): Whether folding should be suppresed. Default: False.
+        no_folding (bool): Whether folding should be suppressed. Default: False.
         indentation (int): Indentation in continuation lines. Default: 4.
         modules (list of str): Modules to import at initialization. Default: [].
         moduledirs (list of str): Module lookup directories for importing user
@@ -2654,7 +2654,7 @@ class FortranLineFolder:
 
         prefix (str, optional): String to use at the beginning of a continuation
             line (default: '&').
-        suffix (str, optional): String to use at the end of the line preceeding
+        suffix (str, optional): String to use at the end of the line preceding
             a continuation line (default: '&')
     '''
 
@@ -2777,7 +2777,7 @@ def get_option_parser():
                                    version=fypp_version, usage=usage)
     msg = 'define variable, value is interpreted as ' \
           'Python expression (e.g \'-DDEBUG=1\' sets DEBUG to the ' \
-          'integer 1) or set to None if ommitted'
+          'integer 1) or set to None if omitted'
     parser.add_option('-D', '--define', action='append', dest='defines',
                       metavar='VAR[=VALUE]', default=defs.defines, help=msg)
     msg = 'add directory to the search paths for include files'
