@@ -3000,7 +3000,7 @@ class _TestContainer(unittest.TestCase):
         for itest, test in enumerate(tests):
             name = test[0]
             if name in already_added:
-                msg = "multiple occurance of test name '{0}'".format(name)
+                msg = "multiple occurrence of test name '{0}'".format(name)
                 raise ValueError(msg)
             already_added.add(name)
             testargs = test[1]
