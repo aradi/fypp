@@ -1,5 +1,6 @@
 '''Unit tests for testing Fypp.'''
 import sys
+import platform
 import unittest
 import fypp
 
@@ -1361,6 +1362,18 @@ SIMPLE_TESTS = [
      ([],
       '$:_LINE_\n',
       '1\n'
+     )
+    ),
+    ('builtin_var_system',
+     ([],
+      '${_SYSTEM_}$',
+      platform.system()
+     )
+    ),
+    ('builtin_var_machine',
+     ([],
+      '${_MACHINE_}$',
+      platform.machine()
      )
     ),
     ('escaped_control_inline',

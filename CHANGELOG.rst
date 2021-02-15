@@ -9,6 +9,8 @@ Unreleased
 Added
 -----
 
+* Global variables _SYSTEM_ and _MACHINE_ to query environment.
+
 
 Changed
 -------

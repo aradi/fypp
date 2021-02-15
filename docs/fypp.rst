@@ -455,6 +455,12 @@ predefined global variables:
 
     print *, "Rendering started ${_DATE_}$ ${_TIME_}$"
 
+* ``_SYSTEM_``: Name of the system Fypp runs on, as returned by Pythons
+  ``platform.system()`` function (e.g. ``Linux``, ``Windows``, ``Darwin``, etc.)
+
+* ``_MACHINE_``: Name of the current machine Fypp runs on, as returned by
+  Pythons ``platform.machine()`` function (e.g. ``x86_64``)
+
 The predefined variables ``_FILE_`` and ``_LINE_`` differ from their
 counterparts ``_THIS_FILE_`` and ``_THIS_LINE_`` only within macros. When a
 macro is executed, the variables ``_THIS_FILE_`` and ``_THIS_LINE_`` specify the

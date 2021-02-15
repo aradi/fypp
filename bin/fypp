@@ -61,6 +61,7 @@ import errno
 import time
 import optparse
 import io
+import platform
 if sys.version_info[0] >= 3:
     import builtins
 else:
@@ -143,7 +144,7 @@ _RESERVED_PREFIX = '__'
 
 _RESERVED_NAMES = set(['defined', 'setvar', 'getvar', 'delvar', 'globalvar',
                        '_LINE_', '_FILE_', '_THIS_FILE_', '_THIS_LINE_',
-                       '_TIME_', '_DATE_'])
+                       '_TIME_', '_DATE_', '_SYSTEM_', '_MACHINE_'])
 
 _LINENUM_NEW_FILE = 1
 
@@ -581,8 +582,8 @@ class Parser:
     def _parse_txt(self, includespan, fname, txt):
         self.handle_include(includespan, fname)
         self._parse(txt)
-        self.handle_endinclude(includespan, fname)    
-        
+        self.handle_endinclude(includespan, fname)
+
 
     def _parse(self, txt, linenr=0, directcall=False):
         pos = 0
@@ -1339,6 +1340,8 @@ class Renderer:
                  linenumformat=None, linefolder=None):
         # Evaluator to use for Python expressions
         self._evaluator = Evaluator() if evaluator is None else evaluator
+        self._evaluator.updateglobals(_SYSTEM_=platform.system(),
+            _MACHINE_=platform.machine())
 
         # Whether rendered output is diverted and will be processed
         # further before output (if True: no line numbering and post processing)
