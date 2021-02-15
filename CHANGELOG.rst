@@ -11,6 +11,8 @@ Added
 
 * Global variables _SYSTEM_ and _MACHINE_ to query environment.
 
+* Emission of standard (#line pragma styled) line directives.
+
 
 Changed
 -------
@@ -30,7 +32,7 @@ Added
 
 * Add block / contains / endblock construct as alternative for call / nextarg /
   endcall.
-  
+
 * Escaping of preprocessor comments
 
 * Possibility of specifying character encoding for file I/O with UTF-8 as
@@ -121,7 +123,7 @@ Added
 * Python-like consistent global and local scopes and scope lookup rules.
 
 * Predefined variables _THIS_FILE_ and _THIS_LINE_.
-    
+
 * Additional flags in line numbering directives when opening a file or returning
   to a previous file.
 

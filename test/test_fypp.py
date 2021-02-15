@@ -7,7 +7,7 @@ import fypp
 def _linenum(linenr, fname=None, flag=None):
     if fname is None:
         fname = fypp.STRING
-    return fypp.linenumdir(linenr, fname, flag)
+    return fypp.linenumdir_cpp(linenr, fname, flag)
 
 def _defvar(var, val):
     return '-D{0}={1}'.format(var, val)
@@ -32,6 +32,9 @@ def _linenumbering(nummode):
 
 def _linenum_gfortran5():
     return '--line-marker-format=gfortran5'
+
+def _linenum_std():
+    return '--line-marker-format=std'
 
 def _importmodule(module):
     return '-m{0}'.format(module)
@@ -1740,6 +1743,13 @@ LINENUM_TESTS = [
      ([_LINENUM_FLAG, _linenum_gfortran5()],
       '',
       '# 1 "<string>" 1\n',
+     )
+    ),
+    # Explicit test for standard line number marker format
+    ('explicit_str_linenum_test_standard',
+     ([_LINENUM_FLAG, _linenum_std()],
+      '',
+      '#line 1 "<string>"\n',
      )
     ),
     ('trivial',

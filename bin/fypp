@@ -1330,9 +1330,10 @@ class Renderer:
             defaults to False.
         contlinenums (bool, optional): Whether linenums for continuation
             should be generated, defaults to False.
-        linenumformat (str, optional): If set to "gfortran5", a workaround
-            for broken gfortran versions (version 5.1 and above) is applied when
-            emitting line numbering directives.
+        linenumformat (str, optional): 'std', 'cpp' or 'gfortran5' depending
+            what kind of line directives should be created. Default: 'cpp'.
+            Format 'std' emits #line pragmas, 'cpp' resembles GNU cpps special
+            format, and 'gfortran5' adds to cpp a workaround for a bug introduced in GFortran 5.
         linefolder (callable): Callable to use when folding a line.
     '''
 
@@ -1357,8 +1358,13 @@ class Renderer:
         # Whether line numbering directives in continuation lines are needed.
         self._contlinenums = contlinenums
 
-        # Whether to use the fix for GFortran in the line numbering directives
-        self._linenum_gfortran5 = (linenumformat == 'gfortran5')
+        # Line number formatter function and whether gfortran5 fix is needed
+        if linenumformat is None or linenumformat in ('cpp', 'gfortran5'):
+            self._linenumdir = linenumdir_cpp
+            self._linenum_gfortran5 = linenumformat == 'gfortran5'
+        else:
+            self._linenumdir = linenumdir_std
+            self._linenum_gfortran5 = False
 
         # Callable to be used for folding lines
         if linefolder is None:
@@ -1486,14 +1492,14 @@ class Renderer:
                 raise FyppFatalError(msg, fname, span, exc)
             if cond:
                 if self._linenums and not self._diverted and multiline:
-                    out.append(linenumdir(span[1], fname))
+                    out.append(self._linenumdir(span[1], fname))
                 outcont, ievalcont, pevalcont = self._render(content)
                 ieval += _shiftinds(ievalcont, len(out))
                 peval += pevalcont
                 out += outcont
                 break
         if self._linenums and not self._diverted and multiline:
-            out.append(linenumdir(spans[-1][1], fname))
+            out.append(self._linenumdir(spans[-1][1], fname))
         return out, ieval, peval
 
 
@@ -1515,13 +1521,13 @@ class Renderer:
                 for varname, value in zip(loopvars, var):
                     self._define(varname, value)
             if self._linenums and not self._diverted and multiline:
-                out.append(linenumdir(spans[0][1], fname))
+                out.append(self._linenumdir(spans[0][1], fname))
             outcont, ievalcont, pevalcont = self._render(content)
             ieval += _shiftinds(ievalcont, len(out))
             peval += pevalcont
             out += outcont
         if self._linenums and not self._diverted and multiline:
-            out.append(linenumdir(spans[1][1], fname))
+            out.append(self._linenumdir(spans[1][1], fname))
         return out, ieval, peval
 
 
@@ -1598,14 +1604,14 @@ class Renderer:
         out = []
         if self._linenums and not self._diverted:
             if includefile or self._linenum_gfortran5:
-                out += linenumdir(0, includefname, _LINENUM_NEW_FILE)
+                out += self._linenumdir(0, includefname, _LINENUM_NEW_FILE)
             else:
-                out += linenumdir(0, includefname)
+                out += self._linenumdir(0, includefname)
         outcont, ieval, peval = self._render(content)
         ieval = _shiftinds(ieval, len(out))
         out += outcont
         if self._linenums and not self._diverted and includefile:
-            out += linenumdir(spans[0][1], fname, _LINENUM_RETURN_TO_FILE)
+            out += self._linenumdir(spans[0][1], fname, _LINENUM_RETURN_TO_FILE)
         return out, ieval, peval
 
 
@@ -1648,7 +1654,7 @@ class Renderer:
                 .format(name)
             raise FyppFatalError(msg, fname, spans[0], exc)
         if self._linenums and not self._diverted:
-            result = linenumdir(spans[1][1], fname)
+            result = self._linenumdir(spans[1][1], fname)
         return result
 
 
@@ -1666,7 +1672,7 @@ class Renderer:
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
         if self._linenums and not self._diverted and multiline:
-            result = linenumdir(span[1], fname)
+            result = self._linenumdir(span[1], fname)
         return result
 
 
@@ -1680,7 +1686,7 @@ class Renderer:
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
         if self._linenums and not self._diverted and multiline:
-            result = linenumdir(span[1], fname)
+            result = self._linenumdir(span[1], fname)
         return result
 
 
@@ -1694,20 +1700,20 @@ class Renderer:
             raise FyppFatalError(msg, fname, span, exc)
         multiline = (span[0] != span[1])
         if self._linenums and not self._diverted and multiline:
-            result = linenumdir(span[1], fname)
+            result = self._linenumdir(span[1], fname)
         return result
 
 
     def _get_comment(self, fname, span):
         if self._linenums and not self._diverted:
-            return linenumdir(span[1], fname)
+            return self._linenumdir(span[1], fname)
         return ''
 
 
     def _get_muted_content(self, fname, spans, content):
         self._render(content)
         if self._linenums and not self._diverted:
-            return linenumdir(spans[-1][1], fname)
+            return self._linenumdir(spans[-1][1], fname)
         return ''
 
 
@@ -1733,7 +1739,7 @@ class Renderer:
             msg = "Assertion failed ('{0}')".format(expr)
             raise FyppStopRequest(msg, fname, span)
         if self._linenums and not self._diverted:
-            result = linenumdir(span[1], fname)
+            result = self._linenumdir(span[1], fname)
         return result
 
 
@@ -1825,7 +1831,7 @@ class Renderer:
         trailing_newline = (lines[-1] == '')
         if trailing_newline:
             del lines[-1]
-        lnum = linenumdir(span[0], fname) if self._linenums else ''
+        lnum = self._linenumdir(span[0], fname) if self._linenums else ''
         clnum = lnum if self._contlinenums else ''
         linenumsep = '\n' + lnum
         clinenumsep = '\n' + clnum
@@ -1849,7 +1855,7 @@ class Renderer:
                     # -> next line is span[0] + 1 and not span[1] as for
                     # line eval directives
                     nextline = max(span[1], span[0] + 1)
-                    trailing += linenumdir(nextline, fname)
+                    trailing += self._linenumdir(nextline, fname)
         else:
             trailing = ''
         return result + trailing
@@ -2601,9 +2607,11 @@ class FyppOptions(optparse.Values):
             in the output. Default: False
         line_numbering_mode (str): Line numbering mode 'full' or 'nocontlines'.
             Default: 'full'.
-        line_marker_format (str): Line marker format. Currently 'cpp' and
-            'gfortran5' are supported. Later fixes the line marker handling bug
-            introduced in GFortran 5. Default: 'cpp'.
+        line_marker_format (str): Line marker format. Currently 'std',
+            'cpp' and 'gfortran5' are supported, where 'std' emits ``#line``
+            pragmas similar to standard tools, 'cpp' produces line directives as
+            emitted by GNU cpp, and 'gfortran5' cpp line directives with a
+            workaround for a bug introduced in GFortran 5. Default: 'cpp'.
         line_length (int): Length of output lines. Default: 132.
         folding_mode (str): Folding mode 'smart', 'simple' or 'brute'. Default:
             'smart'.
@@ -2811,7 +2819,8 @@ def get_option_parser():
           '\'gfortran5\': modified markers to work around bug in GFortran 5 '\
           'and above'
     parser.add_option('--line-marker-format', metavar='FMT',
-                      choices=['cpp', 'gfortran5'], dest='line_marker_format',
+                      choices=['cpp', 'gfortran5', 'std'],
+                      dest='line_marker_format',
                       default=defs.line_marker_format, help=msg)
     msg = 'maximal line length (default: 132), lines modified by the '\
           'preprocessor are folded if becoming longer'
@@ -2863,16 +2872,37 @@ def run_fypp():
         sys.exit(ERROR_EXIT_CODE)
 
 
-def linenumdir(linenr, fname, flag=None):
-    '''Returns a line numbering directive.
+def linenumdir_cpp(linenr, fname, flag=None):
+    """Returns a GNU cpp style line directive.
 
     Args:
-        linenr (int): Line nr (starting with 0).
+        linenr (int): Line nr (starting with zero).
         fname (str): File name.
-    '''
+        flag (str): Optional flag to print after the directive
+
+    Returns:
+        Line number directive as string.
+    """
     if flag is None:
         return '# {0} "{1}"\n'.format(linenr + 1, fname)
     return '# {0} "{1}" {2}\n'.format(linenr + 1, fname, flag)
+
+
+def linenumdir_std(linenr, fname, flag=None):
+    """Returns standard #line pragma styled line directive.
+
+    Args:
+        linenr (int): Line nr (starting with zero).
+        fname (str): File name.
+        flag (str): Optional flag to print after the directive. Note, this
+            option is only there to be API compatible with linenumdir_cpp(),
+            but is ignored otherwise, since #line pragmas do not allow for
+            extra file opening/closing flags.
+
+    Returns:
+        Line number directive as string.
+    """
+    return "#line {0} \"{1}\"\n".format(linenr + 1, fname)
 
 
 def _shiftinds(inds, shift):
