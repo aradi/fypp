@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 ################################################################################
 #
 # fypp -- Python powered Fortran preprocessor
 #
-# Copyright (c) 2016-2020 Bálint Aradi, Universität Bremen
+# Copyright (c) 2016-2021 Bálint Aradi, Universität Bremen
 #
 # All rights reserved.
 #
