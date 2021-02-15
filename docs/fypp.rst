@@ -758,12 +758,14 @@ single and double precision reals::
   end function sin2_${rkind}$
   #:endfor
 
-The `for` directive expects a Python loop variable expression and an iterable
+The `for` directive expects a loop variable expression and an iterable
 separated by the ``in`` keyword. The code within the `for` directive is outputed
 for every iteration with the current value of the loop variable, which can be
-inserted using eval directives. If the iterable consists of iterables
-(e.g. tuples), usual indexing can be used to access their components, or a
-variable tuple to unpack them directly in the loop header::
+inserted using eval directives. The loop variable expression must be either a
+name or a list of names joined by comma (``,``). In the latter case, the
+iterable must consist of iterable items (e.g. tuples), which will be then
+unpacked into the loop variables. (The number of the loop variables and the
+number of the components of each iterated item must be identical.)::
 
   #:set kinds = ['sp', 'dp']
   #:set names = ['real', 'dreal']
