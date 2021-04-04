@@ -2473,7 +2473,7 @@ class Fypp:
             present, the default settings in `FyppOptions`_ are used.
     '''
 
-    def __init__(self, options=None):
+    def __init__(self, options=None, parser_factory=Parser, builder_factory=Builder, renderer_factory=Renderer):
         syspath = self._get_syspath_without_scriptdir()
         self._adjust_syspath(syspath)
         if options is None:
@@ -2485,8 +2485,14 @@ class Fypp:
                                  options.moduledirs)
         if options.defines:
             self._apply_definitions(options.defines, evaluator)
-        parser = Parser(includedirs=options.includes, encoding=self._encoding)
-        builder = Builder()
+        if inspect.signature(parser_factory) == inspect.signature(Parser):
+            parser = parser_factory(includedirs=options.includes, encoding=self._encoding)
+        else:
+            raise FyppFatalError('parser_factory has incorrect signature')
+        if inspect.signature(builder_factory) == inspect.signature(Builder):
+            builder = builder_factory()
+        else:
+            raise FyppFatalError('builder_factory has incorrect signature')
 
         fixed_format = options.fixed_format
         linefolding = not options.no_folding
@@ -2503,9 +2509,12 @@ class Fypp:
         linenums = options.line_numbering
         contlinenums = (options.line_numbering_mode != 'nocontlines')
         self._create_parent_folder = options.create_parent_folder
-        renderer = Renderer(
-            evaluator, linenums=linenums, contlinenums=contlinenums,
-            linenumformat=options.line_marker_format, linefolder=linefolder)
+        if inspect.signature(renderer_factory) == inspect.signature(Renderer):
+            renderer = renderer_factory(
+                evaluator, linenums=linenums, contlinenums=contlinenums,
+                linenumformat=options.line_marker_format, linefolder=linefolder)
+        else:
+            raise FyppFatalError('renderer_factory has incorrect signature')
         self._preprocessor = Processor(parser, builder, renderer)
 
 
