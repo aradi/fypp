@@ -13,6 +13,9 @@ Added
 
 * Emission of standard (#line pragma styled) line directives.
 
+* Factory method arguments in Fypp constructor: evaluator_factory, parser_factor,
+  builder_factory and renderer_factory.
+
 
 Changed
 -------
