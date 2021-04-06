@@ -17,6 +17,8 @@ Added
 Changed
 -------
 
+* Support for Python 2.7, 3.3 and 3.4 dropped, support for Python 3.9 added.
+
 
 Fixed
 -----
