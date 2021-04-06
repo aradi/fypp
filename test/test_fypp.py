@@ -51,18 +51,6 @@ _NEW_FILE = 1
 _RETURN_TO_FILE = 2
 
 
-# Some test flags, only to be used for exception tests, as the exception
-# stack could be different based on the python version
-
-_PYTHON_2 = 1
-
-_PYTHON_3 = 2
-
-_PYTHON_32_OR_BELOW = 3
-
-_PYTHON_33_OR_ABOVE = 4
-
-
 # Various basic tests
 #
 # Each test consists of a tuple containing the test name and a tuple with the
@@ -2603,20 +2591,11 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
-    ('tuple_macro_argument_py2',
-     ([],
-      '#:def alma((x, y))\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
-       (fypp.FyppFatalError, None, None)],
-     ),
-     _PYTHON_2
-    ),
-    ('tuple_macro_argument_py3',
+    ('tuple_macro_argument',
      ([],
       '#:def alma((x, y))\n#:enddef\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))],
      ),
-     _PYTHON_3
     ),
     ('repeated_keyword_argument',
      ([],
@@ -2638,20 +2617,12 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
-    ('macrodef_pos_arg_after_var_arg_py2_py32',
-     ([],
-      '#:def mymacro(A, *B, C)\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
-     ),
-     _PYTHON_32_OR_BELOW
-    ),
-    ('macrodef_pos_arg_after_var_arg_py33',
+    ('macrodef_pos_arg_after_var_arg',
      ([],
       '#:def mymacro(A, *B, C)\n#:enddef\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      ),
-     _PYTHON_33_OR_ABOVE
     ),
     ('macrodef_pos_arg_after_var_kwarg',
      ([],
@@ -2992,18 +2963,7 @@ def _get_test_exception_method(args, inp, exceptions):
 
 
 def _test_needed(flag):
-    if flag == _PYTHON_2:
-        return sys.version_info[0] == 2
-    elif flag == _PYTHON_3:
-        return sys.version_info[0] == 3
-    elif flag == _PYTHON_32_OR_BELOW:
-        return (sys.version_info[0] == 2
-                or (sys.version_info[0] == 3 and sys.version_info[1] <= 2))
-    elif flag == _PYTHON_33_OR_ABOVE:
-        return (sys.version_info[0] == 3 and sys.version_info[1] >= 3)
-    else:
-        msg = 'invalid test flag ' + str(flag)
-        raise ValueError(msg)
+    return True
 
 
 class _TestContainer(unittest.TestCase):
