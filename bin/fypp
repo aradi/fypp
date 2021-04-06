@@ -2457,28 +2457,66 @@ class Fypp:
         options, leftover = optparser.parse_args(args=args)
         tool = fypp.Fypp(options)
 
+    For even more fine-grained control over how Fypp works, you can pass in
+    custom factory methods that handle construction of the evaluator, parser,
+    builder and renderer components. These factory methods must have the same
+    signature as the corresponding component's constructor. As an example of
+    using a builder that's customized by subclassing::
+
+        class MyBuilder(fypp.Builder):
+
+            def __init__(self):
+               super().__init__()
+               ...additional initialization...
+
+        tool = fypp.Fypp(options, builder_factory=MyBuilder)
+
 
     Args:
         options (object): Object containing the settings for Fypp. You typically
             would pass a customized `FyppOptions`_ instance or an
             ``optparse.Values`` object as returned by the option parser. If not
             present, the default settings in `FyppOptions`_ are used.
+        evaluator_factory (function): Factory function that returns an Evaluator
+            object. Its call signature must match that of the Evaluator
+            constructor. If not present, ``Evaluator`` is used.
+        parser_factory (function): Factory function that returns a Parser
+            object.  Its call signature must match that of the Parser
+            constructor. If not present, ``Parser`` is used.
+        builder_factory (function): Factory function that returns a Builder
+            object.  Its call signature must match that of the Builder
+            constructor. If not present, ``Builder`` is used.
+        renderer_factory (function): Factory function that returns a Renderer
+            object. Its call signature must match that of the Renderer
+            constructor.  If not present, ``Renderer`` is used.
     '''
 
-    def __init__(self, options=None):
+    def __init__(self, options=None, evaluator_factory=Evaluator,
+                 parser_factory=Parser, builder_factory=Builder,
+                 renderer_factory=Renderer):
         syspath = self._get_syspath_without_scriptdir()
         self._adjust_syspath(syspath)
         if options is None:
             options = FyppOptions()
-        evaluator = Evaluator()
+        if inspect.signature(evaluator_factory) == inspect.signature(Evaluator):
+            evaluator = evaluator_factory()
+        else:
+            raise FyppFatalError('evaluator_factory has incorrect signature')
         self._encoding = options.encoding
         if options.modules:
             self._import_modules(options.modules, evaluator, syspath,
                                  options.moduledirs)
         if options.defines:
             self._apply_definitions(options.defines, evaluator)
-        parser = Parser(includedirs=options.includes, encoding=self._encoding)
-        builder = Builder()
+        if inspect.signature(parser_factory) == inspect.signature(Parser):
+            parser = parser_factory(includedirs=options.includes,
+                                    encoding=self._encoding)
+        else:
+            raise FyppFatalError('parser_factory has incorrect signature')
+        if inspect.signature(builder_factory) == inspect.signature(Builder):
+            builder = builder_factory()
+        else:
+            raise FyppFatalError('builder_factory has incorrect signature')
 
         fixed_format = options.fixed_format
         linefolding = not options.no_folding
@@ -2495,9 +2533,12 @@ class Fypp:
         linenums = options.line_numbering
         contlinenums = (options.line_numbering_mode != 'nocontlines')
         self._create_parent_folder = options.create_parent_folder
-        renderer = Renderer(
-            evaluator, linenums=linenums, contlinenums=contlinenums,
-            linenumformat=options.line_marker_format, linefolder=linefolder)
+        if inspect.signature(renderer_factory) == inspect.signature(Renderer):
+            renderer = renderer_factory(
+                evaluator, linenums=linenums, contlinenums=contlinenums,
+                linenumformat=options.line_marker_format, linefolder=linefolder)
+        else:
+            raise FyppFatalError('renderer_factory has incorrect signature')
         self._preprocessor = Processor(parser, builder, renderer)
 
 
