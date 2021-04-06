@@ -164,10 +164,6 @@ class FyppError(Exception):
         span (tuple of int): Beginning and end line of the region where error
             occurred or None if not available. If fname was not None, span must
             not be None.
-        cause (Exception): Contains the exception, which triggered this
-            exception or None, if this exception is not masking any underlying
-            one. (Emulates Python 3 exception chaining in a Python 2 compatible
-            way.)
 
     Attributes:
         msg (str): Error message.
@@ -176,17 +172,13 @@ class FyppError(Exception):
             where error occurred or None if not available. Line numbers start
             from zero. For directives, which do not consume end of the line,
             start and end lines are identical.
-        cause (Exception): In case this exception is raised in an except block,
-            the original exception should be passed here. (Emulates Python 3
-            exception chaining in a Python 2 compatible way.)
     '''
 
-    def __init__(self, msg, fname=None, span=None, cause=None):
-        super(FyppError, self).__init__()
+    def __init__(self, msg, fname=None, span=None):
+        super().__init__()
         self.msg = msg
         self.fname = fname
         self.span = span
-        self.cause = cause
 
 
     def __str__(self):
@@ -201,8 +193,8 @@ class FyppError(Exception):
             msg.append('\n')
         if self.msg:
             msg.append(self.msg)
-        if self.cause is not None:
-            msg.append('\n' + str(self.cause))
+        if self.__cause__ is not None:
+            msg.append('\n' + str(self.__cause__))
         return ''.join(msg)
 
 
@@ -716,7 +708,7 @@ class Parser:
                 args = [arg.strip() for arg in _argsplit_fortran(callparams)]
             except Exception as exc:
                 msg = 'unable to parse direct call argument'
-                raise FyppFatalError(msg, self._curfile, span, exc)
+                raise FyppFatalError(msg, self._curfile, span) from exc
         for arg in args:
             match = _DIRECT_CALL_KWARG_REGEXP.match(arg)
             argval = arg[match.end():].strip()
@@ -1460,7 +1452,7 @@ class Renderer:
             result = self._evaluate(expr, fname, span[0])
         except Exception as exc:
             msg = "exception occurred when evaluating '{0}'".format(expr)
-            raise FyppFatalError(msg, fname, span, exc)
+            raise FyppFatalError(msg, fname, span) from exc
         out = []
         ieval = []
         peval = []
@@ -1485,7 +1477,7 @@ class Renderer:
             except Exception as exc:
                 msg = "exception occurred when evaluating '{0}'"\
                       .format(condition)
-                raise FyppFatalError(msg, fname, span, exc)
+                raise FyppFatalError(msg, fname, span) from exc
             if cond:
                 if self._linenums and not self._diverted and multiline:
                     out.append(self._linenumdir(span[1], fname))
@@ -1508,7 +1500,7 @@ class Renderer:
         except Exception as exc:
             msg = "exception occurred when evaluating '{0}'"\
                 .format(loopiter)
-            raise FyppFatalError(msg, fname, spans[0], exc)
+            raise FyppFatalError(msg, fname, spans[0]) from exc
         multiline = (spans[0][0] != spans[-1][1])
         for var in iterobj:
             if len(loopvars) == 1:
@@ -1536,7 +1528,7 @@ class Renderer:
             result = callobj(*posargs, **kwargs)
         except Exception as exc:
             msg = "exception occurred when calling '{0}'".format(name)
-            raise FyppFatalError(msg, fname, spans[0], exc)
+            raise FyppFatalError(msg, fname, spans[0]) from exc
         self._update_predef_globals(fname, spans[0][0])
         span = (spans[0][0], spans[-1][1])
         out = []
@@ -1565,7 +1557,7 @@ class Renderer:
             except Exception as exc:
                 msg = "unable to parse argument expression '{0}'"\
                     .format(argexpr)
-                raise FyppFatalError(msg, fname, spans[0], exc)
+                raise FyppFatalError(msg, fname, spans[0]) from exc
             self._evaluator.closescope()
 
         # Render arguments passed in call body
@@ -1626,13 +1618,13 @@ class Renderer:
             except Exception as exc:
                 msg = "exception occurred when evaluating argument expression "\
                       "'{0}'".format(argexpr)
-                raise FyppFatalError(msg, fname, spans[0], exc)
+                raise FyppFatalError(msg, fname, spans[0]) from exc
             self._evaluator.closescope()
             try:
                 args, defaults, varpos, varkw = _get_callable_argspec(func)
             except Exception as exc:
                 msg = "invalid argument expression '{0}'".format(argexpr)
-                raise FyppFatalError(msg, fname, spans[0], exc)
+                raise FyppFatalError(msg, fname, spans[0]) from exc
             named_args = args if varpos is None else args + [varpos]
             named_args = named_args if varkw is None else named_args + [varkw]
             for arg in named_args:
@@ -1648,7 +1640,7 @@ class Renderer:
         except Exception as exc:
             msg = "exception occurred when defining macro '{0}'"\
                 .format(name)
-            raise FyppFatalError(msg, fname, spans[0], exc)
+            raise FyppFatalError(msg, fname, spans[0]) from exc
         if self._linenums and not self._diverted:
             result = self._linenumdir(spans[1][1], fname)
         return result
@@ -1665,7 +1657,7 @@ class Renderer:
         except Exception as exc:
             msg = "exception occurred when setting variable(s) '{0}' to '{1}'"\
                 .format(name, valstr)
-            raise FyppFatalError(msg, fname, span, exc)
+            raise FyppFatalError(msg, fname, span) from exc
         multiline = (span[0] != span[1])
         if self._linenums and not self._diverted and multiline:
             result = self._linenumdir(span[1], fname)
@@ -1679,7 +1671,7 @@ class Renderer:
         except Exception as exc:
             msg = "exception occurred when deleting variable(s) '{0}'"\
                   .format(name)
-            raise FyppFatalError(msg, fname, span, exc)
+            raise FyppFatalError(msg, fname, span) from exc
         multiline = (span[0] != span[1])
         if self._linenums and not self._diverted and multiline:
             result = self._linenumdir(span[1], fname)
@@ -1693,7 +1685,7 @@ class Renderer:
         except Exception as exc:
             msg = "exception occurred when making variable(s) '{0}' global"\
                 .format(name)
-            raise FyppFatalError(msg, fname, span, exc)
+            raise FyppFatalError(msg, fname, span) from exc
         multiline = (span[0] != span[1])
         if self._linenums and not self._diverted and multiline:
             result = self._linenumdir(span[1], fname)
@@ -1719,7 +1711,7 @@ class Renderer:
         except Exception as exc:
             msg = "exception occurred when evaluating stop message '{0}'"\
                 .format(msgstr)
-            raise FyppFatalError(msg, fname, span, exc)
+            raise FyppFatalError(msg, fname, span) from exc
         raise FyppStopRequest(msg, fname, span)
 
 
@@ -1730,7 +1722,7 @@ class Renderer:
         except Exception as exc:
             msg = "exception occurred when evaluating assert condition '{0}'"\
                 .format(expr)
-            raise FyppFatalError(msg, fname, span, exc)
+            raise FyppFatalError(msg, fname, span) from exc
         if not cond:
             msg = "Assertion failed ('{0}')".format(expr)
             raise FyppStopRequest(msg, fname, span)
@@ -1992,7 +1984,7 @@ class Evaluator:
             self.define(rootmod, imported)
         except Exception as exc:
             msg = "failed to import module '{0}'".format(module)
-            raise FyppFatalError(msg, cause=exc)
+            raise FyppFatalError(msg) from exc
 
 
     def define(self, name, value):
@@ -2596,7 +2588,7 @@ class Fypp:
                 except Exception as exc:
                     msg = "exception at evaluating '{0}' in definition for " \
                           "'{1}'".format(words[1], name)
-                    raise FyppFatalError(msg, cause=exc)
+                    raise FyppFatalError(msg) from exc
             evaluator.define(name, value)
 
 
@@ -2964,7 +2956,7 @@ def _open_input_file(inpfile, encoding=None):
         inpfp = io.open(inpfile, 'r', encoding=encoding)
     except IOError as exc:
         msg = "Failed to open file '{0}' for read".format(inpfile)
-        raise FyppFatalError(msg, cause=exc)
+        raise FyppFatalError(msg) from exc
     return inpfp
 
 
@@ -2978,12 +2970,12 @@ def _open_output_file(outfile, encoding=None, create_parents=False):
                 if exc.errno != errno.EEXIST:
                     msg = "Folder '{0}' can not be created"\
                         .format(parentdir)
-                    raise FyppFatalError(msg, cause=exc)
+                    raise FyppFatalError(msg) from exc
     try:
         outfp = io.open(outfile, 'w', encoding=encoding)
     except IOError as exc:
         msg = "Failed to open file '{0}' for write".format(outfile)
-        raise FyppFatalError(msg, cause=exc)
+        raise FyppFatalError(msg) from exc
     return outfp
 
 
@@ -3068,8 +3060,8 @@ def _formatted_exception(exc):
         out.append(error_header_formstr.format(file=exc.fname, line=line))
     out.append(error_body_formstr.format(errormsg=exc.msg,
                                          errorclass=exc.__class__.__name__))
-    if exc.cause is not None:
-        out.append('\n' + _formatted_exception(exc.cause))
+    if exc.__cause__ is not None:
+        out.append('\n' + _formatted_exception(exc.__cause__))
     out.append('\n')
     return ''.join(out)
 

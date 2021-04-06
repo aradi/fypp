@@ -2956,7 +2956,7 @@ def _get_test_exception_method(args, inp, exceptions):
                 self.assertTrue(raised.span is None)
             else:
                 self.assertEqual(span, raised.span)
-            raised = raised.cause
+            raised = raised.__cause__
         self.assertTrue(not isinstance(raised, fypp.FyppError))
 
     return test_exception
