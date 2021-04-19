@@ -19,7 +19,7 @@ setup(
     url='https://github.com/aradi/fypp',
 
     author='Bálint Aradi',
-    author_email='baradi09@gmail.com',
+    author_email='aradi@uni-bremen.de',
 
     license='BSD',
 
