@@ -1,8 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
-# Bálint Aradi, 2016-2020
+# Bálint Aradi, 2016-2021
 
-'''Uses Fypp as Fortran preprocessor (.fpp -> .f90). Use this one (instead of 
+'''Uses Fypp as Fortran preprocessor (.fpp -> .f90). Use this one (instead of
 fypp_preprocessor) if you want to preprocess Fortran sources with Fypp.
 
 You typically trigger the preprocessing via the 'fypp' feature::
@@ -11,16 +11,16 @@ You typically trigger the preprocessing via the 'fypp' feature::
 		opt.load('compiler_c')
 		opt.load('compiler_fc')
 		opt.load('fypp_fortran')
-	
+
 	def configure(conf):
 		conf.load('compiler_c')
 		conf.load('compiler_fc')
 		conf.load('fypp_fortran')
-	
-	
+
+
 	def build(bld):
 		sources = bld.path.ant_glob('*.fpp')
-		
+
 		bld(
 			features='fypp fc fcprogram',
 			source=sources,
@@ -41,14 +41,14 @@ import fypp_preprocessor
 
 def configure(conf):
 	fypp_preprocessor.configure(conf)
-	
+
 
 ################################################################################
 # Build
 ################################################################################
 
 class fypp_fortran(fypp_preprocessor.fypp_preprocessor):
-		
+
 	ext_in = [ '.fpp' ]
 	ext_out = [ '.f90' ]
 

@@ -29,7 +29,7 @@ documentation available on `readthedocs.org
 <http://fypp.readthedocs.org>`_. Fypp is released under the *BSD 2-clause
 license*.
 
-This document describes Fypp Version 3.0.
+This document describes Fypp Version 3.1.
 
 
 Features
@@ -427,7 +427,7 @@ can only be evaluated, if the variable `DEBUG` had been already defined before.
 Python sandbox
 ==============
 
-Python expressions are evaluted in an isolated Python environment, which
+Python expressions are evaluated in an isolated Python environment, which
 contains a restricted set of Python built-in functions and a few predefined
 variables and functions (see below). There are no modules loaded by default, and
 for safety reasons, no modules can be loaded once the preprocessing has
@@ -454,6 +454,12 @@ predefined global variables:
 * ``_TIME_``: current time::
 
     print *, "Rendering started ${_DATE_}$ ${_TIME_}$"
+
+* ``_SYSTEM_``: Name of the system Fypp runs on, as returned by Pythons
+  ``platform.system()`` function (e.g. ``Linux``, ``Windows``, ``Darwin``, etc.)
+
+* ``_MACHINE_``: Name of the current machine Fypp runs on, as returned by
+  Pythons ``platform.machine()`` function (e.g. ``x86_64``)
 
 The predefined variables ``_FILE_`` and ``_LINE_`` differ from their
 counterparts ``_THIS_FILE_`` and ``_THIS_LINE_`` only within macros. When a
@@ -665,7 +671,7 @@ The variable passed to the ``del`` directive must exist and be erasable. So the
 example above would trigger an error, if the variables ``X`` and ``Y`` were not
 defined before.
 
-The `del` directive can also be used to delete macro defintions::
+The `del` directive can also be used to delete macro definitions::
 
   #:def echo(TXT)
   ${TXT}$
@@ -752,19 +758,21 @@ single and double precision reals::
   end function sin2_${rkind}$
   #:endfor
 
-The `for` directive expects a Python loop variable expression and an iterable
+The `for` directive expects a loop variable expression and an iterable
 separated by the ``in`` keyword. The code within the `for` directive is outputed
 for every iteration with the current value of the loop variable, which can be
-inserted using eval directives. If the iterable consists of iterables
-(e.g. tuples), usual indexing can be used to access their components, or a
-variable tuple to unpack them directly in the loop header::
+inserted using eval directives. The loop variable expression must be either a
+name or a list of names joined by comma (``,``). In the latter case, the
+iterable must consist of iterable items (e.g. tuples), which will be then
+unpacked into the loop variables. (The number of the loop variables and the
+number of the components of each iterated item must be identical.)::
 
   #:set kinds = ['sp', 'dp']
   #:set names = ['real', 'dreal']
   #! create kinds_names as [('sp', 'real'), ('dp', 'dreal')]
   #:set kinds_names = list(zip(kinds, names))
 
-  #! Acces by indexing
+  #! Access by indexing
   interface sin2
   #:for kind_name in kinds_names
     module procedure sin2_${kind_name[1]}$
@@ -879,7 +887,7 @@ from the encompassing scope are available (as `DEBUG` in the example above), and
 additionally those which were passed as arguments. If a variable is defined
 within the macro, it will be only accessible within the macro. If a variable
 with the same name already exists in the encompassing scope, it will be shadowed
-by it for the time of the macro subsitution. For example preprocessing the code
+by it for the time of the macro substitution. For example preprocessing the code
 snippet ::
 
   #:def macro(x)
@@ -920,7 +928,7 @@ The `def` directive has no inline form.
 .. warning:: The content of macros is usually inserted via an eval directive and
      is accordingly subject to eventual line folding. Macros should,
      therefore, not contain any inline Fortran comments. (Comments
-     starting at the beginning of the line preceeded by optional
+     starting at the beginning of the line preceded by optional
      whitespaces only are OK, though). Use preprocessor comments
      (``#!``) instead.
 
@@ -1011,7 +1019,7 @@ callable is called with the evaluated string as argument).
 The `contains` and `nextarg` directives may be followed by an optional argument
 name. In that case the text following will be passed as keyword argument to the
 callable. If the first argument should be also passed as keyword argument, it
-should be also preceeded by a named `contains` or `nextarg` directive declared
+should be also preceded by a named `contains` or `nextarg` directive declared
 in the line immediately following the `block` or `call` directive. If an
 argument is passed as a keyword argument, all following arguments must be passed
 as keyword arguments as well::
@@ -1139,9 +1147,9 @@ direct call directive::
   @:ASSERT(size(aa) >= size(bb))
 
 The direct call directive starts with ``@:`` followed by the name of a Python
-callable and an opening paranthesis (``(``). Everything after that up to the
-closing paranthesis (``)``) is passed as *string argument* to the callable. The
-closing paranthesis may only be followed by whitespace characters.
+callable and an opening parenthesis (``(``). Everything after that up to the
+closing parenthesis (``)``) is passed as *string argument* to the callable. The
+closing parenthesis may only be followed by whitespace characters.
 
 When the callable needs more than one argument, the arguments must be separated
 by a comma (``,``)::
@@ -1289,7 +1297,7 @@ The `include` directive does not have an inline form.
 Empty lines between Fypp definitions makes the code easier to read. However,
 being outside of Fypp-directives, those empty lines will be written unaltered to
 the output. This can be especially disturbing if various macro definition
-files are included, as the resulting output would eventually contian a lot of
+files are included, as the resulting output would eventually contain a lot of
 empty lines. With the `mute` directive, the output can be suspended. While
 everything is still processed as normal, no output is written for the code
 within the `mute` directive::
@@ -1370,7 +1378,7 @@ Comment directive
 
 Comment lines can be added by using the ``#!`` preprocessor directive. The
 comment line (including the newlines at their end) will be ignored by the
-prepropessor and will not appear in the ouput::
+prepropessor and will not appear in the output::
 
     #! This will not show up in the output
 
@@ -1386,7 +1394,7 @@ Multiline directives
 ====================
 
 The line form of the control and eval directives can span arbitrary number of
-lines, if Fortran-style continuation charachters are used::
+lines, if Fortran-style continuation characters are used::
 
   #:if a > b &
       & or b > c &
@@ -1441,7 +1449,7 @@ invalid Fortran code. For comments within such lines, Fypps comment directive
   print *, "DO NOT DO THIS!"  ! Warning: Line may be folded within the comment
   print *, "This is OK."  #! Preprocessor comment is safe as it will be stripped
 
-For comments starting at the beginning of the line (preceeded by optional
+For comments starting at the beginning of the line (preceded by optional
 whitespace characters only) the folding is suppressed, though. This enables you
 to define macros with non-negligible comment lines (e.g. with source code
 documentation or OpenMP directives)::
@@ -1459,7 +1467,7 @@ documentation or OpenMP directives)::
 Escaping
 ========
 
-If you want to prevent Fypp to interprete something as a directive, put a
+If you want to prevent Fypp to interpret something as a directive, put a
 backslash (``\``) between the first and second delimiter character. In case of
 inline directives, do it for both, the opening and the closing delimiter::
 
@@ -1503,7 +1511,7 @@ produces the output ::
   :
   end program test
 
-If during compilation of this output an error occured in the line ``use mpi``
+If during compilation of this output an error occurred in the line ``use mpi``
 (e.g. the mpi module can not be found), the compiler would know that this line
 corresponds to line number 3 in the original file ``test.fpp`` and could emit an
 according error message.
@@ -1514,7 +1522,7 @@ accepts following mode arguments:
 * ``full``: Line numbering directives are emitted whenever lines are
   removed from the original source file or extra lines are added to it.
 
-* ``nocontlines``: Same as full, but line numbering directives are ommitted
+* ``nocontlines``: Same as full, but line numbering directives are omitted
   before continuation lines. (Some compilers, like the NAG Fortran compiler,
   have difficulties with line numbering directives before continuation lines).
 
@@ -1703,8 +1711,8 @@ First, we create an include file (``checks.fypp``) with the appropriate macros::
 
 Remarks:
 
-* All macro defintions are within a ``#:mute`` -- ``#:endmute`` pair in order to
-  prevent the appearence of disturbing empty lines (the lines between the macro
+* All macro definitions are within a ``#:mute`` -- ``#:endmute`` pair in order to
+  prevent the appearance of disturbing empty lines (the lines between the macro
   definitions) in the file which includes ``checks.fypp``.
 
 * The preprocessor variable ``DEBUG`` will determine, whether the checks
@@ -1984,7 +1992,7 @@ Waf
 
 For the `waf` build system the Fypp source tree contains extension modules in
 the folder ``tools/waf``. They use Fypps Python API, therefore, the ``fypp``
-module must be accessable from Python. Using those waf modules, you can
+module must be accessible from Python. Using those waf modules, you can
 formulate a Fypp preprocessed Fortran build like the example below::
 
   def options(opt):

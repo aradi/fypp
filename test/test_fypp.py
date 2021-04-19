@@ -1,12 +1,13 @@
 '''Unit tests for testing Fypp.'''
 import sys
+import platform
 import unittest
 import fypp
 
 def _linenum(linenr, fname=None, flag=None):
     if fname is None:
         fname = fypp.STRING
-    return fypp.linenumdir(linenr, fname, flag)
+    return fypp.linenumdir_cpp(linenr, fname, flag)
 
 def _defvar(var, val):
     return '-D{0}={1}'.format(var, val)
@@ -32,6 +33,9 @@ def _linenumbering(nummode):
 def _linenum_gfortran5():
     return '--line-marker-format=gfortran5'
 
+def _linenum_std():
+    return '--line-marker-format=std'
+
 def _importmodule(module):
     return '-m{0}'.format(module)
 
@@ -45,18 +49,6 @@ _NO_FOLDING_FLAG = '-F'
 _NEW_FILE = 1
 
 _RETURN_TO_FILE = 2
-
-
-# Some test flags, only to be used for exception tests, as the exception
-# stack could be different based on the python version
-
-_PYTHON_2 = 1
-
-_PYTHON_3 = 2
-
-_PYTHON_32_OR_BELOW = 3
-
-_PYTHON_33_OR_ABOVE = 4
 
 
 # Various basic tests
@@ -1363,6 +1355,18 @@ SIMPLE_TESTS = [
       '1\n'
      )
     ),
+    ('builtin_var_system',
+     ([],
+      '${_SYSTEM_}$',
+      platform.system()
+     )
+    ),
+    ('builtin_var_machine',
+     ([],
+      '${_MACHINE_}$',
+      platform.machine()
+     )
+    ),
     ('escaped_control_inline',
      ([],
       r'A#\{if False}\#B#\{endif}\#',
@@ -1727,6 +1731,13 @@ LINENUM_TESTS = [
      ([_LINENUM_FLAG, _linenum_gfortran5()],
       '',
       '# 1 "<string>" 1\n',
+     )
+    ),
+    # Explicit test for standard line number marker format
+    ('explicit_str_linenum_test_standard',
+     ([_LINENUM_FLAG, _linenum_std()],
+      '',
+      '#line 1 "<string>"\n',
      )
     ),
     ('trivial',
@@ -2580,20 +2591,11 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
-    ('tuple_macro_argument_py2',
-     ([],
-      '#:def alma((x, y))\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
-       (fypp.FyppFatalError, None, None)],
-     ),
-     _PYTHON_2
-    ),
-    ('tuple_macro_argument_py3',
+    ('tuple_macro_argument',
      ([],
       '#:def alma((x, y))\n#:enddef\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))],
      ),
-     _PYTHON_3
     ),
     ('repeated_keyword_argument',
      ([],
@@ -2615,20 +2617,12 @@ EXCEPTION_TESTS = [
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
-    ('macrodef_pos_arg_after_var_arg_py2_py32',
-     ([],
-      '#:def mymacro(A, *B, C)\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
-     ),
-     _PYTHON_32_OR_BELOW
-    ),
-    ('macrodef_pos_arg_after_var_arg_py33',
+    ('macrodef_pos_arg_after_var_arg',
      ([],
       '#:def mymacro(A, *B, C)\n#:enddef\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      ),
-     _PYTHON_33_OR_ABOVE
     ),
     ('macrodef_pos_arg_after_var_kwarg',
      ([],
@@ -2962,25 +2956,14 @@ def _get_test_exception_method(args, inp, exceptions):
                 self.assertTrue(raised.span is None)
             else:
                 self.assertEqual(span, raised.span)
-            raised = raised.cause
+            raised = raised.__cause__
         self.assertTrue(not isinstance(raised, fypp.FyppError))
 
     return test_exception
 
 
 def _test_needed(flag):
-    if flag == _PYTHON_2:
-        return sys.version_info[0] == 2
-    elif flag == _PYTHON_3:
-        return sys.version_info[0] == 3
-    elif flag == _PYTHON_32_OR_BELOW:
-        return (sys.version_info[0] == 2
-                or (sys.version_info[0] == 3 and sys.version_info[1] <= 2))
-    elif flag == _PYTHON_33_OR_ABOVE:
-        return (sys.version_info[0] == 3 and sys.version_info[1] >= 3)
-    else:
-        msg = 'invalid test flag ' + str(flag)
-        raise ValueError(msg)
+    return True
 
 
 class _TestContainer(unittest.TestCase):
@@ -3000,7 +2983,7 @@ class _TestContainer(unittest.TestCase):
         for itest, test in enumerate(tests):
             name = test[0]
             if name in already_added:
-                msg = "multiple occurance of test name '{0}'".format(name)
+                msg = "multiple occurrence of test name '{0}'".format(name)
                 raise ValueError(msg)
             already_added.add(name)
             testargs = test[1]
