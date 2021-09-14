@@ -172,19 +172,37 @@ Installing
 
 Fypp needs a working Python 3 interpreter (Python 3.5 or above).
 
+When you install Fypp, you obtain the command line tool ``fypp`` and the Python
+module ``fypp.py``. Latter you can import if you want to access the
+functionality of Fypp directly from within your Python scripts.
 
-Automatic install
------------------
 
-Use Pythons command line installer ``pip`` in order to download the stable
-release from the `Fypp page on PyPI <http://pypi.python.org/pypi/fypp>`_ and
-install it on your system::
+Installing via conda
+--------------------
 
-  pip install fypp
+The last stable release of Fypp can be easily installed as conda package by
+issuing ::
 
-This installs both, the command line tool ``fypp`` and the Python module
-``fypp.py``. Latter you can import if you want to access the functionality of
-Fypp directly from within your Python scripts.
+  conda install -c conda-forge fypp
+
+
+Installing via pip
+------------------
+
+You can also use Pythons command line installer ``pip`` in order to download the
+stable release from the `Fypp page on PyPI <http://pypi.python.org/pypi/fypp>`_
+and install it on your system.
+
+If you want to install Fypp into the module system of the active Python 3
+interpreter (typically the case when you are using a Python virtual
+environment), issue ::
+
+  pip3 install fypp
+
+Alternatively, you can install Fypp into the user space (under `~/.local`) with
+::
+
+  pip3 install --user fypp
 
 
 Manual install
