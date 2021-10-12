@@ -205,6 +205,19 @@ Alternatively, you can install Fypp into the user space (under `~/.local`) with
   pip3 install --user fypp
 
 
+Installing via MSYS2 pacman
+---------------------------
+
+On Windows you can use the `MSYS2 toolchain <https://www.msys2.org/>`_ to install
+Fypp in a MinGW terminal. To install Fypp use::
+
+  pacman -S mingw-w64-x86_64-python-fypp
+
+Make sure the selected architecture is matching your current MinGW terminal.
+For all supporting MinGW architectures visit check the package index
+`here <https://packages.msys2.org/base/mingw-w64-python-fypp>`_.
+
+
 Manual install
 --------------
 
