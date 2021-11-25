@@ -14,7 +14,7 @@ emphasis on robustness and on neat integration into developing toolchains.
 
 Fypp was inspired by the `pyratemp
 <http://www.simple-is-better.org/template/pyratemp.html>`_ templating engine
-[#]_. Although it shares many concepts with pyratemp, it was written from
+[1]_. Although it shares many concepts with pyratemp, it was written from
 scratch focusing on the special needs when preprocessing source code. Fypp
 natively supports the output of line numbering markers, which are used by
 many compilers to generate compiler messages with correct line numbers. Unlike
@@ -875,9 +875,9 @@ called, missing positional arguments will be replaced by their default value::
   $:macro(1)   #! Returns "X=1, Y=2, Z=3"
 
 Similar to Python, it is also possible to define macros with a variable number
-of positional or keyword arguments using the ``*`` and ``**`` argument
-prefixes. The corresponding arguments will contain the unprocessed positional
-and keywords arguments as a list and a dictionary, respectively::
+of positional or keyword arguments (variadic macros) using the ``*`` and ``**``
+argument prefixes. The corresponding arguments will contain the unprocessed
+positional and keywords arguments as a list and a dictionary, respectively::
 
   #:def macro(X, *VARPOS, **VARKW)
   pos: ${X}$
@@ -894,6 +894,26 @@ yields::
   pos: 1
   varpos: 2, 3,
   varkw: kw1->4, kw2->5,
+
+Macros can be invoked recursively. Together with the variadic arguments, this
+enables the realization of variadic templates (similar to C++) [2]_::
+
+  #:def horner(x, a, b, *args)
+  #:set res = "({} * {} + {})".format(a, x, b)
+  #:if len(args) > 0
+    #:set res = horner(x, res, args[0], *args[1:])
+  #:endif
+    $:res
+  #:enddef
+
+Calling the ``horner`` macro with ::
+
+  poly = @{horner(x, 2, 3, 4, 5, 6)}@
+
+would result in the Horner scheme with the specified coefficients::
+
+  poly = ((((2 * x + 3) * x + 4) * x + 5) * x + 6)
+
 
 
 Scopes
@@ -2115,5 +2135,8 @@ FyppError
 Notes
 *****
 
-.. [#] I am indebted to pyratemps author Roland Koebler for some helpful
+.. [1] I am indebted to pyratemps author Roland Koebler for some helpful
        discussions.
+
+.. [2] Many thanks to Ivan Pribec for pointing out the similarity to C++
+       variadic templates and bringing up the Horner scheme as example.
