@@ -899,7 +899,7 @@ Macros can be invoked recursively. Together with the variadic arguments, this
 enables the realization of variadic templates (similar to C++) [2]_::
 
   #:def horner(x, a, b, *args)
-  #:set res = "({} * {} + {})".format(a, x, b)
+  #:set res = "({} * {} + ({}))".format(a, x, b)
   #:if len(args) > 0
     #:set res = horner(x, res, args[0], *args[1:])
   #:endif
@@ -908,12 +908,11 @@ enables the realization of variadic templates (similar to C++) [2]_::
 
 Calling the ``horner`` macro with ::
 
-  poly = @{horner(x, 2, 3, 4, 5, 6)}@
+  poly = @{horner(x, 2, -3, 4, -5, 6)}@
 
 would result in the Horner scheme with the specified coefficients::
 
-  poly = ((((2 * x + 3) * x + 4) * x + 5) * x + 6)
-
+  poly = ((((2 * x + (-3)) * x + (4)) * x + (-5)) * x + (6))
 
 
 Scopes
