@@ -1710,6 +1710,12 @@ SIMPLE_TESTS = [
       'False\n\nFalse\n'
      )
     ),
+    ('define_with_equal_sign',
+     ([_defvar("A", "'a=b'")],
+      '${A}$',
+      'a=b'
+     )
+    ),
 ]
 
 

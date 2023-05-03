@@ -2579,7 +2579,7 @@ class Fypp:
     @staticmethod
     def _apply_definitions(defines, evaluator):
         for define in defines:
-            words = define.split('=', 2)
+            words = define.split('=', 1)
             name = words[0]
             value = None
             if len(words) > 1:
