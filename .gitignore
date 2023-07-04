@@ -8,3 +8,6 @@ docs/_build
 .tox
 _gitmsg.saved.txt
 
+
+### Project specific
+src/fypp/_version.py
