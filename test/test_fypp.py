@@ -1,9 +1,32 @@
 '''Unit tests for testing Fypp.'''
+from contextlib import contextmanager
+from os import getcwd, chdir
 from pathlib import Path
 import platform
 import unittest
 import fypp.fypp as fypp
 from fypp.cli import get_option_parser
+
+DIR = Path(__file__).parent.resolve()
+BASE = DIR.parent
+
+
+@contextmanager
+def cd(target):
+    """
+    Manage cd in a pushd/popd fashion.
+
+    Usage:
+
+        with cd(tmpdir):
+          do something in tmpdir
+    """
+    curdir = getcwd()
+    chdir(target)
+    try:
+        yield
+    finally:
+        chdir(curdir)
 
 
 def _linenum(linenr, fname=None, flag=None):
@@ -1413,7 +1436,7 @@ SIMPLE_TESTS = [
     ),
     ('escape_comment',
      ([],
-      'A\n  #\! Comment\n',
+      'A\n  #\\! Comment\n',
       'A\n  #! Comment\n',
      )
     ),
@@ -2151,8 +2174,8 @@ INPUT_FILE_TESTS = [
         )
     ),
     ('file_var_root_abs',
-        ([f"--file-var-root={Path.cwd()}"],
-         f"{Path.cwd() / 'input/filevarroot.fypp'}",
+        ([f"--file-var-root={DIR}"],
+         f"{DIR / 'input/filevarroot.fypp'}",
          'FILE: input/filevarroot.fypp:1\n'
          'THIS_FILE: input/filevarroot.fypp:2\n'
          '---\n'
@@ -2961,8 +2984,10 @@ def _get_test_output_method(args, inp, out):
         parser = get_option_parser()
         options, leftover = parser.parse_known_args(args)
         self.assertEqual(len(leftover), 0)
-        tool = fypp.Fypp(options)
-        result = tool.process_text(inp)
+        # TODO: Use proper test fixture to temporary folder
+        with cd(DIR):
+            tool = fypp.Fypp(options)
+            result = tool.process_text(inp)
         self.assertEqual(out, result)
     return test_output
 
@@ -2984,8 +3009,10 @@ def _get_test_output_from_file_input_method(args, inputfile, out):
         parser = get_option_parser()
         options, leftover = parser.parse_known_args(args)
         self.assertEqual(len(leftover), 0)
-        tool = fypp.Fypp(options)
-        result = tool.process_file(inputfile)
+        # TODO: Use proper test fixture to temporary folder
+        with cd(DIR):
+            tool = fypp.Fypp(options)
+            result = tool.process_file(inputfile)
         self.assertEqual(out, result)
     return test_output_from_file_input
 
@@ -3011,8 +3038,10 @@ def _get_test_exception_method(args, inp, exceptions):
         options, leftover = parser.parse_known_args(args)
         self.assertEqual(len(leftover), 0)
         try:
-            tool = fypp.Fypp(options)
-            _ = tool.process_text(inp)
+            # TODO: Use proper test fixture to temporary folder
+            with cd(DIR):
+                tool = fypp.Fypp(options)
+                _ = tool.process_text(inp)
         except Exception as e:
             raised = e
         else:
