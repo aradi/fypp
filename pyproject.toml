@@ -43,7 +43,7 @@ documentation = "https://fypp.readthedocs.io/"
 repository = "https://github.com/aradi/fypp"
 
 [project.scripts]
-fypp = "fypp:run_fypp"
+fypp = "fypp.cli:run_fypp"
 
 [project.optional-dependencies]
 test = [
