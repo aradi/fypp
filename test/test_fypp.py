@@ -2,7 +2,8 @@
 from pathlib import Path
 import platform
 import unittest
-import fypp
+import fypp.fypp as fypp
+from fypp.cli import get_option_parser
 
 
 def _linenum(linenr, fname=None, flag=None):
@@ -2957,8 +2958,8 @@ def _get_test_output_method(args, inp, out):
 
     def test_output(self):
         '''Tests whether Fypp result matches expected output.'''
-        optparser = fypp.get_option_parser()
-        options, leftover = optparser.parse_args(args)
+        parser = get_option_parser()
+        options, leftover = parser.parse_known_args(args)
         self.assertEqual(len(leftover), 0)
         tool = fypp.Fypp(options)
         result = tool.process_text(inp)
@@ -2980,8 +2981,8 @@ def _get_test_output_from_file_input_method(args, inputfile, out):
 
     def test_output_from_file_input(self):
         '''Tests whether Fypp result matches expected output when input is in a file.'''
-        optparser = fypp.get_option_parser()
-        options, leftover = optparser.parse_args(args)
+        parser = get_option_parser()
+        options, leftover = parser.parse_known_args(args)
         self.assertEqual(len(leftover), 0)
         tool = fypp.Fypp(options)
         result = tool.process_file(inputfile)
@@ -3006,8 +3007,8 @@ def _get_test_exception_method(args, inp, exceptions):
 
     def test_exception(self):
         '''Tests whether Fypp throws the correct exception.'''
-        optparser = fypp.get_option_parser()
-        options, leftover = optparser.parse_args(args)
+        parser = get_option_parser()
+        options, leftover = parser.parse_known_args(args)
         self.assertEqual(len(leftover), 0)
         try:
             tool = fypp.Fypp(options)
