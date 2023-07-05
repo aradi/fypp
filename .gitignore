@@ -13,3 +13,4 @@ cmake-build-*
 
 ### Project specific
 src/fypp/_version.py
+CMakeUserPresets.json
