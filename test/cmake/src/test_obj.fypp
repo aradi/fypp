@@ -1,0 +1,3 @@
+module test_obj_m
+  integer :: a
+end module test_obj_m

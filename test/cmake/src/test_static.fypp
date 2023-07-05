@@ -1,0 +1,3 @@
+module test_static_m
+  integer :: a
+end module test_static_m
