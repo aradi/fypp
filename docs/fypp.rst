@@ -1682,6 +1682,41 @@ in scope 1, and scope 1 is the first scope in the lookup order, which provides a
 value for X.
 
 
+Rendering file names as relative paths
+======================================
+
+When the input file is specified as an absolute path (e.g. during an
+out-of-source build), the variables ``_FILE_`` and ``_THIS_FILE_`` will also
+contain absolute paths. This might result in file names, which are unnecessary
+long and might reveal unwanted information about the directory structure on the
+building host.
+
+The ``--file-var-root`` option converts the paths in ``_FILE_`` and
+``_THIS_FILE_`` to relative paths with respect to a specified root folder.
+Given the file `source.fpp`::
+
+  [...]
+  call fatal_error("Error in ${_FILE_}$:${_LINE_}$")
+
+invoking with Fypp with ::
+
+  fypp /home/user/projectdir/src/source.fpp
+
+results in ::
+
+  [...]
+  call fatal_error("Error in /home/user/projectdir/src/source.fpp:2")
+
+while using the ``--file-var-root`` option ::
+
+  fypp --file-var-root=/home/user/projectdir /home/user/projectdir/src/source.fpp
+
+yields ::
+
+  [...]
+  call fatal_error("Error in src/source.fpp:2")
+
+
 Exit codes
 ==========
 

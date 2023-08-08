@@ -9,6 +9,9 @@ Unreleased
 Added
 -----
 
+* Option ``--file-var-root`` to render file variables (``_FILE_``,
+  ``_THIS_FILE``) as relative paths with respect to a specified root.
+
 
 Changed
 -------
