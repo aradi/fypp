@@ -3,7 +3,7 @@ testdir="$(dirname $0)"
 if [ $# -gt 0 ]; then
   pythons=$*
 else
-  pythons="python"
+  pythons="python3"
 fi
 root=".."
 if [ -z "$PYTHONPATH" ]; then

@@ -14,7 +14,7 @@ emphasis on robustness and on neat integration into developing toolchains.
 
 Fypp was inspired by the `pyratemp
 <http://www.simple-is-better.org/template/pyratemp.html>`_ templating engine
-[#]_. Although it shares many concepts with pyratemp, it was written from
+[1]_. Although it shares many concepts with pyratemp, it was written from
 scratch focusing on the special needs when preprocessing source code. Fypp
 natively supports the output of line numbering markers, which are used by
 many compilers to generate compiler messages with correct line numbers. Unlike
@@ -29,7 +29,7 @@ documentation available on `readthedocs.org
 <http://fypp.readthedocs.org>`_. Fypp is released under the *BSD 2-clause
 license*.
 
-This document describes Fypp Version 3.1.
+This document describes Fypp Version 3.2.
 
 
 Features
@@ -189,22 +189,39 @@ Getting started
 Installing
 ==========
 
-Fypp needs a working Python interpreter. It is compatible with Python 2 (version
-2.6 and above) and Python 3 (all versions).
+Fypp needs a working Python 3 interpreter (Python 3.5 or above).
+
+When you install Fypp, you obtain the command line tool ``fypp`` and the Python
+module ``fypp.py``. Latter you can import if you want to access the
+functionality of Fypp directly from within your Python scripts.
 
 
-Automatic install
------------------
+Installing via conda
+--------------------
 
-Use Pythons command line installer ``pip`` in order to download the stable
-release from the `Fypp page on PyPI <http://pypi.python.org/pypi/fypp>`_ and
-install it on your system::
+The last stable release of Fypp can be easily installed as conda package by
+issuing ::
 
-  pip install fypp
+  conda install -c conda-forge fypp
 
-This installs both, the command line tool ``fypp`` and the Python module
-``fypp.py``. Latter you can import if you want to access the functionality of
-Fypp directly from within your Python scripts.
+
+Installing via pip
+------------------
+
+You can also use Pythons command line installer ``pip`` in order to download the
+stable release from the `Fypp page on PyPI <http://pypi.python.org/pypi/fypp>`_
+and install it on your system.
+
+If you want to install Fypp into the module system of the active Python 3
+interpreter (typically the case when you are using a Python virtual
+environment), issue ::
+
+  pip3 install fypp
+
+Alternatively, you can install Fypp into the user space (under `~/.local`) with
+::
+
+  pip3 install --user fypp
 
 
 Manual install
@@ -858,9 +875,9 @@ called, missing positional arguments will be replaced by their default value::
   $:macro(1)   #! Returns "X=1, Y=2, Z=3"
 
 Similar to Python, it is also possible to define macros with a variable number
-of positional or keyword arguments using the ``*`` and ``**`` argument
-prefixes. The corresponding arguments will contain the unprocessed positional
-and keywords arguments as a list and a dictionary, respectively::
+of positional or keyword arguments (variadic macros) using the ``*`` and ``**``
+argument prefixes. The corresponding arguments will contain the unprocessed
+positional and keywords arguments as a list and a dictionary, respectively::
 
   #:def macro(X, *VARPOS, **VARKW)
   pos: ${X}$
@@ -877,6 +894,25 @@ yields::
   pos: 1
   varpos: 2, 3,
   varkw: kw1->4, kw2->5,
+
+Macros can be invoked recursively. Together with the variadic arguments, this
+enables the realization of variadic templates (similar to C++) [2]_::
+
+  #:def horner(x, a, b, *args)
+  #:set res = "({} * {} + ({}))".format(a, x, b)
+  #:if len(args) > 0
+    #:set res = horner(x, res, args[0], *args[1:])
+  #:endif
+    $:res
+  #:enddef
+
+Calling the ``horner`` macro with ::
+
+  poly = @{horner(x, 2, -3, 4, -5, 6)}@
+
+would result in the Horner scheme with the specified coefficients::
+
+  poly = ((((2 * x + (-3)) * x + (4)) * x + (-5)) * x + (6))
 
 
 Scopes
@@ -1646,6 +1682,41 @@ in scope 1, and scope 1 is the first scope in the lookup order, which provides a
 value for X.
 
 
+Rendering file names as relative paths
+======================================
+
+When the input file is specified as an absolute path (e.g. during an
+out-of-source build), the variables ``_FILE_`` and ``_THIS_FILE_`` will also
+contain absolute paths. This might result in file names, which are unnecessary
+long and might reveal unwanted information about the directory structure on the
+building host.
+
+The ``--file-var-root`` option converts the paths in ``_FILE_`` and
+``_THIS_FILE_`` to relative paths with respect to a specified root folder.
+Given the file `source.fpp`::
+
+  [...]
+  call fatal_error("Error in ${_FILE_}$:${_LINE_}$")
+
+invoking with Fypp with ::
+
+  fypp /home/user/projectdir/src/source.fpp
+
+results in ::
+
+  [...]
+  call fatal_error("Error in /home/user/projectdir/src/source.fpp:2")
+
+while using the ``--file-var-root`` option ::
+
+  fypp --file-var-root=/home/user/projectdir /home/user/projectdir/src/source.fpp
+
+yields ::
+
+  [...]
+  call fatal_error("Error in src/source.fpp:2")
+
+
 Exit codes
 ==========
 
@@ -2098,5 +2169,8 @@ FyppError
 Notes
 *****
 
-.. [#] I am indebted to pyratemps author Roland Koebler for some helpful
+.. [1] I am indebted to pyratemps author Roland Koebler for some helpful
        discussions.
+
+.. [2] Many thanks to Ivan Pribec for pointing out the similarity to C++
+       variadic templates and bringing up the Horner scheme as example.

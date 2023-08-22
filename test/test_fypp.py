@@ -1,8 +1,9 @@
 '''Unit tests for testing Fypp.'''
-import sys
+from pathlib import Path
 import platform
 import unittest
 import fypp
+
 
 def _linenum(linenr, fname=None, flag=None):
     if fname is None:
@@ -1710,6 +1711,12 @@ SIMPLE_TESTS = [
       'False\n\nFalse\n'
      )
     ),
+    ('define_with_equal_sign',
+     ([_defvar("A", "'a=b'")],
+      '${A}$',
+      'a=b'
+     )
+    ),
 ]
 
 
@@ -2112,6 +2119,45 @@ INCLUDE_TESTS = [
       'START\n#:mute\n#:include \'fypp1.inc\'\n#:endmute\nDONE\n',
       _linenum(0) + 'START\n' + _linenum(4) + 'DONE\n'
      )
+    ),
+]
+
+
+# Tests which needs actual files as input
+#
+# Each test consists of a tuple containing the test name and a tuple with the
+# arguments of the get_test_output_from_file_input_method() routine.
+#
+INPUT_FILE_TESTS = [
+    ('file_var_substitution',
+        ([],
+         "input/filevarroot.fypp",
+         'FILE: input/filevarroot.fypp:1\n'
+         'THIS_FILE: input/filevarroot.fypp:2\n'
+         '---\n'
+         'FILE: input/filevarroot.fypp:5\n'
+         'THIS_FILE: input/filevarroot.inc:3\n'
+        )
+    ),
+    ('file_var_root_rel',
+        (["--file-var-root=input"],
+         "input/filevarroot.fypp",
+         'FILE: filevarroot.fypp:1\n'
+         'THIS_FILE: filevarroot.fypp:2\n'
+         '---\n'
+         'FILE: filevarroot.fypp:5\n'
+         'THIS_FILE: filevarroot.inc:3\n'
+        )
+    ),
+    ('file_var_root_abs',
+        ([f"--file-var-root={Path.cwd()}"],
+         f"{Path.cwd() / 'input/filevarroot.fypp'}",
+         'FILE: input/filevarroot.fypp:1\n'
+         'THIS_FILE: input/filevarroot.fypp:2\n'
+         '---\n'
+         'FILE: input/filevarroot.fypp:5\n'
+         'THIS_FILE: input/filevarroot.inc:3\n'
+        )
     ),
 ]
 
@@ -2920,6 +2966,30 @@ def _get_test_output_method(args, inp, out):
     return test_output
 
 
+def _get_test_output_from_file_input_method(args, inputfile, out):
+    '''Returns a test method for checking correctness of Fypp output.
+
+    Args:
+        args (list of str): Command-line arguments to pass to Fypp.
+        inputfile (str): Input file with Fypp directives.
+        out (str): Expected output.
+
+    Returns:
+       method: Method to test equality of output with result delivered by Fypp.
+    '''
+
+    def test_output_from_file_input(self):
+        '''Tests whether Fypp result matches expected output when input is in a file.'''
+        optparser = fypp.get_option_parser()
+        options, leftover = optparser.parse_args(args)
+        self.assertEqual(len(leftover), 0)
+        tool = fypp.Fypp(options)
+        result = tool.process_file(inputfile)
+        self.assertEqual(out, result)
+    return test_output_from_file_input
+
+
+
 def _get_test_exception_method(args, inp, exceptions):
     '''Returns a test method for checking correctness of thrown exception.
 
@@ -3004,6 +3074,11 @@ LineNumberingTest.add_test_methods(LINENUM_TESTS, _get_test_output_method)
 
 class IncludeTest(_TestContainer): pass
 IncludeTest.add_test_methods(INCLUDE_TESTS, _get_test_output_method)
+
+class InputFileTest(_TestContainer): pass
+InputFileTest.add_test_methods(
+    INPUT_FILE_TESTS, _get_test_output_from_file_input_method
+)
 
 class ExceptionTest(_TestContainer): pass
 ExceptionTest.add_test_methods(EXCEPTION_TESTS, _get_test_exception_method)
