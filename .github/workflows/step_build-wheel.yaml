@@ -1,0 +1,29 @@
+on:
+  workflow_call:
+    inputs:
+      upload:
+        description: Upload wheel as artifact
+        required: false
+        type: boolean
+        default: true
+      ref:
+        description: Tag to release
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Build package
+        run: pipx run build
+      - uses: actions/upload-artifact@v3
+        with:
+          path: dist/*
+        if: ${{ inputs.upload }}
