@@ -1,0 +1,52 @@
+name: Prepare release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag to release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    uses: ./.github/workflows/step_test.yaml
+  build-wheel:
+    needs: [ tests ]
+    uses: ./.github/workflows/step_build-wheel.yaml
+    with:
+      ref: ${{ inputs.ref }}
+  upload_pypi:
+    name: Upload to PyPI repository
+    needs: [ tests, build-wheel ]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/click-option-group/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: artifact
+          path: dist
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+  release:
+    needs: [ upload_pypi ]
+    name: Create release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: softprops/action-gh-release@v1
+        with:
+          name: click-option-group ${{ github.ref_name }}
+          prerelease: ${{ contains(github.ref, 'rc') }}
+          generate_release_notes: true
