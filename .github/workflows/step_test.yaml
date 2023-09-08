@@ -1,0 +1,45 @@
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Check with Python ${{ matrix.python-version }} ${{ matrix.experimental && '(Experimental)' }}
+    needs: [ pre-commit ]
+    continue-on-error: ${{ matrix.experimental || false }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.7", "3.8", "3.9", "3.10", "3.11", "3.12" ]
+        include:
+          - python-version: "3.12"
+            experimental: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      - name: Install package
+        run: pip install -e .[test-cov]
+      - name: Test package
+        run: pytest --cov --cov-report=xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          name: python ${{ matrix.python-version }}
+          flags: python-${{ matrix.python-version }}
+
+  pass:
+    needs: [ tests ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check test jobs
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
+    if: always()

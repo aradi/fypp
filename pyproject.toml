@@ -49,6 +49,10 @@ fypp = "fypp.cli:run_fypp"
 test = [
     "pytest",
 ]
+test-cov = [
+    "fypp[test]",
+    "pytest-cov",
+]
 docs = [
     "sphinx",
     "sphinx-rtd-theme",
