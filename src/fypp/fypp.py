@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 ################################################################################
 #
 # fypp -- Python powered Fortran preprocessor
@@ -37,7 +35,7 @@ Python, one usually interacts with the following two classes:
 * `Fypp`_: The actual Fypp preprocessor. It returns for a given input
   the preprocessed output.
 
-* `FyppOptions`_: Contains customizable settings controlling the behaviour of
+* `FyppDefaults`_: Contains customizable settings controlling the behaviour of
   `Fypp`_. Alternatively, the function `get_option_parser()`_ can be used to
   obtain an option parser, which can create settings based on command line
   arguments.
@@ -62,11 +60,10 @@ import optparse
 import io
 import platform
 import builtins
+import warnings
 
 # Prevent cluttering user directory with Python bytecode
 sys.dont_write_bytecode = True
-
-VERSION = '3.2'
 
 STDIN = '<stdin>'
 
@@ -2435,10 +2432,10 @@ class Fypp:
         tool = fypp.Fypp()
         output = tool.process_text('#:if DEBUG > 0\\nprint *, "DEBUG"\\n#:endif\\n')
 
-    If you want to fine tune Fypps behaviour, pass a customized `FyppOptions`_
+    If you want to fine tune Fypps behaviour, pass a customized `FyppDefaults`_
     instance at initialization::
 
-        options = fypp.FyppOptions()
+        options = fypp.FyppDefaults()
         options.fixed_format = True
         tool = fypp.Fypp(options)
 
@@ -2476,9 +2473,9 @@ class Fypp:
 
     Args:
         options (object): Object containing the settings for Fypp. You typically
-            would pass a customized `FyppOptions`_ instance or an
+            would pass a customized `FyppDefaults`_ instance or an
             ``optparse.Values`` object as returned by the option parser. If not
-            present, the default settings in `FyppOptions`_ are used.
+            present, the default settings in `FyppDefaults`_ are used.
         evaluator_factory (function): Factory function that returns an Evaluator
             object. Its call signature must match that of the Evaluator
             constructor. If not present, ``Evaluator`` is used.
@@ -2499,7 +2496,7 @@ class Fypp:
         syspath = self._get_syspath_without_scriptdir()
         self._adjust_syspath(syspath)
         if options is None:
-            options = FyppOptions()
+            options = FyppDefaults()
         if inspect.signature(evaluator_factory) == inspect.signature(Evaluator):
             evaluator = evaluator_factory()
         else:
@@ -2509,7 +2506,10 @@ class Fypp:
             self._import_modules(options.modules, evaluator, syspath,
                                  options.moduledirs)
         if options.defines:
-            self._apply_definitions(options.defines, evaluator)
+            # For normal text reuse the evaluator, but interpret the values as string
+            self._apply_python_definitions(options.defines, evaluator, as_string=True)
+        if options.python_defines:
+            self._apply_python_definitions(options.python_defines, evaluator)
         if inspect.signature(parser_factory) == inspect.signature(Parser):
             parser = parser_factory(includedirs=options.includes,
                                     encoding=self._encoding)
@@ -2588,18 +2588,21 @@ class Fypp:
 
 
     @staticmethod
-    def _apply_definitions(defines, evaluator):
+    def _apply_python_definitions(defines, evaluator, as_string=False):
         for define in defines:
             words = define.split('=', 1)
             name = words[0]
             value = None
             if len(words) > 1:
-                try:
-                    value = evaluator.evaluate(words[1])
-                except Exception as exc:
-                    msg = "exception at evaluating '{0}' in definition for " \
-                          "'{1}'".format(words[1], name)
-                    raise FyppFatalError(msg) from exc
+                if as_string:
+                    value = words[1]
+                else:
+                    try:
+                        value = evaluator.evaluate(words[1])
+                    except Exception as exc:
+                        msg = "exception at evaluating '{0}' in definition for " \
+                              "'{1}'".format(words[1], name)
+                        raise FyppFatalError(msg) from exc
             evaluator.define(name, value)
 
 
@@ -2630,7 +2633,7 @@ class Fypp:
         sys.path = syspath
 
 
-class FyppOptions(optparse.Values):
+class FyppDefaults:
 
     '''Container for Fypp options with default values.
 
@@ -2671,6 +2674,8 @@ class FyppOptions(optparse.Values):
     def __init__(self):
         optparse.Values.__init__(self)
         self.defines = []
+        self.python_defines = []
+        self.define_type = 'python'
         self.includes = []
         self.line_numbering = False
         self.line_numbering_mode = 'full'
@@ -2805,131 +2810,6 @@ class DummyLineFolder:
                 representation.
         '''
         return [line]
-
-
-def get_option_parser():
-    '''Returns an option parser for the Fypp command line tool.
-
-    Returns:
-        OptionParser: Parser which can create an optparse.Values object with
-            Fypp settings based on command line arguments.
-    '''
-    defs = FyppOptions()
-    fypp_name = 'fypp'
-    fypp_desc = 'Preprocesses source code with Fypp directives. The input is '\
-                'read from INFILE (default: \'-\', stdin) and written to '\
-                'OUTFILE (default: \'-\', stdout).'
-    fypp_version = fypp_name + ' ' + VERSION
-    usage = '%prog [options] [INFILE] [OUTFILE]'
-    parser = optparse.OptionParser(prog=fypp_name, description=fypp_desc,
-                                   version=fypp_version, usage=usage)
-
-    msg = 'define variable, value is interpreted as ' \
-          'Python expression (e.g \'-DDEBUG=1\' sets DEBUG to the ' \
-          'integer 1) or set to None if omitted'
-    parser.add_option('-D', '--define', action='append', dest='defines',
-                      metavar='VAR[=VALUE]', default=defs.defines, help=msg)
-
-    msg = 'add directory to the search paths for include files'
-    parser.add_option('-I', '--include', action='append', dest='includes',
-                      metavar='INCDIR', default=defs.includes, help=msg)
-
-    msg = 'import a python module at startup (import only trustworthy modules '\
-          'as they have access to an **unrestricted** Python environment!)'
-    parser.add_option('-m', '--module', action='append', dest='modules',
-                      metavar='MOD', default=defs.modules, help=msg)
-
-    msg = 'directory to be searched for user imported modules before '\
-          'looking up standard locations in sys.path'
-    parser.add_option('-M', '--module-dir', action='append',
-                      dest='moduledirs', metavar='MODDIR',
-                      default=defs.moduledirs, help=msg)
-
-    msg = 'emit line numbering markers'
-    parser.add_option('-n', '--line-numbering', action='store_true',
-                      dest='line_numbering', default=defs.line_numbering,
-                      help=msg)
-
-    msg = 'line numbering mode, \'full\' (default): line numbering '\
-          'markers generated whenever source and output lines are out '\
-          'of sync, \'nocontlines\': line numbering markers omitted '\
-          'for continuation lines'
-    parser.add_option('-N', '--line-numbering-mode', metavar='MODE',
-                      choices=['full', 'nocontlines'],
-                      default=defs.line_numbering_mode,
-                      dest='line_numbering_mode', help=msg)
-
-    msg = 'line numbering marker format,  currently \'std\', \'cpp\' and '\
-          '\'gfortran5\' are supported, where \'std\' emits #line pragmas '\
-          'similar to standard tools, \'cpp\' produces line directives as '\
-          'emitted by GNU cpp, and \'gfortran5\' cpp line directives with a '\
-          'workaround for a bug introduced in GFortran 5. Default: \'cpp\'.'
-    parser.add_option('--line-marker-format', metavar='FMT',
-                      choices=['cpp', 'gfortran5', 'std'],
-                      dest='line_marker_format',
-                      default=defs.line_marker_format, help=msg)
-
-    msg = 'maximal line length (default: 132), lines modified by the '\
-          'preprocessor are folded if becoming longer'
-    parser.add_option('-l', '--line-length', type=int, metavar='LEN',
-                      dest='line_length', default=defs.line_length, help=msg)
-
-    msg = 'line folding mode, \'smart\' (default): indentation context '\
-          'and whitespace aware, \'simple\': indentation context aware, '\
-          '\'brute\': mechnical folding'
-    parser.add_option('-f', '--folding-mode', metavar='MODE',
-                      choices=['smart', 'simple', 'brute'], dest='folding_mode',
-                      default=defs.folding_mode, help=msg)
-
-    msg = 'suppress line folding'
-    parser.add_option('-F', '--no-folding', action='store_true',
-                      dest='no_folding', default=defs.no_folding, help=msg)
-
-    msg = 'indentation to use for continuation lines (default 4)'
-    parser.add_option('--indentation', type=int, metavar='IND',
-                      dest='indentation', default=defs.indentation, help=msg)
-
-    msg = 'produce fixed format output (any settings for options '\
-          '--line-length, --folding-method and --indentation are ignored)'
-    parser.add_option('--fixed-format', action='store_true',
-                      dest='fixed_format', default=defs.fixed_format, help=msg)
-
-    msg = 'character encoding for reading/writing files. Default: \'utf-8\'. '\
-          'Note: reading from stdin and writing to stdout is encoded '\
-          'according to the current locale and is not affected by this setting.'
-    parser.add_option('--encoding', metavar='ENC', default=defs.encoding,
-                      help=msg)
-
-    msg = 'create parent folders of the output file if they do not exist'
-    parser.add_option('-p', '--create-parents', action='store_true',
-                      dest='create_parent_folder',
-                      default=defs.create_parent_folder, help=msg)
-
-    msg = 'in variables _FILE_ and _THIS_FILE_, use relative paths with DIR '\
-          'as root directory. Note: the input file and all included files '\
-          'must be in DIR or in a directory below.'
-    parser.add_option('--file-var-root', metavar='DIR', dest='file_var_root',
-                      default=defs.file_var_root, help=msg)
-
-    return parser
-
-
-def run_fypp():
-    '''Run the Fypp command line tool.'''
-    options = FyppOptions()
-    optparser = get_option_parser()
-    opts, leftover = optparser.parse_args(values=options)
-    infile = leftover[0] if len(leftover) > 0 else '-'
-    outfile = leftover[1] if len(leftover) > 1 else '-'
-    try:
-        tool = Fypp(opts)
-        tool.process_file(infile, outfile)
-    except FyppStopRequest as exc:
-        sys.stderr.write(_formatted_exception(exc))
-        sys.exit(USER_ERROR_EXIT_CODE)
-    except FyppFatalError as exc:
-        sys.stderr.write(_formatted_exception(exc))
-        sys.exit(ERROR_EXIT_CODE)
 
 
 def linenumdir_cpp(linenr, fname, flag=None):
@@ -3082,7 +2962,3 @@ def _formatted_exception(exc):
         out.append('\n' + _formatted_exception(exc.__cause__))
     out.append('\n')
     return ''.join(out)
-
-
-if __name__ == '__main__':
-    run_fypp()

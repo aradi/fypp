@@ -1,0 +1,3 @@
+module test_shared_m
+  integer :: a
+end module test_shared_m

@@ -8,3 +8,9 @@ docs/_build
 .tox
 _gitmsg.saved.txt
 
+### Basic setups
+cmake-build-*
+
+### Project specific
+src/fypp/_version.py
+CMakeUserPresets.json

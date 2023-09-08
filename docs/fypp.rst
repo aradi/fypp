@@ -2145,10 +2145,10 @@ Fypp
    :members:
 
 
-FyppOptions
+FyppDefaults
 ===========
 
-.. autoclass:: FyppOptions
+.. autoclass:: FyppDefaults
    :members:
 
 
