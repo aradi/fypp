@@ -2110,7 +2110,7 @@ very first version of this example)::
       set(infile "${CMAKE_CURRENT_SOURCE_DIR}/${infileName}")
 
       # Custom command to do the processing
-      add_custom-command(
+      add_custom_command(
           OUTPUT "${outfile}"
           COMMAND fypp "${infile}" "${outfile}"
           MAIN_DEPENDENCY "${infile}"
