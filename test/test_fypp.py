@@ -1,7 +1,13 @@
 '''Unit tests for testing Fypp.'''
 from pathlib import Path
+import os
 import platform
+import sys
 import unittest
+
+# Allow for importing fypp
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
 import fypp
 
 
