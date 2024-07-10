@@ -119,6 +119,9 @@ _SET_PARAM_REGEXP = re.compile(
 _DEL_PARAM_REGEXP = re.compile(
     r'^(?:[(]\s*)?[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*(?:\s*[)])?$')
 
+_IMPORT_PARAM_REGEXP = re.compile(
+    r'^(?:[(]\s*)?[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*(?:\s*[)])?$')
+
 _FOR_PARAM_REGEXP = re.compile(
     r'^(?P<loopexpr>[a-zA-Z_]\w*(\s*,\s*[a-zA-Z_]\w*)*)\s+in\s+(?P<iter>.+)$')
 
@@ -347,6 +350,18 @@ class Parser:
             name (str): Name of the variable to delete.
         '''
         self._log_event('del', span, name=name)
+
+
+    def handle_import(self, span, name):
+        '''Called when parser encounters an import directive.
+
+        It is a dummy method and should be overridden for actual use.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+            name (str): Name of the variable to delete.
+        '''
+        self._log_event('import', span, name=name)
 
 
     def handle_if(self, span, cond):
@@ -652,6 +667,9 @@ class Parser:
         elif directive == 'del':
             self._check_param_presence(True, 'del', param, span)
             self._process_del(param, span)
+        elif directive == 'import':
+            self._check_param_presence(True, 'import', param, span)
+            self._process_import(param, span)
         elif directive == 'for':
             self._check_param_presence(True, 'for', param, span)
             self._process_for(param, span)
@@ -763,6 +781,14 @@ class Parser:
             msg = "invalid variable specification '{0}'".format(param)
             raise FyppFatalError(msg, self._curfile, span)
         self.handle_del(span, param)
+
+
+    def _process_import(self, param, span):
+        match = _IMPORT_PARAM_REGEXP.match(param)
+        if not match:
+            msg = "invalid module name specification '{0}'".format(param)
+            raise FyppFatalError(msg, self._curfile, span)
+        self.handle_import(span, param)
 
 
     def _process_for(self, param, span):
@@ -1196,6 +1222,16 @@ class Builder:
         self._curnode.append(('del', self._curfile, span, name))
 
 
+    def handle_import(self, span, name):
+        '''Should be called to signalize an import directive.
+
+        Args:
+            span (tuple of int): Start and end line of the directive.
+            name (str): Name of the variable(s) to delete.
+        '''
+        self._curnode.append(('import', self._curfile, span, name))
+
+
     def handle_eval(self, span, expr):
         '''Should be called to signalize an eval directive.
 
@@ -1424,6 +1460,8 @@ class Renderer:
                 output.append(result)
             elif cmd == 'del':
                 self._delete_variable(*node[1:4])
+            elif cmd == 'import':
+                self._load_module(*node[1:4])
             elif cmd == 'for':
                 out, ieval, peval = self._get_iterated_content(*node[1:6])
                 eval_inds += _shiftinds(ieval, len(output))
@@ -1679,6 +1717,20 @@ class Renderer:
             self._evaluator.undefine(name)
         except Exception as exc:
             msg = "exception occurred when deleting variable(s) '{0}'"\
+                  .format(name)
+            raise FyppFatalError(msg, fname, span) from exc
+        multiline = (span[0] != span[1])
+        if self._linenums and not self._diverted and multiline:
+            result = self._linenumdir(span[1], fname)
+        return result
+
+
+    def _load_module(self, fname, span, name):
+        result = ''
+        try:
+            self._evaluator.load(name)
+        except Exception as exc:
+            msg = "exception occurred when importing module(s) '{0}'"\
                   .format(name)
             raise FyppFatalError(msg, fname, span) from exc
         multiline = (span[0] != span[1])
@@ -2059,6 +2111,18 @@ class Evaluator:
                 raise FyppFatalError(msg)
 
 
+    def load(self, name):
+        '''Load modules.
+
+        Args:
+            name (str): Name(s) of the module(s) to load.
+        '''
+        modnames = self._get_variable_names(name)
+        for modname in modnames:
+            self._check_variable_name(modname)
+            self.import_module(modname)
+
+
     def addglobal(self, name):
         '''Define a given entity as global.
 
@@ -2374,6 +2438,7 @@ class Processor:
         self._parser.handle_enddef = self._builder.handle_enddef
         self._parser.handle_set = self._builder.handle_set
         self._parser.handle_del = self._builder.handle_del
+        self._parser.handle_import = self._builder.handle_import
         self._parser.handle_global = self._builder.handle_global
         self._parser.handle_for = self._builder.handle_for
         self._parser.handle_endfor = self._builder.handle_endfor
@@ -2496,18 +2561,22 @@ class Fypp:
     def __init__(self, options=None, evaluator_factory=Evaluator,
                  parser_factory=Parser, builder_factory=Builder,
                  renderer_factory=Renderer):
-        syspath = self._get_syspath_without_scriptdir()
-        self._adjust_syspath(syspath)
         if options is None:
             options = FyppOptions()
+        syspath = self._get_syspath_without_scriptdir()
+        lookuppath = []
+        if options.moduledirs is not None:
+            lookuppath += [os.path.abspath(moddir) for moddir in options.moduledirs]
+        lookuppath.append(os.path.abspath('.'))
+        lookuppath += syspath
+        self._adjust_syspath(lookuppath)
         if inspect.signature(evaluator_factory) == inspect.signature(Evaluator):
             evaluator = evaluator_factory()
         else:
             raise FyppFatalError('evaluator_factory has incorrect signature')
         self._encoding = options.encoding
         if options.modules:
-            self._import_modules(options.modules, evaluator, syspath,
-                                 options.moduledirs)
+            self._import_modules(options.modules, evaluator)
         if options.defines:
             self._apply_definitions(options.defines, evaluator)
         if inspect.signature(parser_factory) == inspect.signature(Parser):
@@ -2603,17 +2672,9 @@ class Fypp:
             evaluator.define(name, value)
 
 
-    def _import_modules(self, modules, evaluator, syspath, moduledirs):
-        lookuppath = []
-        if moduledirs is not None:
-            lookuppath += [os.path.abspath(moddir) for moddir in moduledirs]
-        lookuppath.append(os.path.abspath('.'))
-        lookuppath += syspath
-        self._adjust_syspath(lookuppath)
+    def _import_modules(self, modules, evaluator):
         for module in modules:
             evaluator.import_module(module)
-        self._adjust_syspath(syspath)
-
 
     @staticmethod
     def _get_syspath_without_scriptdir():
