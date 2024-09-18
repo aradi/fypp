@@ -359,7 +359,7 @@ class Parser:
 
         Args:
             span (tuple of int): Start and end line of the directive.
-            name (str): Name of the variable to delete.
+            name (str): Name of the python module to import.
         '''
         self._log_event('import', span, name=name)
 
@@ -1227,7 +1227,7 @@ class Builder:
 
         Args:
             span (tuple of int): Start and end line of the directive.
-            name (str): Name of the variable(s) to delete.
+            name (str): Name of the module to import.
         '''
         self._curnode.append(('import', self._curfile, span, name))
 
@@ -1728,7 +1728,7 @@ class Renderer:
     def _load_module(self, fname, span, name):
         result = ''
         try:
-            self._evaluator.load(name)
+            self._evaluator.loadmodules(name)
         except Exception as exc:
             msg = "exception occurred when importing module(s) '{0}'"\
                   .format(name)
@@ -2111,8 +2111,8 @@ class Evaluator:
                 raise FyppFatalError(msg)
 
 
-    def load(self, name):
-        '''Load modules.
+    def loadmodules(self, name):
+        '''Load modules in current space name.
 
         Args:
             name (str): Name(s) of the module(s) to load.
@@ -2672,9 +2672,11 @@ class Fypp:
             evaluator.define(name, value)
 
 
-    def _import_modules(self, modules, evaluator):
+    @staticmethod
+    def _import_modules(modules, evaluator):
         for module in modules:
             evaluator.import_module(module)
+
 
     @staticmethod
     def _get_syspath_without_scriptdir():
