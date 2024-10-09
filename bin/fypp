@@ -2123,7 +2123,10 @@ class Evaluator:
             modname (str): Name(s) of the module(s) to load.
             alias (str): Local name for the module (optional).
         '''
-        self._check_variable_name(modname)
+        if alias is None:
+            self._check_module_name(modname)
+        else:
+            self._check_module_name(alias)
         self.import_module(modname, alias)
 
 
@@ -2271,6 +2274,16 @@ class Evaluator:
                 .format(varname)
             raise FyppFatalError(msg, None, None)
 
+    @staticmethod
+    def _check_module_name(modname):
+        if modname.startswith(_RESERVED_PREFIX):
+            msg = "Local module name '{0}' starts with reserved prefix '{1}'"\
+                .format(modname, _RESERVED_PREFIX)
+            raise FyppFatalError(msg, None, None)
+        if modname in _RESERVED_NAMES:
+            msg = "Name '{0}' is reserved and can not be redefined as a local module name"\
+                .format(modname)
+            raise FyppFatalError(msg, None, None)
 
     def _func_defined(self, var):
         defined = var in self._scope
