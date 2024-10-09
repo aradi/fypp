@@ -120,7 +120,7 @@ _DEL_PARAM_REGEXP = re.compile(
     r'^(?:[(]\s*)?[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*(?:\s*[)])?$')
 
 _IMPORT_PARAM_REGEXP = re.compile(
-    r'^(?:[(]\s*)?[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*(?:\s*[)])?$')
+    r'^\s*(?P<modname>[a-zA-Z]\w*(?:\.[a-zA-Z]\w*)*)(?:\s+as\s+(?P<modalias>[a-zA-Z]\w*))?\s*$')
 
 _FOR_PARAM_REGEXP = re.compile(
     r'^(?P<loopexpr>[a-zA-Z_]\w*(\s*,\s*[a-zA-Z_]\w*)*)\s+in\s+(?P<iter>.+)$')
@@ -788,7 +788,7 @@ class Parser:
         if not match:
             msg = "invalid module name specification '{0}'".format(param)
             raise FyppFatalError(msg, self._curfile, span)
-        self.handle_import(span, param)
+        self.handle_import(span, match.group('modname'), match.group('modalias'))
 
 
     def _process_for(self, param, span):
@@ -1222,14 +1222,15 @@ class Builder:
         self._curnode.append(('del', self._curfile, span, name))
 
 
-    def handle_import(self, span, name):
+    def handle_import(self, span, name, alias):
         '''Should be called to signalize an import directive.
 
         Args:
             span (tuple of int): Start and end line of the directive.
             name (str): Name of the module to import.
+            alias (str): Local name to be used.
         '''
-        self._curnode.append(('import', self._curfile, span, name))
+        self._curnode.append(('import', self._curfile, span, name, alias))
 
 
     def handle_eval(self, span, expr):
@@ -1461,7 +1462,7 @@ class Renderer:
             elif cmd == 'del':
                 self._delete_variable(*node[1:4])
             elif cmd == 'import':
-                self._load_module(*node[1:4])
+                self._load_module(*node[1:5])
             elif cmd == 'for':
                 out, ieval, peval = self._get_iterated_content(*node[1:6])
                 eval_inds += _shiftinds(ieval, len(output))
@@ -1725,10 +1726,10 @@ class Renderer:
         return result
 
 
-    def _load_module(self, fname, span, name):
+    def _load_module(self, fname, span, name, alias):
         result = ''
         try:
-            self._evaluator.loadmodules(name)
+            self._evaluator.loadmodule(name, alias)
         except Exception as exc:
             msg = "exception occurred when importing module(s) '{0}'"\
                   .format(name)
@@ -2026,7 +2027,7 @@ class Evaluator:
         return result
 
 
-    def import_module(self, module):
+    def import_module(self, module, alias=None):
         '''Import a module into the evaluator.
 
         Note: Import only trustworthy modules! Module imports are global,
@@ -2035,15 +2036,19 @@ class Evaluator:
 
         Args:
             module (str): Python module to import.
+            alias (str): Local alias name for the module.
 
         Raises:
             FyppFatalError: If module could not be imported.
 
         '''
-        rootmod = module.split('.', 1)[0]
+        rootmod, *xtramod = module.split('.', 1)
+        if alias is None:
+            alias = rootmod
+            xtramod = None
         try:
-            imported = __import__(module, self._scope)
-            self.define(rootmod, imported)
+            imported = __import__(module, globals=self._scope, fromlist=xtramod)
+            self.define(alias, imported)
         except Exception as exc:
             msg = "failed to import module '{0}'".format(module)
             raise FyppFatalError(msg) from exc
@@ -2111,16 +2116,15 @@ class Evaluator:
                 raise FyppFatalError(msg)
 
 
-    def loadmodules(self, name):
+    def loadmodule(self, modname, alias=None):
         '''Load modules in current space name.
 
         Args:
-            name (str): Name(s) of the module(s) to load.
+            modname (str): Name(s) of the module(s) to load.
+            alias (str): Local name for the module (optional).
         '''
-        modnames = self._get_variable_names(name)
-        for modname in modnames:
-            self._check_variable_name(modname)
-            self.import_module(modname)
+        self._check_variable_name(modname)
+        self.import_module(modname, alias)
 
 
     def addglobal(self, name):
