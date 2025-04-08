@@ -79,6 +79,11 @@ Main features
 
     character(*), parameter :: comp_date = "${time.strftime('%Y-%m-%d')}$"
 
+    ! Evaluating python construct as a conditional
+    #:if int(time.strftime('%m%d')) == 401
+      print *, "April Fools!"
+    #:endif
+
 * Inclusion of files during preprocessing::
 
     #:include "macrodefs.fypp"
