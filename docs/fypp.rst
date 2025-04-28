@@ -2109,11 +2109,15 @@ very first version of this example)::
       # Generate input file name
       set(infile "${CMAKE_CURRENT_SOURCE_DIR}/${infileName}")
 
+      # Create the dependency file
+      set(depfile "${CMAKE_CURRENT_BINARY_DIR/${outfileName}.d")
+
       # Custom command to do the processing
       add_custom_command(
           OUTPUT "${outfile}"
-          COMMAND fypp "${infile}" "${outfile}"
+          COMMAND fypp "${infile}" "${outfile}" --depfile "${depfile}"
           MAIN_DEPENDENCY "${infile}"
+          DEPFILE "${depfile}"
           VERBATIM)
 
       # Finally add output file to a list

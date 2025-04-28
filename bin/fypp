@@ -233,6 +233,13 @@ class Parser:
         # Directory of current file
         self._curdir = None
 
+        # All files that have been included
+        self._included_files = []
+
+
+    def get_dependencies(self):
+        return self._included_files
+
 
     def parsefile(self, fobj):
         '''Parses file or a file like object.
@@ -252,6 +259,9 @@ class Parser:
 
 
     def _includefile(self, span, fobj, fname, curdir):
+        # Don't add the root file, only later includes
+        if self._curfile:
+            self._included_files.append(fname)
         oldfile = self._curfile
         olddir = self._curdir
         self._curfile = fname
@@ -2413,6 +2423,10 @@ class Processor:
         return self._render()
 
 
+    def get_dependencies(self):
+        return self._parser.get_dependencies()
+
+
     def _render(self):
         output = self._renderer.render(self._builder.tree)
         self._builder.reset()
@@ -2574,6 +2588,16 @@ class Fypp:
         return None
 
 
+    def write_dependencies(self, outfile, depfile):
+        def quote(text):
+            return text.replace('$', '$$').replace(' ', '\\ ').replace('#', '\\#')
+
+        dependencies = [quote(d) for d in self._preprocessor.get_dependencies()]
+
+        with open(depfile, 'w', encoding='utf-8') as f:
+            f.write('{}: {}'.format(quote(outfile), ' '.join(dependencies)))
+
+
     def process_text(self, txt):
         '''Processes a string.
 
@@ -2666,6 +2690,8 @@ class FyppOptions(optparse.Values):
             setting.
         create_parent_folder (bool): Whether the parent folder for the output
             file should be created if it does not exist. Default: False.
+        depfile (str | None): If set, where to write a Makefile compatible
+            dependency file. Default: None.
     '''
 
     def __init__(self):
@@ -2685,6 +2711,7 @@ class FyppOptions(optparse.Values):
         self.encoding = 'utf-8'
         self.create_parent_folder = False
         self.file_var_root = None
+        self.depfile = None
 
 
 class FortranLineFolder:
@@ -2911,6 +2938,10 @@ def get_option_parser():
     parser.add_option('--file-var-root', metavar='DIR', dest='file_var_root',
                       default=defs.file_var_root, help=msg)
 
+    msg = 'Write a Make-compatible dependency file to this location'
+    parser.add_option('--depfile', metavar='DEPFILE', dest='depfile',
+                      default=defs.depfile, help=msg)
+
     return parser
 
 
@@ -2921,9 +2952,15 @@ def run_fypp():
     opts, leftover = optparser.parse_args(values=options)
     infile = leftover[0] if len(leftover) > 0 else '-'
     outfile = leftover[1] if len(leftover) > 1 else '-'
+
+    if outfile == '-' and opts.depfile:
+        raise optparse.OptParseError("--depfile cannot be used when writing to stdout")
+
     try:
         tool = Fypp(opts)
         tool.process_file(infile, outfile)
+        if opts.depfile:
+            tool.write_dependencies(outfile, opts.depfile)
     except FyppStopRequest as exc:
         sys.stderr.write(_formatted_exception(exc))
         sys.exit(USER_ERROR_EXIT_CODE)
