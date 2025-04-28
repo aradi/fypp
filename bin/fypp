@@ -62,6 +62,7 @@ import optparse
 import io
 import platform
 import builtins
+import warnings
 
 # Prevent cluttering user directory with Python bytecode
 sys.dont_write_bytecode = True
@@ -2509,7 +2510,10 @@ class Fypp:
             self._import_modules(options.modules, evaluator, syspath,
                                  options.moduledirs)
         if options.defines:
-            self._apply_definitions(options.defines, evaluator)
+            # For normal text reuse the evaluator, but interpret the values as string
+            self._apply_python_definitions(options.defines, evaluator, as_string=True)
+        if options.python_defines:
+            self._apply_python_definitions(options.python_defines, evaluator)
         if inspect.signature(parser_factory) == inspect.signature(Parser):
             parser = parser_factory(includedirs=options.includes,
                                     encoding=self._encoding)
@@ -2588,18 +2592,21 @@ class Fypp:
 
 
     @staticmethod
-    def _apply_definitions(defines, evaluator):
+    def _apply_python_definitions(defines, evaluator, as_string=False):
         for define in defines:
             words = define.split('=', 1)
             name = words[0]
             value = None
             if len(words) > 1:
-                try:
-                    value = evaluator.evaluate(words[1])
-                except Exception as exc:
-                    msg = "exception at evaluating '{0}' in definition for " \
-                          "'{1}'".format(words[1], name)
-                    raise FyppFatalError(msg) from exc
+                if as_string:
+                    value = words[1]
+                else:
+                    try:
+                        value = evaluator.evaluate(words[1])
+                    except Exception as exc:
+                        msg = "exception at evaluating '{0}' in definition for " \
+                              "'{1}'".format(words[1], name)
+                        raise FyppFatalError(msg) from exc
             evaluator.define(name, value)
 
 
@@ -2671,6 +2678,8 @@ class FyppOptions(optparse.Values):
     def __init__(self):
         optparse.Values.__init__(self)
         self.defines = []
+        self.python_defines = []
+        self.define_type = 'python'
         self.includes = []
         self.line_numbering = False
         self.line_numbering_mode = 'full'
@@ -2824,11 +2833,23 @@ def get_option_parser():
     parser = optparse.OptionParser(prog=fypp_name, description=fypp_desc,
                                    version=fypp_version, usage=usage)
 
-    msg = 'define variable, value is interpreted as ' \
-          'Python expression (e.g \'-DDEBUG=1\' sets DEBUG to the ' \
-          'integer 1) or set to None if omitted'
+    msg = 'define variable, equivalent to the -D pre-processor flags. Depending on ' \
+          'the value of -d/--define-value-type, the value is either a string ' \
+          'or a Python expression'
     parser.add_option('-D', '--define', action='append', dest='defines',
                       metavar='VAR[=VALUE]', default=defs.defines, help=msg)
+
+    msg = 'equivalent to -D/--define, but interprets the string value as ' \
+          'a Python expression'
+    parser.add_option('-P', '--python-define', action='append', dest='python_defines',
+                      metavar='VAR[=VALUE]', default=defs.defines, help=msg)
+
+    msg = 'whether to parse -D/--define values as string or Python expressions. ' \
+          'Default is \'python\' to preserve backwards compatibility, but **NOTE**, ' \
+          'this will be reversed in 4.0 and later.'
+    parser.add_option('-d', '--define-value-type', dest='define_type',
+                      choices=['str', 'python'],
+                      default=defs.define_type, help=msg)
 
     msg = 'add directory to the search paths for include files'
     parser.add_option('-I', '--include', action='append', dest='includes',
@@ -2921,6 +2942,14 @@ def run_fypp():
     opts, leftover = optparser.parse_args(values=options)
     infile = leftover[0] if len(leftover) > 0 else '-'
     outfile = leftover[1] if len(leftover) > 1 else '-'
+
+    # Deprecation messages
+    if opts.define_type == 'python' and opts.defines:
+        warnings.warn("Interpreting -D/--define values as Python expressions is deprecated.\n"
+                      "Please use use -P/--python-define instead, or consider using the values as simple strings",
+                      DeprecationWarning)
+        opts.python_defines += opts.defines
+        opts.defines = []
     try:
         tool = Fypp(opts)
         tool.process_file(infile, outfile)
