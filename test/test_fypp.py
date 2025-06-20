@@ -1412,7 +1412,7 @@ SIMPLE_TESTS = [
     ),
     ('escape_comment',
      ([],
-      'A\n  #\! Comment\n',
+      'A\n  #\\! Comment\n',
       'A\n  #! Comment\n',
      )
     ),

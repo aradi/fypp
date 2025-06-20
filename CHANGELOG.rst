@@ -3,6 +3,20 @@ Change Log
 ==========
 
 
+Unreleased
+==========
+
+Changed
+-------
+
+* Packaging uses pyproject.toml as config file and hatchling as build backend.
+
+* Tox uses tox.toml as config file.
+
+* Python requirement increased to >= 3.7 due to lack of testing capabilities
+  with older interpreters.
+
+
 3.2
 ===
 
@@ -32,7 +46,7 @@ Changed
 
 * Support for Python 2.7, 3.3 and 3.4 dropped, support for Python 3.9 added.
 
-  
+
 3.0
 ===
 

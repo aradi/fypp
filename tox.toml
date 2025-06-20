@@ -1,0 +1,9 @@
+requires = ["tox>=4"]
+env_list = ["3.13", "3.12", "3.11", "3.10", "3.9", "3.8", "3.7"]
+
+[env_run_base]
+description = "run unit tests"
+skip_missing_interpreters = true
+setenv = { PYTHONPATH = "{tox_root}{/}src" }
+changedir = "test"
+commands= [["python3", "test_fypp.py"]]

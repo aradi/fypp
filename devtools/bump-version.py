@@ -4,15 +4,15 @@ import re
 import os
 
 VERSION_PATTERN = r'\d+\.\d+(?:\.\d+)?(?:-\w+)?'
-FILES_PATTERNS = [ ('bin/fypp', 
+FILES_PATTERNS = [ ('src/fypp.py',
                     r'^VERSION\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN), 
                     "VERSION = '{version}'"),
                    ('docs/fypp.rst',
                     r'Fypp Version[ ]*{}.'.format(VERSION_PATTERN),
                     'Fypp Version {shortversion}.'),
-                   ('setup.py',
+                   ('pyproject.toml',
                     r'version\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN),
-                    "version='{version}'"),
+                    "version = '{version}'"),
                    ('docs/conf.py',
                     r'version\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN),
                     "version = '{shortversion}'"),
@@ -57,7 +57,7 @@ txt = fp.read()
 fp.close()
 decoration = '=' * len(version)
 newtxt, nsub = re.subn(
-    '^Unreleased\s*\n=+', version + '\n' + decoration, txt, 
+    '^Unreleased\\s*\n=+', version + '\n' + decoration, txt,
     count=1, flags=re.MULTILINE)
 print(nsub)
 fp = open(fname, 'w')
