@@ -6,6 +6,18 @@ Change Log
 Unreleased
 ==========
 
+Added
+-----
+
+* ``--define-mode`` option to control how values in ``-D`` options are
+  interpreted: either as Python expressions (requiring proper quotation for
+  strings) or as string literals (no quotation needed).
+
+* ``-S`` / ``--set`` option to define variables similarly to ``-D``, but with
+  values always evaluated as Python expressions (matching the behavior of the
+  ``#:set`` directive).
+
+
 Changed
 -------
 

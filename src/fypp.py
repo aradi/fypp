@@ -2508,8 +2508,11 @@ class Fypp:
         if options.modules:
             self._import_modules(options.modules, evaluator, syspath,
                                  options.moduledirs)
+        evaluate = options.define_mode == 'expr'
         if options.defines:
-            self._apply_definitions(options.defines, evaluator)
+            self._apply_definitions(options.defines, evaluator, evaluate)
+        if options.sets:
+            self._apply_definitions(options.sets, evaluator, True)
         if inspect.signature(parser_factory) == inspect.signature(Parser):
             parser = parser_factory(includedirs=options.includes,
                                     encoding=self._encoding)
@@ -2588,18 +2591,21 @@ class Fypp:
 
 
     @staticmethod
-    def _apply_definitions(defines, evaluator):
+    def _apply_definitions(defines, evaluator, evaluate):
         for define in defines:
             words = define.split('=', 1)
             name = words[0]
-            value = None
-            if len(words) > 1:
-                try:
-                    value = evaluator.evaluate(words[1])
-                except Exception as exc:
-                    msg = "exception at evaluating '{0}' in definition for " \
-                          "'{1}'".format(words[1], name)
-                    raise FyppFatalError(msg) from exc
+            if evaluate:
+                value = None
+                if len(words) > 1:
+                    try:
+                        value = evaluator.evaluate(words[1])
+                    except Exception as exc:
+                        msg = "exception at evaluating '{0}' in definition for " \
+                            "'{1}'".format(words[1], name)
+                        raise FyppFatalError(msg) from exc
+            else:
+                value = str(words[1]) if len(words) > 1 else ""
             evaluator.define(name, value)
 
 
@@ -2670,7 +2676,9 @@ class FyppOptions(optparse.Values):
 
     def __init__(self):
         optparse.Values.__init__(self)
+        self.define_mode = 'expr'
         self.defines = []
+        self.sets = []
         self.includes = []
         self.line_numbering = False
         self.line_numbering_mode = 'full'
@@ -2824,11 +2832,23 @@ def get_option_parser():
     parser = optparse.OptionParser(prog=fypp_name, description=fypp_desc,
                                    version=fypp_version, usage=usage)
 
-    msg = 'define variable, value is interpreted as ' \
-          'Python expression (e.g \'-DDEBUG=1\' sets DEBUG to the ' \
-          'integer 1) or set to None if omitted'
+    msg = 'define a variable; value interpreted depending on the '\
+          '--define-mode option, either as Python expression (e.g '\
+          '\'-DDEBUG=1\' sets DEBUG to the integer 1) with None as default '\
+          'value, or as string literal with the empty string as default value'
     parser.add_option('-D', '--define', action='append', dest='defines',
                       metavar='VAR[=VALUE]', default=defs.defines, help=msg)
+
+    msg = 'value evaluation mode in -D options, \'expr\': values are Python '\
+          'expressions (default, requires quotation for string values), '\
+          '\'str\': values are string literals (no quotation needed)'
+    parser.add_option('--define-mode', metavar='MODE', choices=['expr', 'str'],
+                      default=defs.define_mode, dest='define_mode', help=msg)
+
+    msg = 'set a variable; similar to the -D option, but the value is always '\
+          'evaluated as a Python expression with None as default value'
+    parser.add_option('-S', '--set', action='append', dest='sets',
+                      metavar='VAR[=VALUE]', default=defs.sets, help=msg)
 
     msg = 'add directory to the search paths for include files'
     parser.add_option('-I', '--include', action='append', dest='includes',

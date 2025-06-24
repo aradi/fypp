@@ -10,8 +10,20 @@ def _linenum(linenr, fname=None, flag=None):
         fname = fypp.STRING
     return fypp.linenumdir_cpp(linenr, fname, flag)
 
-def _defvar(var, val):
-    return '-D{0}={1}'.format(var, val)
+def _defvar(var, val=None):
+    if val is not None:
+        return '-D{0}={1}'.format(var, val)
+    else:
+        return '-D{0}'.format(var)
+
+def _def_mode(defmode):
+    return '--define-mode={0}'.format(defmode)
+
+def _setvar(var, val=None):
+    if val is not None:
+        return '-S{0}={1}'.format(var, val)
+    else:
+        return '-S{0}'.format(var)
 
 def _incdir(path):
     return '-I{0}'.format(path)
@@ -1715,6 +1727,85 @@ SIMPLE_TESTS = [
      ([_defvar("A", "'a=b'")],
       '${A}$',
       'a=b'
+     )
+    ),
+    ('define_mode_default_int',
+     ([_defvar("A", "12")],
+       '${A}$ ${A.__class__.__name__}$',
+       '12 int'
+     )
+    ),
+    ('define_mode_default_str',
+     ([_defvar("A", "'12'")],
+       '${A}$ ${A.__class__.__name__}$',
+       '12 str'
+     )
+    ),
+    ('define_mode_default_none',
+     ([_defvar("A")],
+       '${A}$ ${A.__class__.__name__}$',
+       ' NoneType'
+     )
+    ),
+    ('define_mode_expr_int',
+     ([_defvar("A", "12"), _def_mode('expr')],
+       '${A}$ ${A.__class__.__name__}$',
+       '12 int'
+     )
+    ),
+    ('define_mode_expr_str',
+     ([_defvar("A", "'12'"), _def_mode('expr')],
+       '${A}$ ${A.__class__.__name__}$',
+       '12 str'
+     )
+    ),
+    ('define_mode_expr_none',
+     ([_defvar("A"), _def_mode('expr')],
+       '${A}$ ${A.__class__.__name__}$',
+       ' NoneType'
+     )
+    ),
+    ('define_mode_str_int',
+     ([_defvar("A", "12"), _def_mode('str')],
+       '${A}$ ${A.__class__.__name__}$',
+       '12 str'
+     )
+    ),
+    ('define_mode_str_str',
+     ([_defvar("A", "'12'"), _def_mode('str')],
+       '${A}$ ${A.__class__.__name__}$',
+       '\'12\' str'
+     )
+    ),
+    ('define_mode_str_none',
+     ([_defvar("A"), _def_mode('str')],
+       '${A}$ ${A.__class__.__name__}$',
+       ' str'
+     )
+    ),
+    ('set_int',
+     ([_setvar("A", "12")],
+       '${A}$ ${A.__class__.__name__}$',
+       '12 int'
+     )
+    ),
+    ('set_str',
+     ([_setvar("A", "'12'")],
+       '${A}$ ${A.__class__.__name__}$',
+       '12 str'
+     )
+    ),
+    ('set_none',
+     ([_setvar("A")],
+       '${A}$ ${A.__class__.__name__}$',
+       ' NoneType'
+     )
+    ),
+    # Check, whether evaluation in set is independent of the --define-mode option
+    ('set_int_defmode_str',
+     ([_setvar("A", "12"), _def_mode('str')],
+       '${A}$ ${A.__class__.__name__}$',
+       '12 int'
      )
     ),
 ]

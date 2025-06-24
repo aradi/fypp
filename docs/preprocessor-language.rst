@@ -245,13 +245,53 @@ Following predefined functions are available:
 Initializing variables
 ----------------------
 
-Initial values for preprocessor variables can be set via the command line option
-(``-D``) at startup::
+Initial values for preprocessor variables can be set at startup using the
+command-line options ``-S`` (*set*) or ``-D`` (*define*). The value is evaluated
+as a Python expression, or set to ``None`` if omitted. For example::
+
+  fypp -SDEBUG=0 -SWITH_MPI
+
+initializes the variable ``DEBUG`` with the integer value ``0`` and ``WITH_MPI``
+with ``None`` (similar to the ``#:set`` preprocessor directive). The ``-D``
+option behaves similarly, and is commonly used in build systems to define
+preprocessor variables::
 
   fypp -DDEBUG=0 -DWITH_MPI
 
-The assigned value for a given variable is evaluated in Python. If no value is
-provided, `None` is assigned.
+By default, values provided via ``-D`` are also evaluated as Python expressions.
+This means that defining string literals requires explicit quotation. For
+example::
+
+  fypp -DMYSTR=Hello
+
+would attempt to assign the value of an existing variable ``Hello`` to
+``MYSTR``. To assign the string literal ``"Hello"`` instead, proper quoting is
+required::
+
+  fypp -DMYSTR="Hello"
+
+When invoking Fypp from environments that strip outer quotes (e.g., shells or
+build systems), this can become somewhat cumbersome, as quotes must be
+additionally escaped or nested::
+
+  fypp -DMYSTR='"Hello"'
+
+To simplify such cases, Fypp supports the option ``--define-mode`` to control
+how ``-D`` values are interpreted. This option accepts two values:
+
+- ``expr`` (default): interpret values as Python expressions
+- ``str``: treat all values as string literals
+
+For example::
+
+  fypp --define-mode=str -DMYSTR=Hello
+
+assigns the string literal ``"Hello"`` to ``MYSTR`` without requiring quotes. If
+no value is given, the default is the empty string ``""``.
+
+Note: The ``-S`` option is **not affected** by ``--define-mode``. Values set via
+``-S`` are always evaluated as Python expressions, with ``None`` as the default
+if the value is omitted.
 
 
 Importing modules at startup
