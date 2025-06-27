@@ -2508,11 +2508,13 @@ class Fypp:
         if options.modules:
             self._import_modules(options.modules, evaluator, syspath,
                                  options.moduledirs)
-        evaluate = options.define_mode == 'expr'
+        evaluate = options.define_mode == 'eval'
         if options.defines:
             self._apply_definitions(options.defines, evaluator, evaluate)
-        if options.sets:
-            self._apply_definitions(options.sets, evaluator, True)
+        if options.defines_str:
+            self._apply_definitions(options.defines_str, evaluator, False)
+        if options.defines_eval:
+            self._apply_definitions(options.defines_eval, evaluator, True)
         if inspect.signature(parser_factory) == inspect.signature(Parser):
             parser = parser_factory(includedirs=options.includes,
                                     encoding=self._encoding)
@@ -2676,9 +2678,10 @@ class FyppOptions(optparse.Values):
 
     def __init__(self):
         optparse.Values.__init__(self)
-        self.define_mode = 'expr'
         self.defines = []
-        self.sets = []
+        self.define_mode = 'eval'
+        self.defines_str = []
+        self.defines_eval = []
         self.includes = []
         self.line_numbering = False
         self.line_numbering_mode = 'full'
@@ -2833,22 +2836,27 @@ def get_option_parser():
                                    version=fypp_version, usage=usage)
 
     msg = 'define a variable; value interpreted depending on the '\
-          '--define-mode option, either as Python expression (e.g '\
+          '--define-mode option, either evaluated as a Python expression (e.g '\
           '\'-DDEBUG=1\' sets DEBUG to the integer 1) with None as default '\
           'value, or as string literal with the empty string as default value'
     parser.add_option('-D', '--define', action='append', dest='defines',
                       metavar='VAR[=VALUE]', default=defs.defines, help=msg)
 
-    msg = 'value evaluation mode in -D options, \'expr\': values are Python '\
+    msg = 'value evaluation mode in -D options, \'eval\': values are evaluated as Python '\
           'expressions (default, requires quotation for string values), '\
           '\'str\': values are string literals (no quotation needed)'
-    parser.add_option('--define-mode', metavar='MODE', choices=['expr', 'str'],
+    parser.add_option('--define-mode', metavar='MODE', choices=['eval', 'str'],
                       default=defs.define_mode, dest='define_mode', help=msg)
 
-    msg = 'set a variable; similar to the -D option, but the value is always '\
-          'evaluated as a Python expression with None as default value'
-    parser.add_option('-S', '--set', action='append', dest='sets',
-                      metavar='VAR[=VALUE]', default=defs.sets, help=msg)
+    msg = 'define a variable with a string literal value; similar to the -D option, but the value '\
+          'is always interpreted as a string literal with the empty string as default value'
+    parser.add_option('-S', '--define-str', action='append', dest='defines_str',
+                      metavar='VAR[=VALUE]', default=defs.defines_str, help=msg)
+
+    msg = 'define a variable with an evaluated expression; similar to the -D option, but the '\
+          'value is always evaluated as a Python expression with None as default value'
+    parser.add_option('-E', '--define-eval', action='append', dest='defines_eval',
+                      metavar='VAR[=VALUE]', default=defs.defines_eval, help=msg)
 
     msg = 'add directory to the search paths for include files'
     parser.add_option('-I', '--include', action='append', dest='includes',
