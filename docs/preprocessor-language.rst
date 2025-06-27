@@ -245,13 +245,66 @@ Following predefined functions are available:
 Initializing variables
 ----------------------
 
-Initial values for preprocessor variables can be set via the command line option
-(``-D``) at startup::
+Initial values for preprocessor variables can be set at startup using the
+command-line options ``-D`` (``--define``), ``-E`` (``--define-eval``), or
+``-S`` (``--define-str``). These options differ in how they interpret the
+provided value and what default is used when the value is omitted.
 
-  fypp -DDEBUG=0 -DWITH_MPI
+When using the ``-E`` option, the value is evaluated as a Python expression. If
+no value is provided, the variable is set to the Python singleton ``None``. For
+example::
 
-The assigned value for a given variable is evaluated in Python. If no value is
-provided, `None` is assigned.
+  fypp -EDEBUG=0 -EWITH_MPI
+
+initializes the variable ``DEBUG`` with the integer ``0`` and ``WITH_MPI`` with
+``None``.
+
+Since values are evaluated as Python expressions, string literals must be
+explicitly quoted. For example::
+
+  fypp -EMYSTR=Hello
+
+would attempt to assign the value of an existing variable ``Hello`` to
+``MYSTR``, which results in an error if ``Hello`` is not defined. To assign the
+string literal ``"Hello"``, proper quoting is required::
+
+  fypp -EMYSTR="Hello"
+
+In environments where outer quotes are automatically removed (such as shells or
+some build systems), the quoting can become cumbersome. In such cases,
+additional escaping or nested quoting may be necessary::
+
+  fypp -EMYSTR='"Hello"'
+
+To simplify this, Fypp provides the ``-S`` option. This option treats the value
+as a plain string literal without evaluation. If no value is provided, the
+variable is initialized to the empty string ``""``. Using this option, quoting
+is not required, so the above example becomes::
+
+  fypp -SMYSTR=Hello
+
+Finally, the ``-D`` option, which is commonly used by build systems for
+initializing preprocessor variables, is configurable. Its behavior is controlled
+by the ``--define-mode`` option, which accepts two modes:
+
+- ``eval`` (default): values are interpreted as Python expressions (like ``-E``)
+- ``str``: values are treated as string literals (like ``-S``)
+
+For example::
+
+  fypp --define-mode=eval -DMYSTR="Hello"
+  fypp --define-mode=str -DMYSTR=Hello
+
+both assing the string ``"Hello"`` to ``MYSTR``.
+
+Note: The ``--define-mode`` option controls the behavior of *all* ``-D``
+options, but leaves the ``-S`` and ``-E`` options unaffected. The execution
+order of the ``-D``, ``-S``, and ``-E`` options is well-defined, but not
+guaranteed to remain consistent across versions. If your variable
+initializations depend on the order (e.g., referencing a previously defined
+variable in a later initialization expression), use only one type of definition
+option consistently. The order of initializations within the same option type is
+preserved.
 
 
 Importing modules at startup
