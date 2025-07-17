@@ -246,52 +246,65 @@ Initializing variables
 ----------------------
 
 Initial values for preprocessor variables can be set at startup using the
-command-line options ``-S`` (*set*) or ``-D`` (*define*). The value is evaluated
-as a Python expression, or set to ``None`` if omitted. For example::
+command-line options ``-D`` (``--define``), ``-E`` (``--define-eval``), or
+``-S`` (``--define-str``). These options differ in how they interpret the
+provided value and what default is used when the value is omitted.
 
-  fypp -SDEBUG=0 -SWITH_MPI
-
-initializes the variable ``DEBUG`` with the integer value ``0`` and ``WITH_MPI``
-with ``None`` (similar to the ``#:set`` preprocessor directive). The ``-D``
-option behaves similarly, and is commonly used in build systems to define
-preprocessor variables::
-
-  fypp -DDEBUG=0 -DWITH_MPI
-
-By default, values provided via ``-D`` are also evaluated as Python expressions.
-This means that defining string literals requires explicit quotation. For
+When using the ``-E`` option, the value is evaluated as a Python expression. If
+no value is provided, the variable is set to the Python singleton ``None``. For
 example::
 
-  fypp -DMYSTR=Hello
+  fypp -EDEBUG=0 -EWITH_MPI
+
+initializes the variable ``DEBUG`` with the integer ``0`` and ``WITH_MPI`` with
+``None``.
+
+Since values are evaluated as Python expressions, string literals must be
+explicitly quoted. For example::
+
+  fypp -EMYSTR=Hello
 
 would attempt to assign the value of an existing variable ``Hello`` to
-``MYSTR``. To assign the string literal ``"Hello"`` instead, proper quoting is
-required::
+``MYSTR``, which results in an error if ``Hello`` is not defined. To assign the
+string literal ``"Hello"``, proper quoting is required::
 
-  fypp -DMYSTR="Hello"
+  fypp -EMYSTR="Hello"
 
-When invoking Fypp from environments that strip outer quotes (e.g., shells or
-build systems), this can become somewhat cumbersome, as quotes must be
-additionally escaped or nested::
+In environments where outer quotes are automatically removed (such as shells or
+some build systems), the quoting can become cumbersome. In such cases,
+additional escaping or nested quoting may be necessary::
 
-  fypp -DMYSTR='"Hello"'
+  fypp -EMYSTR='"Hello"'
 
-To simplify such cases, Fypp supports the option ``--define-mode`` to control
-how ``-D`` values are interpreted. This option accepts two values:
+To simplify this, Fypp provides the ``-S`` option. This option treats the value
+as a plain string literal without evaluation. If no value is provided, the
+variable is initialized to the empty string ``""``. Using this option, quoting
+is not required, so the above example becomes::
 
-- ``expr`` (default): interpret values as Python expressions
-- ``str``: treat all values as string literals
+  fypp -SMYSTR=Hello
+
+Finally, the ``-D`` option, which is commonly used by build systems for
+initializing preprocessor variables, is configurable. Its behavior is controlled
+by the ``--define-mode`` option, which accepts two modes:
+
+- ``eval`` (default): values are interpreted as Python expressions (like ``-E``)
+- ``str``: values are treated as string literals (like ``-S``)
 
 For example::
 
+  fypp --define-mode=eval -DMYSTR="Hello"
   fypp --define-mode=str -DMYSTR=Hello
 
-assigns the string literal ``"Hello"`` to ``MYSTR`` without requiring quotes. If
-no value is given, the default is the empty string ``""``.
+both assing the string ``"Hello"`` to ``MYSTR``.
 
-Note: The ``-S`` option is **not affected** by ``--define-mode``. Values set via
-``-S`` are always evaluated as Python expressions, with ``None`` as the default
-if the value is omitted.
+Note: The ``--define-mode`` option controls the behavior of *all* ``-D``
+options, but leaves the ``-S`` and ``-E`` options unaffected. The execution
+order of the ``-D``, ``-S``, and ``-E`` options is well-defined, but not
+guaranteed to remain consistent across versions. If your variable
+initializations depend on the order (e.g., referencing a previously defined
+variable in a later initialization expression), use only one type of definition
+option consistently. The order of initializations within the same option type is
+preserved.
 
 
 Importing modules at startup
