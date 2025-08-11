@@ -7,7 +7,7 @@ Fypp — Python powered Fortran metaprogramming
 
 Fypp is a Python powered preprocessor. It can be used for any programming
 languages but its primary aim is to offer a Fortran preprocessor, which helps to
-extend Fortran with condititional compiling and template metaprogramming
+extend Fortran with conditional compiling and template metaprogramming
 capabilities. Instead of introducing its own expression syntax, it uses Python
 expressions in its preprocessor directives, offering the consistency and
 versatility of Python when formulating metaprogramming tasks. It puts strong
@@ -88,14 +88,14 @@ Main features
 
     #:include "macrodefs.fypp"
 
-* Using Fortran-style continutation lines in preprocessor directives::
+* Using Fortran-style continuation lines in preprocessor directives::
 
     #:if var1 > var2 &
         & or var2 > var4
       print *, "Doing something here"
     #:endif
 
-* Passing (unquoted) multiline string arguments to callables::
+* Passing (unquoted) multi-line string arguments to callables::
 
     #! Callable needs only string argument
     #:def DEBUG_CODE(code)
