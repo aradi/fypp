@@ -275,7 +275,7 @@ class Parser:
     def handle_include(self, span, fname):
         '''Called when parser starts to process a new file.
 
-        It is a dummy methond and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the include directive
@@ -288,7 +288,7 @@ class Parser:
     def handle_endinclude(self, span, fname):
         '''Called when parser finished processing a file.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the include directive
@@ -301,7 +301,7 @@ class Parser:
     def handle_set(self, span, name, expr):
         '''Called when parser encounters a set directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -315,7 +315,7 @@ class Parser:
     def handle_def(self, span, name, args):
         '''Called when parser encounters a def directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -328,7 +328,7 @@ class Parser:
     def handle_enddef(self, span, name):
         '''Called when parser encounters an enddef directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -340,7 +340,7 @@ class Parser:
     def handle_del(self, span, name):
         '''Called when parser encounters a del directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -352,7 +352,7 @@ class Parser:
     def handle_if(self, span, cond):
         '''Called when parser encounters an if directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -364,7 +364,7 @@ class Parser:
     def handle_elif(self, span, cond):
         '''Called when parser encounters an elif directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -376,7 +376,7 @@ class Parser:
     def handle_else(self, span):
         '''Called when parser encounters an else directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -387,7 +387,7 @@ class Parser:
     def handle_endif(self, span):
         '''Called when parser encounters an endif directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -398,7 +398,7 @@ class Parser:
     def handle_for(self, span, varexpr, iterator):
         '''Called when parser encounters a for directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -412,7 +412,7 @@ class Parser:
     def handle_endfor(self, span):
         '''Called when parser encounters an endfor directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -423,7 +423,7 @@ class Parser:
     def handle_call(self, span, name, argexpr, blockcall):
         '''Called when parser encounters a call directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -440,7 +440,7 @@ class Parser:
     def handle_nextarg(self, span, name, blockcall):
         '''Called when parser encounters a nextarg directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -455,7 +455,7 @@ class Parser:
     def handle_endcall(self, span, name, blockcall):
         '''Called when parser encounters an endcall directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -469,7 +469,7 @@ class Parser:
     def handle_eval(self, span, expr):
         '''Called when parser encounters an eval directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -482,7 +482,7 @@ class Parser:
     def handle_global(self, span, name):
         '''Called when parser encounters a global directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -494,7 +494,7 @@ class Parser:
     def handle_text(self, span, txt):
         '''Called when parser finds text which must left unaltered.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -506,7 +506,7 @@ class Parser:
     def handle_comment(self, span):
         '''Called when parser finds a preprocessor comment.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -517,7 +517,7 @@ class Parser:
     def handle_mute(self, span):
         '''Called when parser finds a mute directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -528,7 +528,7 @@ class Parser:
     def handle_endmute(self, span):
         '''Called when parser finds an endmute directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -539,7 +539,7 @@ class Parser:
     def handle_stop(self, span, msg):
         '''Called when parser finds an stop directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -551,7 +551,7 @@ class Parser:
     def handle_assert(self, span):
         '''Called when parser finds an assert directive.
 
-        It is a dummy method and should be overridden for actual use.
+        It is a stub method and should be overridden for actual use.
 
         Args:
             span (tuple of int): Start and end line of the directive.
@@ -1034,7 +1034,7 @@ class Builder:
         block = self._open_blocks.pop(-1)
         directive, fname, spans = block[0:3]
         self._check_if_matches_last(directive, 'for', spans[-1], span, 'endfor')
-        loopvar, iterator, dummy = block[3:6]
+        loopvar, iterator, stub = block[3:6]
         spans.append(span)
         block = (directive, fname, spans, loopvar, iterator, self._curnode)
         self._curnode = self._path.pop(-1)
@@ -1067,7 +1067,7 @@ class Builder:
         block = self._open_blocks.pop(-1)
         directive, fname, spans = block[0:3]
         self._check_if_matches_last(directive, 'def', spans[-1], span, 'enddef')
-        defname, argexpr, dummy = block[3:6]
+        defname, argexpr, stub = block[3:6]
         if name is not None and name != defname:
             msg = "wrong name in enddef directive "\
                   "(expected '{0}', got '{1}')".format(defname, name)
@@ -2258,7 +2258,7 @@ class _Macro:
         name (str): Name of the macro.
         fname (str): The file where the macro was defined.
         spans (str): Line spans of macro definition.
-        argnames (list of str): Macro dummy arguments.
+        argnames (list of str): Macro stub arguments.
         varpos (str): Name of variable positional argument or None.
         varkw (str): Name of variable keyword argument or None.
         content (list): Content of the macro as tree.
@@ -2536,7 +2536,7 @@ class Fypp:
             linefolder = FortranLineFolder(linelength, indentation, folding,
                                            prefix, suffix)
         else:
-            linefolder = DummyLineFolder()
+            linefolder = PlaceholderLineFolder()
         linenums = options.line_numbering
         contlinenums = (options.line_numbering_mode != 'nocontlines')
         self._create_parent_folder = options.create_parent_folder
@@ -2803,9 +2803,9 @@ class FortranLineFolder:
         return end
 
 
-class DummyLineFolder:
+class PlaceholderLineFolder:
 
-    '''Implements a dummy line folder returning the line unaltered.'''
+    '''Implements a placeholder line folder returning the line unaltered.'''
 
     def __call__(self, line):
         '''Returns the entire line without any folding.
