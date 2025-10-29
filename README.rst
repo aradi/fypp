@@ -84,6 +84,13 @@ Main features
       print *, "April Fools!"
     #:endif
 
+  with preprocessor variables available as Python variables::
+
+    #:for plural in [("reds"), ("greens"), ("blues")]
+    #:set singular = plural[:-1]
+      print *, "Plural of ${singular}$ is ${plural}$"
+    #:endfor
+
 * Inclusion of files during preprocessing::
 
     #:include "macrodefs.fypp"
