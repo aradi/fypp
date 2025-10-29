@@ -50,8 +50,11 @@ subclasses of `FyppError`_ is raised:
 * FyppStopRequest: Stop was triggered by an explicit request in the input
   (by a stop- or an assert-directive).
 '''
-import pathlib
 import sys
+MIN_PYTHON = (3, 5)
+if sys.version_info < MIN_PYTHON:
+    sys.exit("Fypp requires Python %s.%s or later.\n" % MIN_PYTHON)
+import pathlib
 import types
 import inspect
 import re
