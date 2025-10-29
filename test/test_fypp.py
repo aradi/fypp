@@ -2740,7 +2740,7 @@ EXCEPTION_TESTS = [
     ),
     ('invalid_iterator',
      ([],
-      '#:for i in 1.2.3\nDummy\n#:endfor\n',
+      '#:for i in 1.2.3\nPlaceholder\n#:endfor\n',
       [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
      )
     ),
@@ -2956,7 +2956,7 @@ EXCEPTION_TESTS = [
      )
     ),
     ('missing_module',
-     (['-mWhateverDummyKJFDKf'],
+     (['-mWhateverPlaceholderKJFDKf'],
       '',
       [(fypp.FyppFatalError, None, None)]
      )

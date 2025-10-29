@@ -1132,7 +1132,7 @@ There is no inline form of the `stop` directive.
 The `assert` directive is a short form for the combination of an `if` and a
 `stop` directive. It evaluates a given expression and stops the code if the
 boolean value of the result is `False`. This can be very convenient, if you want
-to write robust macros containing sanity checks for their arguments::
+to write robust macros containing argument correctness checking::
 
   #:def mymacro(RANK)
     #! Macro only works for RANK 1 and above

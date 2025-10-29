@@ -151,7 +151,7 @@ more in detail in the individual sections further down.
       #:stop 'Negative debug level not allowed!'
     #:endif
 
-* Easy check for macro parameter sanity::
+* Easily check macro parameter validity::
 
     #:def mymacro(RANK)
       #! Macro only works for RANK 1 and above
