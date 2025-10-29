@@ -6,11 +6,6 @@ else
   pythons="python3"
 fi
 root=".."
-if [ -z "$PYTHONPATH" ]; then
-  export PYTHONPATH="$root/src"
-else
-  export PYTHONPATH="$root/src:$PYTHONPATH"
-fi
 cd $testdir
 failed="0"
 failing_pythons=""

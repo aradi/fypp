@@ -1,7 +1,14 @@
 '''Unit tests for testing Fypp.'''
 from pathlib import Path
+import os
 import platform
+import sys
+import tempfile
 import unittest
+
+# Allow for importing fypp
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
 import fypp
 
 
@@ -3055,6 +3062,27 @@ IMPORT_TESTS = [
     ),
 ]
 
+DEPFILE_TESTS = [
+    ('basic',
+     ([_incdir('include')],
+      'include/subfolder/include_fypp1.inc',
+      '{output}: include/fypp1.inc',
+      )
+    ),
+    ('multiple includes',
+     ([_incdir('include/subfolder')],
+      'include/multi_includes.inc',
+      '{output}: include/fypp1.inc include/subfolder/fypp2.inc',
+      )
+    ),
+    ('escapes',
+     ([_incdir('include'), _incdir('include/subfolder')],
+      'include/escaped_includes.inc',
+      '{output}: include/subfolder/need$$\\ \\#escape.inc include/subfolder/fypp2.inc',
+      )
+    ),
+]
+
 
 def _get_test_output_method(args, inp, out):
     '''Returns a test method for checking correctness of Fypp output.
@@ -3100,6 +3128,36 @@ def _get_test_output_from_file_input_method(args, inputfile, out):
         result = tool.process_file(inputfile)
         self.assertEqual(out, result)
     return test_output_from_file_input
+
+
+def _get_test_depfile_method(args, inputfile, expected):
+    '''Returns a test method for checking correctness of depfile.
+
+    Args:
+        args (list of str): Command-line arguments to pass to Fypp.
+        inputfile (str): Input file with Fypp directives.
+        out (str): Expected output.
+
+    Returns:
+       method: Method to test equality of depfile with result delivered by Fypp.
+    '''
+
+    def test_depfile(self):
+        '''Tests whether Fypp result matches expected output when input is in a file.'''
+        output = self._get_tempfile()
+        depfile = self._get_tempfile()
+
+        optparser = fypp.get_option_parser()
+        options, leftover = optparser.parse_args(args + ['--depfile', depfile])
+        self.assertEqual(len(leftover), 0)
+        tool = fypp.Fypp(options)
+        tool.process_file(inputfile, output)
+        tool.write_dependencies(output, depfile)
+
+        with open(depfile, 'r', encoding='utf-8') as f:
+            got = f.read().strip()
+        self.assertEqual(got, expected.format(output=output))
+    return test_depfile
 
 
 
@@ -3198,6 +3256,16 @@ ExceptionTest.add_test_methods(EXCEPTION_TESTS, _get_test_exception_method)
 
 class ImportTest(_TestContainer): pass
 ImportTest.add_test_methods(IMPORT_TESTS, _get_test_output_method)
+
+class DepfileTest(_TestContainer):
+
+    def _get_tempfile(self):
+        _fd, output = tempfile.mkstemp()
+        os.close(_fd)
+        self.addCleanup(os.unlink, output)
+        return output
+
+DepfileTest.add_test_methods(DEPFILE_TESTS, _get_test_depfile_method)
 
 
 if __name__ == '__main__':
