@@ -295,7 +295,7 @@ For example::
   fypp --define-mode=eval -DMYSTR="Hello"
   fypp --define-mode=str -DMYSTR=Hello
 
-both assing the string ``"Hello"`` to ``MYSTR``.
+both passing the string ``"Hello"`` to ``MYSTR``.
 
 Note: The ``--define-mode`` option controls the behavior of *all* ``-D``
 options, but leaves the ``-S`` and ``-E`` options unaffected. The execution
@@ -402,7 +402,7 @@ right hand side of the assignment is compatible with the variable tuple::
   #:set VAR1, VAR2 = 1, 2
   #:set (VAR1, VAR2) = 1, 2
 
-The parantheses around the variable list (second example) are optional.
+The parentheses around the variable list (second example) are optional.
 
 The `set` directive can be also used in the inline form::
 
@@ -521,7 +521,7 @@ single and double precision reals::
   #:endfor
 
 The `for` directive expects a loop variable expression and an iterable
-separated by the ``in`` keyword. The code within the `for` directive is outputed
+separated by the ``in`` keyword. The code within the `for` directive is outputted
 for every iteration with the current value of the loop variable, which can be
 inserted using eval directives. The loop variable expression must be either a
 name or a list of names joined by comma (``,``). In the latter case, the
@@ -567,7 +567,7 @@ regular callable in Python, which returns the rendered content of the macro body
 when called. The macro arguments are converted to local variables containing the
 actual arguments as values. The macro can be called from within an
 eval-directive, via the `call` and `block` control directives and via their
-abreviated form, the direct call.
+abbreviated form, the direct call.
 
 Given the macro definition ::
 
@@ -845,7 +845,7 @@ comfortable when the callable needs also non-string type of arguments::
   this will be repeated 3 times
   #:endcall REPEAT_CODE
 
-The arguments must be specified between parantheses and are evaluated as Python
+The arguments must be specified between parentheses and are evaluated as Python
 expressions. The arguments specified in the directive (both, in the header and
 in the body) are passed to the callable in the following order:
 

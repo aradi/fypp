@@ -97,7 +97,7 @@ In order to execute the unit tests with `tox`, run  ::
 
 from the root folder of the source tree. This tries to test Fypp with various
 different python interpreters. If you want to limit testing to selected
-interpeters only, select the environment with the appropriate command line
+interpreters only, select the environment with the appropriate command line
 switch, e.g. ::
 
   tox -e py34

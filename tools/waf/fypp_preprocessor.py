@@ -7,7 +7,7 @@
 This module implements the general framework for the Fypp preprocessor, but does
 not bind it to any task generator. If you want to use it to preprocessor Fortran
 source files (.fpp -> .f90), use the fypp_fortran module instead. Otherwise,
-you can generate your own binding as ususal::
+you can generate your own binding as usual::
 
 	def build(bld):
 		bld(features='fypp', source=['test.fypp'])
@@ -179,7 +179,7 @@ class FyppIncludeParser(object):
 		'''Parser the includes in a given node.
 
 		:return: Tuple with two elements: list of dependent nodes and list of
-			unresolved depencies.
+			unresolved dependencies.
 		'''
 		self._waiting = [ node, ]
 		# self._waiting is eventually extended during _process() -> iterate

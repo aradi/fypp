@@ -97,7 +97,7 @@ more in detail in the individual sections further down.
 
     #:include "macrodefs.fypp"
 
-* Using Fortran-style continutation lines in preprocessor directives::
+* Using Fortran-style continuation lines in preprocessor directives::
 
     #:if var1 > var2 &
         & or var2 > var4
