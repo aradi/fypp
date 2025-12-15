@@ -244,6 +244,9 @@ class Parser:
         Args:
             fobj (str or file): Name of a file or a file like object.
         '''
+        if isinstance(fobj, pathlib.Path):
+            fobj = str(fobj)
+
         if isinstance(fobj, str):
             if fobj == STDIN:
                 self._includefile(None, sys.stdin, STDIN, os.getcwd())
