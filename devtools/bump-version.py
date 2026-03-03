@@ -5,7 +5,7 @@ import os
 
 VERSION_PATTERN = r'\d+\.\d+(?:\.\d+)?(?:-\w+)?'
 FILES_PATTERNS = [ ('src/fypp.py',
-                    r'^VERSION\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN), 
+                    r'^VERSION\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN),
                     "VERSION = '{version}'"),
                    ('docs/fypp.rst',
                     r'Fypp Version[ ]*{}.'.format(VERSION_PATTERN),
@@ -37,7 +37,7 @@ if match is None:
 rootdir = os.path.join(os.path.dirname(sys.argv[0]), '..')
 for fname, regexp, repl in FILES_PATTERNS:
     fname = os.path.join(rootdir, fname)
-    print("Replacments in '{}': ".format(fname), end='')
+    print("Replacements in '{}': ".format(fname), end='')
     fp = open(fname, 'r')
     txt = fp.read()
     fp.close()
@@ -48,10 +48,10 @@ for fname, regexp, repl in FILES_PATTERNS:
     fp.write(newtxt)
     fp.close()
 
-    
+
 # Replace version number in Change Log and adapt decoration below
 fname = os.path.join(rootdir, 'CHANGELOG.rst')
-print("Replacments in '{}': ".format(fname), end='')
+print("Replacements in '{}': ".format(fname), end='')
 fp = open(fname, 'r')
 txt = fp.read()
 fp.close()

@@ -207,7 +207,7 @@ class FyppFatalError(FyppError):
 
 
 class FyppStopRequest(FyppError):
-    '''Signalizes an explicitely triggered stop (e.g. via stop directive)'''
+    '''Signalizes an explicitly triggered stop (e.g. via stop directive)'''
 
 
 class Parser:
@@ -1328,7 +1328,7 @@ class Renderer:
             format, and 'gfortran5' adds to cpp a workaround for a bug introduced in GFortran 5.
         linefolder (callable): Callable to use when folding a line.
         filevarroot (str, optional): render _FILE_ and _THIS_FILE_ as paths relative to this
-            root directory (default: paths are not converted explicitely to relative paths)
+            root directory (default: paths are not converted explicitly to relative paths)
     '''
 
     def __init__(self, evaluator=None, linenums=False, contlinenums=False,
@@ -1882,7 +1882,7 @@ class Evaluator:
             to None.
     '''
 
-    # Restricted builtins working in all supported Python verions. Version
+    # Restricted builtins working in all supported Python versions. Version
     # specific ones are added dynamically in _get_restricted_builtins().
     _RESTRICTED_BUILTINS = {
         'abs': builtins.abs,
@@ -2255,7 +2255,7 @@ class _Macro:
 
     '''Represents a user defined macro.
 
-    This object should only be initiatied by a Renderer instance, as it
+    This object should only be initialized by a Renderer instance, as it
     needs access to Renderers internal variables and methods.
 
     Args:
@@ -2908,7 +2908,7 @@ def get_option_parser():
 
     msg = 'line folding mode, \'smart\' (default): indentation context '\
           'and whitespace aware, \'simple\': indentation context aware, '\
-          '\'brute\': mechnical folding'
+          '\'brute\': mechanical folding'
     parser.add_option('-f', '--folding-mode', metavar='MODE',
                       choices=['smart', 'simple', 'brute'], dest='folding_mode',
                       default=defs.folding_mode, help=msg)

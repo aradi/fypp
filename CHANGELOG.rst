@@ -245,7 +245,7 @@ Added
 
 * Add waf integration modules.
 
-* Examples and build system intergration chapters in user guide.
+* Examples and build system integration chapters in user guide.
 
 * Change log file.
 
@@ -287,7 +287,7 @@ Added
 Changed
 -------
 
-* Remove paranthesis from direct call.
+* Remove parenthesis from direct call.
 
 
 0.11

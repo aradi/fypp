@@ -203,7 +203,7 @@ all the realizations with the different array ranks and precisions::
 The macro ``ranksuffix()`` defined at the beginning receives a rank as argument
 and returns a string, which is either the empty string (rank 0) or the
 appropriate number of dimension placeholder separated by commas and within
-parantheses (e.g. ``(:,:)`` for rank 2). The string expression is calculated as
+parentheses (e.g. ``(:,:)`` for rank 2). The string expression is calculated as
 a Python expression, so that we can make use of the powerful string manipulation
 routines in Python and write it as a one-line routine.
 

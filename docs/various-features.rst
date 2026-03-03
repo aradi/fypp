@@ -152,13 +152,13 @@ Fypp uses a scope concept very similar to Pythons one. There is one global scope
 (like in Python modules), and temporary local scopes may be created in special
 cases (e.g. during macro calls).
 
-The global scope is the one, which Fypp normaly uses for defining objects. All
+The global scope is the one, which Fypp normally uses for defining objects. All
 imports specified on the command line are carried out in this scope And all
 definitions made by the `set` and `def` directives in the processed source file
 defines entities in that scope, unless they appear within a `block`, a `call` or
 a `def` directive.
 
-Addtional temporary local scopes are opened, whenever
+Additional temporary local scopes are opened, whenever
 
 * a macro defined by the `def` directive is called, or
 
@@ -166,7 +166,7 @@ Addtional temporary local scopes are opened, whenever
   the text, which will be passed to the callable as argument.
 
 Any entity defined in a local scope is only visible within that scope and is
-unaccessible once the scope has been closed. For example the code snippet::
+inaccessible once the scope has been closed. For example the code snippet::
 
   #:set toupper = lambda s: s.upper()
   #:call toupper
@@ -306,7 +306,7 @@ codes to the calling environment:
 
 * 1: Stopped due to an unexpected error.
 
-* 2: Explicitely requested stop encountered (:ref:`stop-directive` or
+* 2: Explicitly requested stop encountered (:ref:`stop-directive` or
   :ref:`assert-directive`).
 
 
