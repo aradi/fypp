@@ -2000,7 +2000,7 @@ LINENUM_TESTS = [
     ('linesub_oneline',
      ([_LINENUM_FLAG],
       'A\n$: 1 + 1\nB\n',
-      _linenum(0) + 'A\n2\nB\n'
+      _linenum(0) + 'A\n2\n' + _linenum(2) + 'B\n'
      )
     ),
     ('linesub_contlines',
@@ -2024,7 +2024,7 @@ LINENUM_TESTS = [
     ('exprsub_multi_line',
      ([_LINENUM_FLAG],
       '${"line1\\nline2"}$\nDone\n',
-      _linenum(0) + 'line1\n' + _linenum(0) + 'line2\nDone\n'
+      _linenum(0) + 'line1\n' + _linenum(0) + 'line2\n' + _linenum(1) + 'Done\n'
      )
     ),
     ('macrosubs',
@@ -2044,7 +2044,7 @@ LINENUM_TESTS = [
       '#:def macro(c)\nMACRO1|${c}$|\nMACRO2|${c}$|\n#:enddef\n${macro(\'A\')}$'
       '\n',
       _linenum(0) + _linenum(4) + 'MACRO1|A|\n' + _linenum(4)
-      + 'MACRO2|A|\n'
+      + 'MACRO2|A|\n' + _linenum(5)
      )
     ),
     ('recursive_macrosubs_multiline',
@@ -2052,7 +2052,7 @@ LINENUM_TESTS = [
       '#:def f(c)\nLINE1|${c}$|\nLINE2|${c}$|\n#:enddef\n$: f(f("A"))\n',
       (_linenum(0) + _linenum(4) + 'LINE1|LINE1|A|\n' +
        _linenum(4) + 'LINE2|A||\n' + _linenum(4) + 'LINE2|LINE1|A|\n' +
-       _linenum(4) + 'LINE2|A||\n')
+       _linenum(4) + 'LINE2|A||\n' + _linenum(5))
      )
     ),
     ('multiline_macrocall',
@@ -2073,26 +2073,26 @@ LINENUM_TESTS = [
     ('for',
      ([_LINENUM_FLAG],
       '#:for i in (1, 2)\n${i}$\n#:endfor\nDone\n',
-      (_linenum(0) + _linenum(1) + '1\n' + _linenum(1) + '2\n'
-       + _linenum(3) + 'Done\n')
+      (_linenum(0) + _linenum(1) + '1\n' + _linenum(2) + _linenum(1) + '2\n'
+       + _linenum(2) + _linenum(3) + 'Done\n')
      )
     ),
     ('inline_for',
      ([_LINENUM_FLAG],
       '#{for i in (1, 2)}#${i}$#{endfor}#Done\n',
-      _linenum(0) + '12Done\n'
+      _linenum(0) + '12Done\n' + _linenum(1)
      )
     ),
     ('set',
      ([_LINENUM_FLAG],
       '#:set x = 2\n$: x\n',
-      _linenum(0) + _linenum(1) + '2\n',
+      _linenum(0) + _linenum(1) + '2\n' + _linenum(2),
      )
     ),
     ('inline_set',
      ([_LINENUM_FLAG],
       '#{set x = 2}#${x}$Done\n',
-      _linenum(0) + '2Done\n',
+      _linenum(0) + '2Done\n' + _linenum(1),
      )
     ),
     ('comment_single',
@@ -2110,14 +2110,14 @@ LINENUM_TESTS = [
     ('mute',
      ([_LINENUM_FLAG],
       'A\n#:mute\nB\n#:set VAR = 2\n#:endmute\nVAR=${VAR}$\n',
-      _linenum(0) + 'A\n' + _linenum(5) + 'VAR=2\n'
+      _linenum(0) + 'A\n' + _linenum(5) + 'VAR=2\n' + _linenum(6)
      )
     ),
     ('direct_call',
      ([_LINENUM_FLAG],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '@:mymacro( a < b )\n',
-      _linenum(0) + _linenum(3) + '|a < b|\n',
+      _linenum(0) + _linenum(3) + '|a < b|\n' + _linenum(4),
      )
     ),
     ('direct_call_contline',
@@ -2144,7 +2144,7 @@ LINENUM_TESTS = [
      ([_LINENUM_FLAG, _linelen(15), _indentation(4), _folding('smart')],
       '  ${3}$456 89 123456 8\nDone\n',
       _linenum(0) + '  3456 89&\n' + _linenum(0)
-      + '      & 123456&\n' + _linenum(0) + '      & 8\n' + 'Done\n'
+      + '      & 123456&\n' + _linenum(0) + '      & 8\n' + _linenum(1) + 'Done\n'
      )
     ),
     ('smart_folding_nocontlines',
@@ -2153,6 +2153,17 @@ LINENUM_TESTS = [
       '  ${3}$456 89 123456 8\nDone\n',
       _linenum(0) + '  3456 89&\n' + '      & 123456&\n' \
       + '      & 8\n' + _linenum(1) + 'Done\n'
+     )
+    ),
+    ('eval_resync_after_preprocessor_block',
+     ([_LINENUM_FLAG],
+      '#:def GUARD()\n#ifdef NEVER\n! stripped\n#endif\n#:enddef\nA\n$:GUARD()\nB\n',
+      _linenum(0)
+      + _linenum(5) + 'A\n'
+      + '#ifdef NEVER\n'
+      + _linenum(6) + '! stripped\n'
+      + _linenum(6) + '#endif\n'
+      + _linenum(7) + 'B\n'
      )
     ),
 ]
@@ -2194,7 +2205,8 @@ INCLUDE_TESTS = [
       (_linenum(0)
        + _linenum(0, 'include/fypp1.inc', flag=_NEW_FILE)
        + 'INCL1\n' + _linenum(4, 'include/fypp1.inc')
-       + 'INCL5\n' + _linenum(1, flag=_RETURN_TO_FILE) + 'INCMACRO(1)\n')
+       + 'INCL5\n' + _linenum(1, flag=_RETURN_TO_FILE) + 'INCMACRO(1)\n'
+       + _linenum(2))
      )
     ),
     ('nested_include_in_incpath_linenum',

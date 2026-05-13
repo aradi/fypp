@@ -1847,20 +1847,11 @@ class Renderer:
         if trailing_newline:
             trailing = '\n'
             if self._linenums:
-                # Last line was folded, but no linenums were generated for
-                # the continuation lines -> current line position is not
-                # in sync with the one calculated from the last line number
-                unsync = (
-                    len(foldedlines) and len(foldedlines[-1]) > 1
-                    and not self._contlinenums)
-                # Eval directive in source consists of more than one line
-                multiline = span[1] - span[0] > 1
-                if unsync or multiline:
-                    # For inline eval directives span[0] == span[1]
-                    # -> next line is span[0] + 1 and not span[1] as for
-                    # line eval directives
-                    nextline = max(span[1], span[0] + 1)
-                    trailing += self._linenumdir(nextline, fname)
+                # For inline eval directives span[0] == span[1]
+                # -> next line is span[0] + 1 and not span[1] as for
+                # line eval directives
+                nextline = max(span[1], span[0] + 1)
+                trailing += self._linenumdir(nextline, fname)
         else:
             trailing = ''
         return result + trailing
