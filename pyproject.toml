@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "fypp"
 version = "3.2"
 dependencies = []
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 authors = [{name = "Bálint Aradi", email = "aradi@uni-bremen.de"},]
 maintainers = [{name = "Bálint Aradi", email = "aradi@uni-bremen.de"},]
 description = "Python powered Fortran preprocessor"
