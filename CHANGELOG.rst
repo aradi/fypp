@@ -22,6 +22,19 @@ Added
   in the ``--define-mode`` option.
 
 
+Fixed
+-----
+
+* Resync linemarker now always emitted after eval directives (``$:``, ``@:``,
+  inline ``#{...}#``) when line-numbering is active.  Previously the marker
+  was omitted for single-line calls, causing downstream Fortran preprocessors
+  to attribute subsequent source lines to wrong locations when the expanded
+  macro body contained ``#ifdef``/``#endif`` blocks which were discarded by the
+  compiler. As a side effect, output generated with line-numbering enabled
+  will generally contain more linemarkers for inputs with single-line
+  substitutions.
+
+
 Changed
 -------
 
