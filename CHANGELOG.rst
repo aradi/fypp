@@ -42,8 +42,18 @@ Changed
 
 * Tox uses tox.toml as config file.
 
-* Python requirement increased to >= 3.7 due to lack of testing capabilities
+* Python requirement increased to >= 3.9 due to lack of testing capabilities
   with older interpreters.
+
+* Source code had been refactored for better readability and robustness adapting
+  to the minimal version set by the testing capabilities. Type hinting is used
+  consistently everywhere.
+
+* Parser dispatches parsing events now using a formal protocol definition.
+  Subclassing Parser or reassigning its handle_* methods is not supported any
+  more. (This does not affect the published public API, but you
+  might need to adapt your Python driver, if you happened to use the Parser and
+  the Builder objects directly in your Python driver.)
 
 
 3.2
