@@ -237,6 +237,18 @@ class Parser:
         # Directory of current file
         self._curdir = None
 
+        # All files that have been included
+        self._included_files = []
+
+
+    def get_dependencies(self):
+        '''Returns the list of files included during parsing.
+
+        Returns:
+            list of str: List of included file paths.
+        '''
+        return self._included_files
+
 
     def parsefile(self, fobj):
         '''Parses file or a file like object.
@@ -244,6 +256,7 @@ class Parser:
         Args:
             fobj (str or file): Name of a file or a file like object.
         '''
+        self._included_files = []
         if isinstance(fobj, pathlib.Path):
             fobj = str(fobj)
 
@@ -259,6 +272,9 @@ class Parser:
 
 
     def _includefile(self, span, fobj, fname, curdir):
+        # Don't add the root file, only later includes
+        if self._curfile:
+            self._included_files.append(fname)
         oldfile = self._curfile
         olddir = self._curdir
         self._curfile = fname
@@ -274,6 +290,7 @@ class Parser:
         Args:
             txt (str): Text to parse.
         '''
+        self._included_files = []
         self._curfile = STRING
         self._curdir = ''
         self._parse_txt(None, self._curfile, txt)
@@ -2411,6 +2428,31 @@ class Processor:
         return self._render()
 
 
+    def get_dependencies(self):
+        '''Returns the list of included file dependencies.
+
+        Returns:
+            list of str: List of included file paths.
+        '''
+        return self._parser.get_dependencies()
+
+
+    def write_dependencies(self, outfile, depfile):
+        '''Writes a Make-compatible dependency file.
+
+        Args:
+            outfile (str): Name of the output file (the target in the dep rule).
+            depfile (str): Path where the dependency file should be written.
+        '''
+        def quote(text):
+            # Normalize to forward slashes for Make compatibility
+            text = text.replace('\\', '/')
+            return text.replace('$', '$$').replace(' ', '\\ ').replace('#', '\\#')
+        dependencies = [quote(d) for d in self.get_dependencies()]
+        with open(depfile, 'w', encoding='utf-8') as fobj:
+            fobj.write('{}: {}'.format(quote(outfile), ' '.join(dependencies)))
+
+
     def _render(self):
         output = self._renderer.render(self._builder.tree)
         self._builder.reset()
@@ -2546,6 +2588,7 @@ class Fypp:
         else:
             raise FyppFatalError('renderer_factory has incorrect signature')
         self._preprocessor = Processor(parser, builder, renderer)
+        self._depfile = getattr(options, 'depfile', None)
 
 
     def process_file(self, infile, outfile=None):
@@ -2557,7 +2600,6 @@ class Fypp:
             outfile (str, optional): Name of the file to write the result to.
                 If its value is '-', result is written to stdout. If not
                 present, result will be returned as string.
-            env (dict, optional): Additional definitions for the evaluator.
 
         Returns:
             str: Result of processed input, if no outfile was specified.
@@ -2567,13 +2609,15 @@ class Fypp:
         if outfile is None:
             return output
         if outfile == '-':
-            outfile = sys.stdout
+            outfile_handle = sys.stdout
         else:
-            outfile = _open_output_file(outfile, self._encoding,
-                                        self._create_parent_folder)
-        outfile.write(output)
-        if outfile != sys.stdout:
-            outfile.close()
+            outfile_handle = _open_output_file(outfile, self._encoding,
+                                               self._create_parent_folder)
+        outfile_handle.write(output)
+        if outfile_handle != sys.stdout:
+            outfile_handle.close()
+        if self._depfile and outfile and outfile != '-':
+            self.write_dependencies(outfile, self._depfile)
         return None
 
 
@@ -2582,12 +2626,30 @@ class Fypp:
 
         Args:
             txt (str): String to process.
-            env (dict, optional): Additional definitions for the evaluator.
 
         Returns:
             str: Processed content.
         '''
         return self._preprocessor.process_text(txt)
+
+
+    def get_dependencies(self):
+        '''Returns the list of included file dependencies.
+
+        Returns:
+            list of str: List of included file paths.
+        '''
+        return self._preprocessor.get_dependencies()
+
+
+    def write_dependencies(self, outfile, depfile):
+        '''Writes a Make-compatible dependency file.
+
+        Args:
+            outfile (str): Name of the output file (the target in the dep rule).
+            depfile (str): Path where the dependency file should be written.
+        '''
+        self._preprocessor.write_dependencies(outfile, depfile)
 
 
     @staticmethod
@@ -2672,6 +2734,8 @@ class FyppOptions(optparse.Values):
             setting.
         create_parent_folder (bool): Whether the parent folder for the output
             file should be created if it does not exist. Default: False.
+        depfile (str | None): If set, where to write a Makefile compatible
+            dependency file. Default: None.
     '''
 
     def __init__(self):
@@ -2694,6 +2758,7 @@ class FyppOptions(optparse.Values):
         self.encoding = 'utf-8'
         self.create_parent_folder = False
         self.file_var_root = None
+        self.depfile = None
 
 
 class FortranLineFolder:
@@ -2937,6 +3002,10 @@ def get_option_parser():
     parser.add_option('--file-var-root', metavar='DIR', dest='file_var_root',
                       default=defs.file_var_root, help=msg)
 
+    msg = 'Write a Make-compatible dependency file to this location'
+    parser.add_option('--depfile', metavar='DEPFILE', dest='depfile',
+                      default=defs.depfile, help=msg)
+
     return parser
 
 
@@ -2947,6 +3016,9 @@ def run_fypp():
     opts, leftover = optparser.parse_args(values=options)
     infile = leftover[0] if len(leftover) > 0 else '-'
     outfile = leftover[1] if len(leftover) > 1 else '-'
+    if outfile == '-' and opts.depfile:
+        raise optparse.OptionValueError(
+            "--depfile cannot be used when writing to stdout")
     try:
         tool = Fypp(opts)
         tool.process_file(infile, outfile)
