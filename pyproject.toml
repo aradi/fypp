@@ -34,3 +34,6 @@ fypp = "fypp:run_fypp"
 
 [tool.hatch.build]
 packages = ["src/fypp.py"]
+
+[tool.typos.default.extend-words]
+BA = "BA"
