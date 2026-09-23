@@ -273,3 +273,17 @@ The behavior of Fypp can be influenced with various command line options. A
 summary of all command line options can be obtained by::
 
   fypp -h
+
+
+Source mapping
+--------------
+
+``--source-map FILE`` writes a JSON file mapping output byte ranges back to
+source byte ranges, enabling tools to remap diagnostics to the original
+template::
+
+  fypp --source-map source.fypp.map source.fpp source.f90
+
+Each mapping entry has a ``kind`` (``verbatim``, ``expanded``, or
+``generated``) and byte-offset fields.  Format versioned via ``version``
+field (currently ``1``).

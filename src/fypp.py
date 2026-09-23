@@ -64,6 +64,7 @@ import errno
 import time
 import optparse
 import io
+import json
 import platform
 import builtins
 
@@ -237,6 +238,8 @@ class Parser:
         # Directory of current file
         self._curdir = None
 
+        self._cur_char_span, self._file_contents = None, {}
+        self._file_char_to_byte, self._file_line_to_char = {}, {}
 
     def parsefile(self, fobj):
         '''Parses file or a file like object.
@@ -575,6 +578,11 @@ class Parser:
 
 
     def _parse_txt(self, includespan, fname, txt):
+        self._file_contents[fname], c2b = txt, [0]
+        for ch in txt: c2b.append(c2b[-1] + len(ch.encode(self._encoding)))
+        l2c = [0] + [i + 1 for i, ch in enumerate(txt) if ch == '\n']
+        self._file_char_to_byte[fname] = c2b
+        self._file_line_to_char[fname] = l2c if l2c[-1] == len(txt) else l2c + [len(txt)]
         self.handle_include(includespan, fname)
         self._parse(txt)
         self.handle_endinclude(includespan, fname)
@@ -586,10 +594,12 @@ class Parser:
             start, end = match.span()
             if start > pos:
                 endlinenr = linenr + txt.count('\n', pos, start)
+                self._cur_char_span = (pos, start)
                 self._process_text(txt[pos:start], (linenr, endlinenr))
                 linenr = endlinenr
             endlinenr = linenr + txt.count('\n', start, end)
             span = (linenr, endlinenr)
+            self._cur_char_span = (start, end)
             ldirtype, ldir, idirtype, idir = match.groups()
             if directcall and (idirtype is None or idirtype != '$'):
                 msg = 'only inline eval directives allowed in direct calls'
@@ -621,6 +631,7 @@ class Parser:
             linenr = endlinenr
         if pos < len(txt):
             endlinenr = linenr + txt.count('\n', pos)
+            self._cur_char_span = (pos, len(txt))
             self._process_text(txt[pos:], (linenr, endlinenr))
 
 
@@ -724,6 +735,7 @@ class Parser:
                 argval = argval[1:-1]
             keyword = match.group('kwname')
             self.handle_nextarg(span, keyword, False)
+            self._cur_char_span = None
             self._parse(argval, linenr=span[0], directcall=True)
         self.handle_endcall(span, callname, False)
 
@@ -889,6 +901,7 @@ class Builder:
 
         # Current file
         self._curfile = None
+        self._parser_ref = None
 
 
     def reset(self):
@@ -1211,7 +1224,8 @@ class Builder:
             expr (str): String representation of the Python expression to
                 be evaluated.
         '''
-        self._curnode.append(('eval', self._curfile, span, expr))
+        cs = getattr(self._parser_ref, '_cur_char_span', None)
+        self._curnode.append(('eval', self._curfile, span, expr, cs))
 
 
     def handle_comment(self, span):
@@ -1233,7 +1247,8 @@ class Builder:
             span (tuple of int): Start and end line of the text.
             txt (str): Text.
         '''
-        self._curnode.append(('txt', self._curfile, span, txt))
+        cs = getattr(self._parser_ref, '_cur_char_span', None)
+        self._curnode.append(('txt', self._curfile, span, txt, cs))
 
 
     def handle_mute(self, span):
@@ -1412,6 +1427,7 @@ class Renderer:
         for node in tree:
             cmd = node[0]
             if cmd == 'txt':
+                self._on_txt(node)
                 output.append(node[3])
             elif cmd == 'if':
                 out, ieval, peval = self._get_conditional_content(*node[1:5])
@@ -1419,7 +1435,7 @@ class Renderer:
                 eval_pos += peval
                 output += out
             elif cmd == 'eval':
-                out, ieval, peval = self._get_eval(*node[1:4])
+                out, ieval, peval = self._get_eval(*node[1:5])
                 eval_inds += _shiftinds(ieval, len(output))
                 eval_pos += peval
                 output += out
@@ -1463,7 +1479,8 @@ class Renderer:
         return output, eval_inds, eval_pos
 
 
-    def _get_eval(self, fname, span, expr):
+    def _on_txt(self, node): pass
+    def _get_eval(self, fname, span, expr, char_span=None):
         try:
             result = self._evaluate(expr, fname, span[0])
         except Exception as exc:
@@ -1861,6 +1878,160 @@ class Renderer:
         if _COMMENTLINE_REGEXP.match(line) is None:
             return self._linefolder(line)
         return [line]
+
+
+class SourceMapRenderer(Renderer):
+    '''Renderer subclass that records byte-level source mappings.'''
+
+    def __init__(self, char_to_byte_tables, line_to_char_tables,
+                 file_contents=None, encoding='utf-8', **kwargs):
+        super().__init__(**kwargs)
+        self._char_to_byte, self._line_to_char = char_to_byte_tables, line_to_char_tables
+        self._file_contents = file_contents if file_contents is not None else {}
+        self._encoding = encoding
+        self._mappings, self._out_byte_offset = [], 0
+        _orig = self._linenumdir
+        def _w(*a, **kw): r = _orig(*a, **kw); self._record('generated', text=r); return r
+        self._linenumdir = _w
+
+    def render(self, tree, divert=False, fixposition=False):
+        saved = (self._mappings, self._out_byte_offset)
+        self._mappings, self._out_byte_offset = [], 0
+        result = super().render(tree, divert=divert, fixposition=fixposition)
+        if divert: self._mappings, self._out_byte_offset = saved
+        else: self._fixup_out_byte_offsets(result); self._merge_adjacent_verbatim()
+        return result
+    def _on_txt(self, n): self._record('verbatim', *n[1:5])
+    def _span_to_byte_range(self, fname, span, char_span=None):
+        t = self._char_to_byte.get(fname)
+        c2b = lambda co: (co if t is None else t[co] if co < len(t) else (t[-1] if t else co))
+        if char_span is not None: return c2b(char_span[0]), c2b(char_span[1])
+        lt = self._line_to_char.get(fname)
+        if lt is None:
+            return (0, 0)
+        return (c2b(lt[min(span[0], len(lt)-1)]),
+                c2b(lt[min(span[1], len(lt)-1)]))
+
+    def _record(self, kind, fname=None, span=None, text=None, char_span=None):
+        if not text: return
+        n = len(text.encode(self._encoding)); o = self._out_byte_offset
+        e = {'out_byte_start': o, 'out_byte_end': o + n, 'kind': kind}
+        if fname is not None:
+            sb, se = self._span_to_byte_range(fname, span, char_span)
+            e.update(src_file=fname, src_byte_start=sb, src_byte_end=se)
+        if kind == 'verbatim': e['_text'] = text.encode(self._encoding)
+        self._mappings.append(e); self._out_byte_offset += n
+    def _get_eval(self, fname, span, expr, char_span=None):
+        out, ieval, peval = super()._get_eval(fname, span, expr)
+        self._record('expanded', fname, span, ''.join(out), char_span); return out, ieval, peval
+    def _get_called_content(self, fname, spans, name, argexpr, contents, argnames):
+        r = super()._get_called_content(fname, spans, name, argexpr, contents, argnames)
+        self._record('expanded', fname, (spans[0][0], spans[-1][1]), ''.join(r[0]))
+        return r
+    def _get_muted_content(self, fname, spans, content):
+        saved = (len(self._mappings), self._out_byte_offset)
+        result = super()._get_muted_content(fname, spans, content)
+        del self._mappings[saved[0]:]; self._out_byte_offset = saved[1]
+        self._record('generated', text=result); return result
+
+    def _fixup_out_byte_offsets(self, final_text):
+        if not self._mappings: return
+        out_bytes = final_text.encode(self._encoding)
+        insertion_pats = self._build_insertion_patterns()
+        src_cache, cursor, fixed = {}, 0, []
+        def gen(s, e): return {'out_byte_start': s, 'out_byte_end': e, 'kind': 'generated'}
+        for e in self._mappings:
+            if e['kind'] == 'verbatim':
+                fname = e['src_file']
+                if fname not in src_cache:
+                    c = self._file_contents.get(fname)
+                    src_cache[fname] = c.encode(self._encoding) if c is not None else None
+                if src_cache[fname] is not None:
+                    exp = e.pop('_text', None)
+                    if exp is None:
+                        exp = src_cache[fname][e['src_byte_start']:e['src_byte_end']]
+                    for pat in insertion_pats:
+                        while True:
+                            m = pat.match(out_bytes, cursor)
+                            if m is None: break
+                            fixed.append(gen(cursor, m.end())); cursor = m.end()
+                    pos = out_bytes.find(exp, cursor)
+                    if pos >= 0:
+                        ne = {**e, 'out_byte_start': pos, 'out_byte_end': pos + len(exp)}
+                        fixed.append(ne); cursor = ne['out_byte_end']; continue
+                    elif insertion_pats:
+                        rng = self._find_with_insertions(out_bytes, exp, cursor, insertion_pats)
+                        if rng is not None:
+                            mstart, mend, segs = rng
+                            src0, outpos = e['src_byte_start'], mstart
+                            for so, eo, se, ee in segs:
+                                if outpos < so: fixed.append(gen(outpos, so))
+                                fixed.append({**gen(so, eo), 'src_file': fname,
+                                    'kind': 'verbatim', 'src_byte_start': src0 + se,
+                                    'src_byte_end': src0 + ee})
+                                outpos = eo
+                            if outpos < mend: fixed.append(gen(outpos, mend))
+                            cursor = mend; continue
+            n = e['out_byte_end'] - e['out_byte_start']
+            end = min(cursor + n, len(out_bytes))
+            fixed.append(gen(cursor, end) if e['kind'] == 'verbatim'
+                         else {**e, 'out_byte_start': cursor, 'out_byte_end': end})
+            cursor = end
+        if cursor < len(out_bytes):
+            fixed.append(gen(cursor, len(out_bytes)))
+        self._mappings = mappings = fixed
+        for i, e in enumerate(mappings):
+            if e['kind'] != 'verbatim':
+                e['out_byte_end'] = (mappings[i+1]['out_byte_start']
+                                     if i+1 < len(mappings) else len(out_bytes))
+        self._mappings = [e for e in mappings
+                          if e['out_byte_start'] < e['out_byte_end']]
+        for e in self._mappings: e.pop('_text', None)
+
+    def _build_insertion_patterns(self):
+        lnpat = br'#(?:line)? \d+ "[^\n]*"[^\n]*\n'
+        pats = [re.compile(lnpat)]
+        if isinstance(self._linefolder, FortranLineFolder):
+            sfx, pfx = self._linefolder._suffix, self._linefolder._prefix.lstrip()
+            if pfx:
+                ind = str(max(0, self._linefolder._indent)).encode('ascii')
+                bs = re.escape(sfx.encode(self._encoding))
+                bp = re.escape(pfx.encode(self._encoding))
+                pats += [re.compile(bs + b'\n[ \t]{' + ind + b',}' + bp),
+                         re.compile(bs + b'\n' + lnpat + b'[ \t]{' + ind + b',}' + bp)]
+        return pats
+    def _find_with_insertions(self, out_bytes, expected, start, insertion_pats):
+        if not expected: return None
+        for cand in range(start, len(out_bytes)):
+            if out_bytes[cand] != expected[0]: continue
+            i, j, segs, segout, segexp = cand, 0, [], cand, 0
+            while j < len(expected):
+                for pat in insertion_pats:
+                    m = pat.match(out_bytes, i)
+                    if m is not None:
+                        if j > segexp: segs.append((segout, i, segexp, j))
+                        i = m.end(); segout, segexp = i, j; break
+                else:
+                    if i < len(out_bytes) and out_bytes[i] == expected[j]: i += 1; j += 1; continue
+                    break
+            if j == len(expected):
+                if j > segexp: segs.append((segout, i, segexp, j))
+                return cand, i, segs
+        return None
+    def _merge_adjacent_verbatim(self):
+        if not self._mappings: return
+        merged = [self._mappings[0]]
+        for e in self._mappings[1:]:
+            p = merged[-1]
+            if (p['kind'] == 'verbatim' == e.get('kind') and p.get('src_file') == e.get('src_file')
+                    and p['out_byte_end'] == e['out_byte_start']
+                    and p['src_byte_end'] == e['src_byte_start']):
+                p['out_byte_end'], p['src_byte_end'] = e['out_byte_end'], e['src_byte_end']
+            else: merged.append(e)
+        self._mappings = merged
+
+    def get_source_map(self, source_file=None):
+        return {'version': 1, 'source_file': source_file or '', 'mappings': list(self._mappings)}
 
 
 class Evaluator:
@@ -2354,6 +2525,7 @@ class Processor:
                  evaluator=None):
         self._parser = Parser() if parser is None else parser
         self._builder = Builder() if builder is None else builder
+        self._builder._parser_ref = self._parser
         if renderer is None:
             evaluator = Evaluator() if evaluator is None else evaluator
             self._renderer = Renderer(evaluator)
@@ -2538,7 +2710,16 @@ class Fypp:
         linenums = options.line_numbering
         contlinenums = (options.line_numbering_mode != 'nocontlines')
         self._create_parent_folder = options.create_parent_folder
-        if inspect.signature(renderer_factory) == inspect.signature(Renderer):
+        self._source_map_file = getattr(options, 'source_map', None)
+        if self._source_map_file:
+            renderer = SourceMapRenderer(
+                parser._file_char_to_byte, parser._file_line_to_char,
+                file_contents=parser._file_contents, encoding=self._encoding,
+                evaluator=evaluator, linenums=linenums,
+                contlinenums=contlinenums,
+                linenumformat=options.line_marker_format,
+                linefolder=linefolder, filevarroot=options.file_var_root)
+        elif inspect.signature(renderer_factory) == inspect.signature(Renderer):
             renderer = renderer_factory(
                 evaluator, linenums=linenums, contlinenums=contlinenums,
                 linenumformat=options.line_marker_format, linefolder=linefolder,
@@ -2564,6 +2745,16 @@ class Fypp:
         '''
         infile = STDIN if infile == '-' else infile
         output = self._preprocessor.process_file(infile)
+        if self._source_map_file:
+            try:
+                with io.open(self._source_map_file, 'w', encoding='utf-8') as f:
+                    json.dump(self._preprocessor._renderer.get_source_map(
+                        infile), f, indent=2)
+                    f.write('\n')
+            except IOError as exc:
+                raise FyppFatalError(
+                    "failed to write source map '{}': {}".format(
+                        self._source_map_file, exc))
         if outfile is None:
             return output
         if outfile == '-':
@@ -2588,6 +2779,11 @@ class Fypp:
             str: Processed content.
         '''
         return self._preprocessor.process_text(txt)
+
+
+    def process_text_with_map(self, txt):
+        output = self._preprocessor.process_text(txt); r = self._preprocessor._renderer
+        return output, (r.get_source_map(STRING) if isinstance(r, SourceMapRenderer) else None)
 
 
     @staticmethod
@@ -2694,6 +2890,7 @@ class FyppOptions(optparse.Values):
         self.encoding = 'utf-8'
         self.create_parent_folder = False
         self.file_var_root = None
+        self.source_map = None
 
 
 class FortranLineFolder:
@@ -2937,6 +3134,9 @@ def get_option_parser():
     parser.add_option('--file-var-root', metavar='DIR', dest='file_var_root',
                       default=defs.file_var_root, help=msg)
 
+    parser.add_option('--source-map', metavar='FILE', dest='source_map',
+                      default=defs.source_map,
+                      help='write JSON source-map of output byte offsets')
     return parser
 
 
