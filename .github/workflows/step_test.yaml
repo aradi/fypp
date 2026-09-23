@@ -1,0 +1,43 @@
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+
+  tests:
+    name: Check with Python ${{ matrix.python-version }} ${{ matrix.experimental && '(Experimental)' }}
+    continue-on-error: ${{ matrix.experimental || false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15" ]
+        include:
+          - python-version: "3.15"
+            experimental: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+          cache: "pip"
+      - name: Install package
+        run: pip install -e .
+      - name: Install dependencies
+        run: pip install tox
+      - name: Test package
+        run: tox -e ${{ matrix.python-version }}
+
+  pass:
+    needs: [ tests ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check test jobs
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
+    if: always()
