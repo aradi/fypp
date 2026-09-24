@@ -2,9 +2,6 @@
 Fypp — Python powered Fortran metaprogramming
 *********************************************
 
-.. image:: https://travis-ci.org/aradi/fypp.svg?branch=develop
-           :target: https://travis-ci.org/aradi/fypp
-
 Fypp is a Python powered preprocessor. It can be used for any programming
 languages but its primary aim is to offer a Fortran preprocessor, which helps to
 extend Fortran with conditional compiling and template metaprogramming
@@ -211,8 +208,8 @@ environment), issue ::
 
   pip3 install fypp
 
-Alternatively, you can install Fypp into the user space (under `~/.local`) with
-::
+Alternatively, you can install Fypp into the user space (under `~/.local`)
+with ::
 
   pip3 install --user fypp
 
@@ -273,3 +270,29 @@ The behavior of Fypp can be influenced with various command line options. A
 summary of all command line options can be obtained by::
 
   fypp -h
+
+
+Testing
+=======
+
+Fypp can be tested with `tox <https://tox.wiki>`_. Running ::
+
+  tox
+
+in the project root folder builds the package, installs it into a virtual
+environment and runs the unit tests against the installed version. This is done
+for each supported Python version; versions whose interpreter is not available
+on your system are skipped.
+
+To test with one Python version only, select the corresponding test
+environment::
+
+  tox -e 3.14
+
+For a quick test during development, you can also run the unit tests directly on
+the source tree with your default ``python3`` interpreter::
+
+  ./test/runtests.sh
+
+To use other interpreters, pass them as arguments (e.g.
+``./test/runtests.sh python3.12 python3.13``).

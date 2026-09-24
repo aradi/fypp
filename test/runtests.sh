@@ -16,7 +16,7 @@ failed="0"
 failing_pythons=""
 for python in $pythons; do
   echo "Testing with interpreter '$python'"
-  $python test_fypp.py
+  $python -m unittest discover
   exitcode=$?
   if [ $exitcode != 0 ]; then
     failed="$(($failed + 1))"
