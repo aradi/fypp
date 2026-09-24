@@ -3325,7 +3325,3 @@ class PathNormalizationTest(unittest.TestCase):
                              '# 1 "a\\"b\\\\c.fypp"\n')
             self.assertEqual(fypp.linenumdir_std(0, 'a"b\\c.fypp', 1),
                              '#line 1 "a\\"b\\\\c.fypp"\n')
-
-
-if __name__ == '__main__':
-    unittest.main()
