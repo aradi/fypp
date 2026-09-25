@@ -49,6 +49,7 @@ raised:
 from __future__ import annotations
 
 import sys
+import itertools
 import pathlib
 import types
 import inspect
@@ -62,7 +63,7 @@ import dataclasses
 import typing
 import collections.abc
 
-MIN_PYTHON_VERSION = (3, 9)
+MIN_PYTHON_VERSION = (3, 10)
 if sys.version_info < MIN_PYTHON_VERSION:
     sys.exit(
         f"Fypp requires Python version {MIN_PYTHON_VERSION[0]}.{MIN_PYTHON_VERSION[1]} or later.\n"
@@ -621,14 +622,15 @@ class Parser:
                 # Comment directive
                 dirtype = ""
                 content = ""
-            if dirtype == "$":
-                self.handlers.handle_eval(span, content)
-            elif dirtype == "#":
-                self._process_control_dir(content, span)
-            elif dirtype == "@":
-                self._process_direct_call(content, span)
-            else:
-                self.handlers.handle_comment(span)
+            match dirtype:
+                case "$":
+                    self.handlers.handle_eval(span, content)
+                case "#":
+                    self._process_control_dir(content, span)
+                case "@":
+                    self._process_direct_call(content, span)
+                case _:
+                    self.handlers.handle_comment(span)
             pos = end
             linenr = endlinenr
         if pos < len(txt):
@@ -645,69 +647,70 @@ class Parser:
             msg = f"invalid control directive content '{content}'"
             raise FyppFatalError(msg, self._file, span)
         directive, param = match.groups()
-        if directive == "if":
-            self._check_param_presence(True, "if", param, span)
-            self.handlers.handle_if(span, param)
-        elif directive == "else":
-            self._check_param_presence(False, "else", param, span)
-            self.handlers.handle_else(span)
-        elif directive == "elif":
-            self._check_param_presence(True, "elif", param, span)
-            self.handlers.handle_elif(span, param)
-        elif directive == "endif":
-            self._check_param_presence(False, "endif", param, span)
-            self.handlers.handle_endif(span)
-        elif directive == "def":
-            self._check_param_presence(True, "def", param, span)
-            self._check_not_inline_directive("def", span)
-            self._process_def(param, span)
-        elif directive == "enddef":
-            self._process_enddef(param, span)
-        elif directive == "set":
-            self._check_param_presence(True, "set", param, span)
-            self._process_set(param, span)
-        elif directive == "del":
-            self._check_param_presence(True, "del", param, span)
-            self._process_del(param, span)
-        elif directive == "for":
-            self._check_param_presence(True, "for", param, span)
-            self._process_for(param, span)
-        elif directive == "endfor":
-            self._check_param_presence(False, "endfor", param, span)
-            self.handlers.handle_endfor(span)
-        elif directive in ("call", "block"):
-            self._check_param_presence(True, directive, param, span)
-            self._process_call(param, span, directive == "block")
-        elif directive in ("nextarg", "contains"):
-            self._process_nextarg(param, span, directive == "contains")
-        elif directive in ("endcall", "endblock"):
-            self._process_endcall(param, span, directive == "endblock")
-        elif directive == "include":
-            self._check_param_presence(True, "include", param, span)
-            self._check_not_inline_directive("include", span)
-            self._process_include(param, span)
-        elif directive == "mute":
-            self._check_param_presence(False, "mute", param, span)
-            self._check_not_inline_directive("mute", span)
-            self.handlers.handle_mute(span)
-        elif directive == "endmute":
-            self._check_param_presence(False, "endmute", param, span)
-            self._check_not_inline_directive("endmute", span)
-            self.handlers.handle_endmute(span)
-        elif directive == "stop":
-            self._check_param_presence(True, "stop", param, span)
-            self._check_not_inline_directive("stop", span)
-            self.handlers.handle_stop(span, param)
-        elif directive == "assert":
-            self._check_param_presence(True, "assert", param, span)
-            self._check_not_inline_directive("assert", span)
-            self.handlers.handle_assert(span, param)
-        elif directive == "global":
-            self._check_param_presence(True, "global", param, span)
-            self._process_global(param, span)
-        else:
-            msg = f"unknown directive '{directive}'"
-            raise FyppFatalError(msg, self._file, span)
+        match directive:
+            case "if":
+                self._check_param_presence(True, "if", param, span)
+                self.handlers.handle_if(span, param)
+            case "else":
+                self._check_param_presence(False, "else", param, span)
+                self.handlers.handle_else(span)
+            case "elif":
+                self._check_param_presence(True, "elif", param, span)
+                self.handlers.handle_elif(span, param)
+            case "endif":
+                self._check_param_presence(False, "endif", param, span)
+                self.handlers.handle_endif(span)
+            case "def":
+                self._check_param_presence(True, "def", param, span)
+                self._check_not_inline_directive("def", span)
+                self._process_def(param, span)
+            case "enddef":
+                self._process_enddef(param, span)
+            case "set":
+                self._check_param_presence(True, "set", param, span)
+                self._process_set(param, span)
+            case "del":
+                self._check_param_presence(True, "del", param, span)
+                self._process_del(param, span)
+            case "for":
+                self._check_param_presence(True, "for", param, span)
+                self._process_for(param, span)
+            case "endfor":
+                self._check_param_presence(False, "endfor", param, span)
+                self.handlers.handle_endfor(span)
+            case "call" | "block":
+                self._check_param_presence(True, directive, param, span)
+                self._process_call(param, span, directive == "block")
+            case "nextarg" | "contains":
+                self._process_nextarg(param, span, directive == "contains")
+            case "endcall" | "endblock":
+                self._process_endcall(param, span, directive == "endblock")
+            case "include":
+                self._check_param_presence(True, "include", param, span)
+                self._check_not_inline_directive("include", span)
+                self._process_include(param, span)
+            case "mute":
+                self._check_param_presence(False, "mute", param, span)
+                self._check_not_inline_directive("mute", span)
+                self.handlers.handle_mute(span)
+            case "endmute":
+                self._check_param_presence(False, "endmute", param, span)
+                self._check_not_inline_directive("endmute", span)
+                self.handlers.handle_endmute(span)
+            case "stop":
+                self._check_param_presence(True, "stop", param, span)
+                self._check_not_inline_directive("stop", span)
+                self.handlers.handle_stop(span, param)
+            case "assert":
+                self._check_param_presence(True, "assert", param, span)
+                self._check_not_inline_directive("assert", span)
+                self.handlers.handle_assert(span, param)
+            case "global":
+                self._check_param_presence(True, "global", param, span)
+                self._process_global(param, span)
+            case _:
+                msg = f"unknown directive '{directive}'"
+                raise FyppFatalError(msg, self._file, span)
 
     def _process_direct_call(self, callexpr: str, span: Span) -> None:
         match = _DIRECT_CALL_REGEXP.match(callexpr)
@@ -870,7 +873,7 @@ class Parser:
 #
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _RawText:
     """Literal text passed through to the output unaltered."""
 
@@ -879,7 +882,7 @@ class _RawText:
     text: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _EvalDirective:
     """A '$:'/'@:'/inline '${...}$' eval directive."""
 
@@ -888,7 +891,7 @@ class _EvalDirective:
     expr: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _SetDirective:
     """A '#:set' directive."""
 
@@ -898,7 +901,7 @@ class _SetDirective:
     expr: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _DelDirective:
     """A '#:del' directive."""
 
@@ -907,7 +910,7 @@ class _DelDirective:
     name: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _GlobalDirective:
     """A '#:global' directive."""
 
@@ -916,7 +919,7 @@ class _GlobalDirective:
     name: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _CommentDirective:
     """A comment-only (#!) directive line, kept only for line number bookkeeping."""
 
@@ -924,7 +927,7 @@ class _CommentDirective:
     span: Span
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _StopDirective:
     """A '#:stop' directive."""
 
@@ -933,7 +936,7 @@ class _StopDirective:
     msg: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _AssertDirective:
     """An '#:assert' directive."""
 
@@ -942,7 +945,7 @@ class _AssertDirective:
     cond: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _IfBlock:
     """An '#:if'/'#:elif'/'#:else'/'#:endif' construct."""
 
@@ -953,7 +956,7 @@ class _IfBlock:
     trees: list[_Tree]
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _ForBlock:
     """A '#:for'/'#:endfor' construct."""
 
@@ -965,7 +968,7 @@ class _ForBlock:
     tree: _Tree | None = None
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _DefBlock:
     """A '#:def'/'#:enddef' construct."""
 
@@ -977,7 +980,7 @@ class _DefBlock:
     tree: _Tree | None = None
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _CallBlock:
     """A '#:call'/'#:nextarg'/'#:endcall' (or block/contains/endblock) construct.
 
@@ -993,7 +996,7 @@ class _CallBlock:
     argnames: list[str] = dataclasses.field(default_factory=list)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _IncludeBlock:
     """Open '#:include'd file being processed."""
 
@@ -1007,7 +1010,7 @@ class _IncludeBlock:
     tree: _Tree | None = None
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _MuteBlock:
     """Open '#:mute'/'#:endmute' construct."""
 
@@ -1028,31 +1031,26 @@ class _MuteBlock:
 # is a tree, trees nest arbitrarily deep and represent the AST of the input.
 
 # TODO: use `type` once minimal Python version had been bumped to >= 3.12
-_Block = typing.Union[
-    _IfBlock,
-    _ForBlock,
-    _DefBlock,
-    _CallBlock,
-    _IncludeBlock,
-    _MuteBlock,
-]
+_Block: typing.TypeAlias = (
+    _IfBlock | _ForBlock | _DefBlock | _CallBlock | _IncludeBlock | _MuteBlock
+)
 """A tree node representing an open/closeable Fypp construct, as tracked by Builder while parsing
 is still in progress (see Builder._open_blocks)."""
 
-_Node = typing.Union[
-    _RawText,
-    _EvalDirective,
-    _SetDirective,
-    _DelDirective,
-    _GlobalDirective,
-    _CommentDirective,
-    _StopDirective,
-    _AssertDirective,
-    _Block,
-]
+_Node: typing.TypeAlias = (
+    _RawText
+    | _EvalDirective
+    | _SetDirective
+    | _DelDirective
+    | _GlobalDirective
+    | _CommentDirective
+    | _StopDirective
+    | _AssertDirective
+    | _Block
+)
 """A single entry of a fypp tree, as produced by Builder and consumed by Renderer."""
 
-_Tree = list[_Node]
+_Tree: typing.TypeAlias = list[_Node]
 """A fypp tree: the sequence of nodes making up a piece of source (or a macro/block body)."""
 
 
@@ -1591,18 +1589,13 @@ class Renderer:
         eval_slots: list[int] = []
         eval_sources: list[tuple[Span, str | None]] = []
         for node in tree:
+            result: _RenderResult | None = None
             if isinstance(node, _RawText):
                 fragments.append(node.text)
             elif isinstance(node, _EvalDirective):
                 result = self._get_eval(node)
-                eval_slots += _shiftinds(result.eval_slots, len(fragments))
-                eval_sources += result.eval_sources
-                fragments += result.fragments
             elif isinstance(node, _IfBlock):
                 result = self._get_conditional_content(node)
-                eval_slots += _shiftinds(result.eval_slots, len(fragments))
-                eval_sources += result.eval_sources
-                fragments += result.fragments
             elif isinstance(node, _DefBlock):
                 fragment = self._define_macro(node)
                 fragments.append(fragment)
@@ -1613,19 +1606,10 @@ class Renderer:
                 self._delete_variable(node)
             elif isinstance(node, _ForBlock):
                 result = self._get_iterated_content(node)
-                eval_slots += _shiftinds(result.eval_slots, len(fragments))
-                eval_sources += result.eval_sources
-                fragments += result.fragments
             elif isinstance(node, _CallBlock):
                 result = self._get_called_content(node)
-                eval_slots += _shiftinds(result.eval_slots, len(fragments))
-                eval_sources += result.eval_sources
-                fragments += result.fragments
             elif isinstance(node, _IncludeBlock):
                 result = self._get_included_content(node)
-                eval_slots += _shiftinds(result.eval_slots, len(fragments))
-                eval_sources += result.eval_sources
-                fragments += result.fragments
             elif isinstance(node, _CommentDirective):
                 fragments.append(self._get_comment(node))
             elif isinstance(node, _MuteBlock):
@@ -1640,6 +1624,10 @@ class Renderer:
             else:
                 msg = f"internal error: unknown command '{type(node).__name__}'"
                 raise FyppFatalError(msg)
+            if result is not None:
+                eval_slots += _shiftinds(result.eval_slots, len(fragments))
+                eval_sources += result.eval_sources
+                fragments += result.fragments
         return _RenderResult(fragments, eval_slots, eval_sources)
 
     def _get_eval(self, node: _EvalDirective) -> _RenderResult:
@@ -2435,7 +2423,7 @@ class Evaluator:
 #
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class _Macro:
     """Represents a user defined macro.
 
@@ -2927,15 +2915,16 @@ class FortranLineFolder:
             raise FyppFatalError("invalid folding type")
         self._inherit_indent: bool
         self._fold_position_finder: collections.abc.Callable[[str, int, int], int]
-        if method == "brute":
-            self._inherit_indent = False
-            self._fold_position_finder = self._get_maximal_fold_pos
-        elif method == "simple":
-            self._inherit_indent = True
-            self._fold_position_finder = self._get_maximal_fold_pos
-        elif method == "smart":
-            self._inherit_indent = True
-            self._fold_position_finder = self._get_smart_fold_pos
+        match method:
+            case "brute":
+                self._inherit_indent = False
+                self._fold_position_finder = self._get_maximal_fold_pos
+            case "simple":
+                self._inherit_indent = True
+                self._fold_position_finder = self._get_maximal_fold_pos
+            case "smart":
+                self._inherit_indent = True
+                self._fold_position_finder = self._get_smart_fold_pos
 
     def __call__(self, line: str) -> list[str]:
         """Folds a line.
@@ -3349,17 +3338,18 @@ def _get_callable_argspec(func: collections.abc.Callable) -> _CallableArgSpec:
     varpos = None
     varkw = None
     for param in sig.parameters.values():
-        if param.kind == param.POSITIONAL_OR_KEYWORD:
-            args.append(param.name)
-            if param.default != param.empty:
-                defaults[param.name] = param.default
-        elif param.kind == param.VAR_POSITIONAL:
-            varpos = param.name
-        elif param.kind == param.VAR_KEYWORD:
-            varkw = param.name
-        else:
-            msg = f"argument '{param.name}' has invalid argument type"
-            raise FyppFatalError(msg)
+        match param.kind:
+            case param.POSITIONAL_OR_KEYWORD:
+                args.append(param.name)
+                if param.default != param.empty:
+                    defaults[param.name] = param.default
+            case param.VAR_POSITIONAL:
+                varpos = param.name
+            case param.VAR_KEYWORD:
+                varkw = param.name
+            case _:
+                msg = f"argument '{param.name}' has invalid argument type"
+                raise FyppFatalError(msg)
     return _CallableArgSpec(args, defaults, varpos, varkw)
 
 
@@ -3402,7 +3392,7 @@ def _argsplit_fortran(argtxt: str) -> list[str]:
         msg = f"open quotes or brackets in expression '{argtxt}'"
         raise FyppFatalError(msg)
     splitpos.append(len(txt))
-    fragments = [argtxt[start + 1 : end] for start, end in zip(splitpos, splitpos[1:])]
+    fragments = [argtxt[start + 1 : end] for start, end in itertools.pairwise(splitpos)]
     return fragments
 
 
