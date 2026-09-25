@@ -34,6 +34,9 @@ Fixed
   will generally contain more linemarkers for inputs with single-line
   substitutions.
 
+* ``#:del`` and ``#:global`` directives spanning multiple lines now emit line
+  markers, so that subsequent line numbers are reported correctly.
+
 
 Changed
 -------

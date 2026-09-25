@@ -2166,6 +2166,30 @@ LINENUM_TESTS = [
       + _linenum(7) + 'B\n'
      )
     ),
+    ('del_directive',
+     ([_LINENUM_FLAG],
+      '#:set A = 5\nLine 2\n#:del A\nLine 4\n',
+      _linenum(0) + _linenum(1) + 'Line 2\n' + _linenum(3) + 'Line 4\n'
+     )
+    ),
+    ('del_directive_contline',
+     ([_LINENUM_FLAG],
+      '#:set A = 5\nLine 2\n#:del&\n  & A\nLine 4\n',
+      _linenum(0) + _linenum(1) + 'Line 2\n' + _linenum(4) + 'Line 4\n'
+     )
+    ),
+    ('global_directive',
+     ([_LINENUM_FLAG],
+      '#:global A\nLine 2\n',
+      _linenum(0) + _linenum(1) + 'Line 2\n'
+     )
+    ),
+    ('global_directive_contline',
+     ([_LINENUM_FLAG],
+      '#:global&\n  & A\nLine 2\n',
+      _linenum(0) + _linenum(2) + 'Line 2\n'
+     )
+    ),
 ]
 
 
