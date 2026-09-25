@@ -3210,7 +3210,3 @@ ExceptionTest.add_test_methods(EXCEPTION_TESTS, _get_test_exception_method)
 
 class ImportTest(_TestContainer): pass
 ImportTest.add_test_methods(IMPORT_TESTS, _get_test_output_method)
-
-
-if __name__ == '__main__':
-    unittest.main()
