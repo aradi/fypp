@@ -34,3 +34,7 @@ fypp = "fypp:run_fypp"
 
 [tool.hatch.build]
 packages = ["src/fypp.py"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312", "py313", "py314"]

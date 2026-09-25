@@ -62,6 +62,7 @@ import builtins
 import dataclasses
 import typing
 import collections.abc
+import contextlib
 
 MIN_PYTHON_VERSION = (3, 10)
 if sys.version_info < MIN_PYTHON_VERSION:
@@ -562,9 +563,8 @@ class Parser:
             if fobj == STDIN_INPUT_NAME:
                 self._includefile(None, sys.stdin, STDIN_INPUT_NAME, os.getcwd())
             else:
-                inpfp = _open_input_file(fobj, self._encoding)
-                self._includefile(None, inpfp, fobj, os.path.dirname(fobj))
-                inpfp.close()
+                with _open_input_file(fobj, self._encoding) as inpfp:
+                    self._includefile(None, inpfp, fobj, os.path.dirname(fobj))
         else:
             self._includefile(None, fobj, FOBJ_INPUT_NAME, os.getcwd())
 
@@ -573,9 +573,11 @@ class Parser:
         olddir = self._curdir
         self._file = fname
         self._curdir = curdir
-        self._parse_txt(span, fname, fobj.read())
-        self._file = oldfile
-        self._curdir = olddir
+        try:
+            self._parse_txt(span, fname, fobj.read())
+        finally:
+            self._file = oldfile
+            self._curdir = olddir
 
     def parse(self, txt: str) -> None:
         """Parses string.
@@ -829,9 +831,8 @@ class Parser:
         else:
             msg = f"include file '{fname}' not found"
             raise FyppFatalError(msg, self._file, span)
-        inpfp = _open_input_file(fpath, self._encoding)
-        self._includefile(span, inpfp, fpath, os.path.dirname(fpath))
-        inpfp.close()
+        with _open_input_file(fpath, self._encoding) as inpfp:
+            self._includefile(span, inpfp, fpath, os.path.dirname(fpath))
 
     def _process_mute(self, span: Span) -> None:
         if span.start == span.end:
@@ -1134,7 +1135,7 @@ class Builder:
                 "internal error: mismatching file name in close_file event "
                 f"(expected: '{block.includefname}', got: '{fname}')"
             )
-            raise FyppFatalError(msg, fname)
+            raise FyppFatalError(msg)
         block.tree = self._curtree
         self._curtree = self._parent_trees.pop(-1)
         self._curtree.append(block)
@@ -1573,14 +1574,16 @@ class Renderer:
             Rendered string.
         """
         diverted = self._diverted
-        self._diverted = divert
         fixedposition_old = self._fixedposition
+        self._diverted = divert
         self._fixedposition = self._fixedposition or fixposition
-        output, eval_slots, eval_sources = self._render(tree)
-        if not self._diverted and eval_slots:
-            self._postprocess_eval_lines(output, eval_slots, eval_sources)
-        self._diverted = diverted
-        self._fixedposition = fixedposition_old
+        try:
+            output, eval_slots, eval_sources = self._render(tree)
+            if not self._diverted and eval_slots:
+                self._postprocess_eval_lines(output, eval_slots, eval_sources)
+        finally:
+            self._diverted = diverted
+            self._fixedposition = fixedposition_old
         txt = "".join(output)
         return txt
 
@@ -1741,22 +1744,20 @@ class Renderer:
             kwargs = {}
         else:
             # Parse and evaluate arguments passed in call header
-            self._evaluator.openscope()
-            try:
-                posargs, kwargs = self._evaluate(
-                    "__getargvalues(" + argexpr + ")", fname, spans[0].start
-                )
-            except Exception as exc:
-                msg = f"unable to parse argument expression '{argexpr}'"
-                raise FyppFatalError(msg, fname, spans[0]) from exc
-            self._evaluator.closescope()
+            with self._evaluator.newscope():
+                try:
+                    posargs, kwargs = self._evaluate(
+                        "__getargvalues(" + argexpr + ")", fname, spans[0].start
+                    )
+                except Exception as exc:
+                    msg = f"unable to parse argument expression '{argexpr}'"
+                    raise FyppFatalError(msg, fname, spans[0]) from exc
 
         # Render arguments passed in call body
         args = []
         for tree in node.trees:
-            self._evaluator.openscope()
-            rendered = self.render(tree, divert=True)
-            self._evaluator.closescope()
+            with self._evaluator.newscope():
+                rendered = self.render(tree, divert=True)
             if rendered.endswith("\n"):
                 rendered = rendered[:-1]
             args.append(rendered)
@@ -1809,14 +1810,13 @@ class Renderer:
             argspec = _CallableArgSpec([], {}, None, None)
         else:
             # Try to create a lambda function with the argument expression
-            self._evaluator.openscope()
             lambdaexpr = "lambda " + argexpr + ": None"
-            try:
-                func = self._evaluate(lambdaexpr, fname, spans[0].start)
-            except Exception as exc:
-                msg = f"exception occurred when evaluating argument expression '{argexpr}'"
-                raise FyppFatalError(msg, fname, spans[0]) from exc
-            self._evaluator.closescope()
+            with self._evaluator.newscope():
+                try:
+                    func = self._evaluate(lambdaexpr, fname, spans[0].start)
+                except Exception as exc:
+                    msg = f"exception occurred when evaluating argument expression '{argexpr}'"
+                    raise FyppFatalError(msg, fname, spans[0]) from exc
             try:
                 argspec = _get_callable_argspec(func)
             except Exception as exc:
@@ -2307,6 +2307,8 @@ class Evaluator:
     def openscope(self, customlocals: dict | None = None) -> None:
         """Opens a new (embedded) scope.
 
+        Note: consider to use newscope() to handle exceptions between openscope() and closescope().
+        
         Args:
             customlocals: By default, the locals of the embedding scope are visible in the new one.
                 When this is not the desired behaviour a dictionary of customized locals
@@ -2326,7 +2328,10 @@ class Evaluator:
         self._scope.update(newlocals)
 
     def closescope(self) -> None:
-        """Close scope and restore embedding scope."""
+        """Close scope and restore embedding scope.
+
+        Note: consider to use newscope() to handle exceptions between openscope() and closescope().
+        """
         self._locals = self._locals_stack.pop(-1)
         self._globalrefs = self._globalrefs_stack.pop(-1)
         if self._locals is not None:
@@ -2334,6 +2339,19 @@ class Evaluator:
             self._scope.update(self._locals)
         else:
             self._scope = self._globals
+
+    @contextlib.contextmanager
+    def newscope(self, customlocals: dict | None = None) -> collections.abc.Generator[None]:
+        """Context manager opening a new scope and closing it on exit (even if exception occurred).
+
+        Args:
+            customlocals: Custom local scope, see openscope().
+        """
+        self.openscope(customlocals)
+        try:
+            yield
+        finally:
+            self.closescope()
 
     @property
     def globalscope(self) -> dict:
@@ -2456,10 +2474,9 @@ class _Macro:
 
     def __call__(self, *args: typing.Any, **keywords: typing.Any) -> str:
         argdict = self._process_arguments(args, keywords)
-        self._evaluator.openscope(customlocals=self._localscope)
-        self._evaluator.updatelocals(**argdict)
-        output = self._renderer.render(self._tree, divert=True, fixposition=True)
-        self._evaluator.closescope()
+        with self._evaluator.newscope(customlocals=self._localscope):
+            self._evaluator.updatelocals(**argdict)
+            output = self._renderer.render(self._tree, divert=True, fixposition=True)
         if output.endswith("\n"):
             return output[:-1]
         return output
@@ -2559,6 +2576,7 @@ class Processor:
         Returns:
             Processed content.
         """
+        self._builder.reset()
         self._parser.parsefile(fname)
         return self._render()
 
@@ -2571,12 +2589,12 @@ class Processor:
         Returns:
             Processed content.
         """
+        self._builder.reset()
         self._parser.parse(txt)
         return self._render()
 
     def _render(self) -> str:
         output = self._renderer.render(self._builder.tree)
-        self._builder.reset()
         return output
 
 
@@ -2756,14 +2774,11 @@ class Fypp:
         output = self._preprocessor.process_file(infile)
         if outfile is None:
             return output
-        outfp = (
-            sys.stdout
-            if outfile == "-"
-            else _open_output_file(outfile, self._encoding, self._create_parent_folder)
-        )
-        outfp.write(output)
-        if outfp != sys.stdout:
-            outfp.close()
+        if outfile == "-":
+            sys.stdout.write(output)
+        else:
+            with _open_output_file(outfile, self._encoding, self._create_parent_folder) as outfp:
+                outfp.write(output)
         return None
 
     def process_text(self, txt: str) -> str:
@@ -2808,9 +2823,11 @@ class Fypp:
         lookuppath.append(os.path.abspath("."))
         lookuppath += syspath
         self._adjust_syspath(lookuppath)
-        for module in modules:
-            evaluator.import_module(module)
-        self._adjust_syspath(syspath)
+        try:
+            for module in modules:
+                evaluator.import_module(module)
+        finally:
+            self._adjust_syspath(syspath)
 
     @staticmethod
     def _get_syspath_without_scriptdir() -> list[str]:
@@ -3341,7 +3358,7 @@ def _get_callable_argspec(func: collections.abc.Callable) -> _CallableArgSpec:
         match param.kind:
             case param.POSITIONAL_OR_KEYWORD:
                 args.append(param.name)
-                if param.default != param.empty:
+                if param.default is not param.empty:
                     defaults[param.name] = param.default
             case param.VAR_POSITIONAL:
                 varpos = param.name
