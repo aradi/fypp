@@ -6,4 +6,4 @@ description = "run unit tests"
 skip_missing_interpreters = true
 setenv = { PYTHONPATH = "{tox_root}{/}src" }
 changedir = "test"
-commands= [["python3", "test_fypp.py"]]
+commands= [["{env_python}", "test_fypp.py"]]

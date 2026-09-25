@@ -54,6 +54,13 @@ Changed
   printed instead of evaluated, and a closing directive there (e.g. ``#:endif``)
   caused an unclosed-directive error.
 
+* File names in line markers and in the variables ``_FILE_`` and ``_THIS_FILE_``
+  always use forward slashes as path separators, also on Windows, so that the
+  preprocessed code is identical on both platforms. Backslashes and quotes in
+  file names are escaped in line markers, but not in  ``_FILE_`` and
+  ``_THIS_FILE_``, which are now always strings (and not Path object, as was the
+   case before when ``--file-var-root`` was used).
+
 
 3.2
 ===
