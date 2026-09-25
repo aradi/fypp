@@ -45,7 +45,7 @@ Changed
 
 * Tox uses tox.toml as config file.
 
-* Python requirement increased to >= 3.9 due to lack of testing capabilities
+* Python requirement increased to >= 3.10 due to lack of testing capabilities
   with older interpreters.
 
 * Line directives (``#:``, ``$:``, ``@:``) and comment lines (``#!``) in the
