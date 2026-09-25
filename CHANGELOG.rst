@@ -36,6 +36,9 @@ Fixed
 
 * Line directives and comment lines in the last line of a file (or string)
   without a trailing newline are now recognized.
+  
+* ``#:del`` and ``#:global`` directives spanning multiple lines now emit line
+  markers, so that subsequent line numbers are reported correctly.
 
 
 Changed

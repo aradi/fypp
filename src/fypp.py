@@ -48,21 +48,21 @@ raised:
 
 from __future__ import annotations
 
-import sys
-import itertools
-import pathlib
-import types
-import inspect
-import re
-import os
-import time
-import optparse
-import platform
 import builtins
-import dataclasses
-import typing
-import collections.abc
 import contextlib
+import dataclasses
+import inspect
+import itertools
+import optparse
+import os
+import pathlib
+import platform
+import re
+import sys
+import time
+import types
+from collections.abc import Callable, Generator, Sequence
+from typing import Any, ClassVar, NamedTuple, NoReturn, Protocol, TextIO, TypeAlias
 
 MIN_PYTHON_VERSION = (3, 10)
 if sys.version_info < MIN_PYTHON_VERSION:
@@ -151,8 +151,8 @@ _INLINE_EVAL_REGION_REGEXP = re.compile(r"\${.*?}\$")
 
 _RESERVED_PREFIX = "__"
 
-_RESERVED_NAMES = set(
-    [
+_RESERVED_NAMES = frozenset(
+    {
         "defined",
         "setvar",
         "getvar",
@@ -166,7 +166,7 @@ _RESERVED_NAMES = set(
         "_DATE_",
         "_SYSTEM_",
         "_MACHINE_",
-    ]
+    }
 )
 
 _LINENUM_NEW_FILE = 1
@@ -182,7 +182,7 @@ _CLOSING_BRACKETS_FORTRAN = "})]"
 _ARGUMENT_SPLIT_CHAR_FORTRAN = ","
 
 
-class Span(typing.NamedTuple):
+class Span(NamedTuple):
     """Beginning and end line of a region in a source file.
 
     Line numbers start from zero. For directives, which do not consume the end of the line, start
@@ -243,7 +243,7 @@ class FyppStopRequest(FyppError):
     """Signalizes an explicitly triggered stop (e.g. via stop directive)"""
 
 
-class _ParserHandlers(typing.Protocol):
+class _ParserHandlers(Protocol):
     """Structural shape of the callback object receiving events from a Parser.
 
     Satisfied by HandlerLogger (Parser's default handlers, printing each event) and by Builder
@@ -497,10 +497,9 @@ class HandlerLogger:
         self._log_event("assert", span, condition=cond)
 
     @staticmethod
-    def _log_event(event: str, span: Span | None = Span(-1, -1), **params: typing.Any) -> None:
-        if span is None:
-            span = Span(-1, -1)
-        print(f"{event}: {span.start} --> {span.end}")
+    def _log_event(event: str, span: Span | None, **params: Any) -> None:
+        start, end = (-1, -1) if span is None else span
+        print(f"{event}: {start} --> {end}")
         for parname, parvalue in params.items():
             print(f"  {parname}: ->|{parvalue}|<-")
         print()
@@ -548,7 +547,7 @@ class Parser:
 
         self.handlers: _ParserHandlers = HandlerLogger() if handlers is None else handlers
 
-    def parsefile(self, fobj: str | pathlib.Path | typing.TextIO) -> None:
+    def parsefile(self, fobj: str | pathlib.Path | TextIO) -> None:
         """Parses file or a file like object.
 
         Args:
@@ -566,7 +565,7 @@ class Parser:
         else:
             self._includefile(None, fobj, FOBJ_INPUT_NAME, os.getcwd())
 
-    def _includefile(self, span: Span | None, fobj: typing.TextIO, fname: str, curdir: str) -> None:
+    def _includefile(self, span: Span | None, fobj: TextIO, fname: str, curdir: str) -> None:
         oldfile = self._file
         olddir = self._curdir
         self._file = fname
@@ -702,11 +701,11 @@ class Parser:
             case "mute":
                 self._check_param_presence(False, "mute", param, span)
                 self._check_not_inline_directive("mute", span)
-                self.handlers.handle_mute(span)
+                self._process_mute(span)
             case "endmute":
                 self._check_param_presence(False, "endmute", param, span)
                 self._check_not_inline_directive("endmute", span)
-                self.handlers.handle_endmute(span)
+                self._process_endmute(span)
             case "stop":
                 self._check_param_presence(True, "stop", param, span)
                 self._check_not_inline_directive("stop", span)
@@ -830,7 +829,7 @@ class Parser:
             msg = f"invalid include file declaration '{param}'"
             raise FyppFatalError(msg, self._file, span)
         fname = match.group("fname")
-        # Always set while a file/string is being parsed, i.e. whenever a directive can be processed.
+        # Always set while a file/string is being parsed, i.e. whenever this routine is called.
         assert self._curdir is not None
         for incdir in [self._curdir] + self._includedirs:
             fpath = os.path.join(incdir, fname)
@@ -958,7 +957,7 @@ class _AssertDirective:
 class _IfBlock:
     """An '#:if'/'#:elif'/'#:else'/'#:endif' construct."""
 
-    directive: typing.ClassVar[str] = "if"
+    directive: ClassVar[str] = "if"
     fname: str | None
     spans: list[Span]
     conditions: list[str]
@@ -969,7 +968,7 @@ class _IfBlock:
 class _ForBlock:
     """A '#:for'/'#:endfor' construct."""
 
-    directive: typing.ClassVar[str] = "for"
+    directive: ClassVar[str] = "for"
     fname: str | None
     spans: list[Span]
     loopvars: list[str]
@@ -981,7 +980,7 @@ class _ForBlock:
 class _DefBlock:
     """A '#:def'/'#:enddef' construct."""
 
-    directive: typing.ClassVar[str] = "def"
+    directive: ClassVar[str] = "def"
     fname: str | None
     spans: list[Span]
     name: str
@@ -1009,7 +1008,7 @@ class _CallBlock:
 class _IncludeBlock:
     """Open '#:include'd file being processed."""
 
-    directive: typing.ClassVar[str] = "include"
+    directive: ClassVar[str] = "include"
 
     fname: str | None
     # spans[0] and spans[1] are both None for the top-level file
@@ -1023,7 +1022,7 @@ class _IncludeBlock:
 class _MuteBlock:
     """Open '#:mute'/'#:endmute' construct."""
 
-    directive: typing.ClassVar[str] = "mute"
+    directive: ClassVar[str] = "mute"
 
     fname: str | None
     spans: list[Span]
@@ -1040,13 +1039,11 @@ class _MuteBlock:
 # is a tree, trees nest arbitrarily deep and represent the AST of the input.
 
 # TODO: use `type` once minimal Python version had been bumped to >= 3.12
-_Block: typing.TypeAlias = (
-    _IfBlock | _ForBlock | _DefBlock | _CallBlock | _IncludeBlock | _MuteBlock
-)
+_Block: TypeAlias = _IfBlock | _ForBlock | _DefBlock | _CallBlock | _IncludeBlock | _MuteBlock
 """A tree node representing an open/closeable Fypp construct, as tracked by Builder while parsing
 is still in progress (see Builder._open_blocks)."""
 
-_Node: typing.TypeAlias = (
+_Node: TypeAlias = (
     _RawText
     | _EvalDirective
     | _SetDirective
@@ -1059,7 +1056,7 @@ _Node: typing.TypeAlias = (
 )
 """A single entry of a fypp tree, as produced by Builder and consumed by Renderer."""
 
-_Tree: typing.TypeAlias = list[_Node]
+_Tree: TypeAlias = list[_Node]
 """A fypp tree: the sequence of nodes making up a piece of source (or a macro/block body)."""
 
 
@@ -1154,7 +1151,7 @@ class Builder:
 
         Args:
             span: Start and end line of the directive.
-            param: String representation of the branching condition.
+            cond: String representation of the branching condition.
         """
         self._parent_trees.append(self._curtree)
         self._open_blocks.append(_IfBlock(self._file, [span], [cond], []))
@@ -1211,7 +1208,7 @@ class Builder:
 
         Args:
             span: Start and end line of the directive.
-            varexpr: String representation of the loop variable expression.
+            loopvar: String representation of the loop variable expression.
             iterator: String representation of the iterable.
         """
         self._parent_trees.append(self._curtree)
@@ -1429,6 +1426,7 @@ class Builder:
 
         Args:
             span: Start and end line of the directive.
+            msg: Message to print before stopping.
         """
         self._curtree.append(_StopDirective(self._file, span, msg))
 
@@ -1437,6 +1435,7 @@ class Builder:
 
         Args:
             span: Start and end line of the directive.
+            cond: Condition to assert
         """
         self._curtree.append(_AssertDirective(self._file, span, cond))
 
@@ -1472,7 +1471,7 @@ class Builder:
 #
 
 
-class _RenderResult(typing.NamedTuple):
+class _RenderResult(NamedTuple):
     """Result of rendering a (sub)tree.
 
     Fields:
@@ -1483,15 +1482,15 @@ class _RenderResult(typing.NamedTuple):
     """
 
     fragments: list[str]
-    eval_slots: list[int]
-    eval_sources: list[tuple[Span, str | None]]
+    eval_slots: Sequence[int] = ()
+    eval_sources: Sequence[tuple[Span, str | None]] = ()
 
 
-class _CallableArgSpec(typing.NamedTuple):
+class _CallableArgSpec(NamedTuple):
     """Argument spec of a callable, as needed for defining a macro from it."""
 
     args: list[str]
-    defaults: dict[str, typing.Any]
+    defaults: dict[str, Any]
     varpos: str | None
     varkw: str | None
 
@@ -1502,7 +1501,7 @@ class _CallableArgSpec(typing.NamedTuple):
 
 
 class Renderer:
-    """'Renders a tree.
+    """Renders a tree.
 
     Args:
         evaluator: Evaluator to use when rendering eval directives. If None (default), Evaluator()
@@ -1524,7 +1523,7 @@ class Renderer:
         linenums: bool = False,
         contlinenums: bool = False,
         linenumformat: str | None = None,
-        linefolder: collections.abc.Callable[[str], list[str]] | None = None,
+        linefolder: Callable[[str], list[str]] | None = None,
         filevarroot: str | None = None,
     ):
         # Evaluator to use for Python expressions
@@ -1546,7 +1545,7 @@ class Renderer:
         self._contlinenums: bool = contlinenums
 
         # Line number formatter function and whether gfortran5 fix is needed
-        self._linenumdir: collections.abc.Callable[..., str]
+        self._linenumdir: Callable[..., str]
         if linenumformat is None or linenumformat in ("cpp", "gfortran5"):
             self._linenumdir = linenumdir_cpp
             self._linenum_gfortran5: bool = linenumformat == "gfortran5"
@@ -1555,13 +1554,13 @@ class Renderer:
             self._linenum_gfortran5 = False
 
         # Callable to be used for folding lines
-        self._linefolder: collections.abc.Callable[[str], list[str]]
+        self._linefolder: Callable[[str], list[str]]
         if linefolder is None:
             self._linefolder = lambda line: [line]
         else:
             self._linefolder = linefolder
 
-        self._convert_file_path: collections.abc.Callable[[str], str | pathlib.Path]
+        self._convert_file_path: Callable[[str], str | pathlib.Path]
         if filevarroot is None:
             self._convert_file_path = lambda path: path
         else:
@@ -1600,21 +1599,18 @@ class Renderer:
         eval_slots: list[int] = []
         eval_sources: list[tuple[Span, str | None]] = []
         for node in tree:
-            result: _RenderResult | None = None
             if isinstance(node, _RawText):
-                fragments.append(node.text)
+                result = _RenderResult([node.text])
             elif isinstance(node, _EvalDirective):
                 result = self._get_eval(node)
             elif isinstance(node, _IfBlock):
                 result = self._get_conditional_content(node)
             elif isinstance(node, _DefBlock):
-                fragment = self._define_macro(node)
-                fragments.append(fragment)
+                result = self._define_macro(node)
             elif isinstance(node, _SetDirective):
-                fragment = self._define_variable(node)
-                fragments.append(fragment)
+                result = self._define_variable(node)
             elif isinstance(node, _DelDirective):
-                self._delete_variable(node)
+                result = self._delete_variable(node)
             elif isinstance(node, _ForBlock):
                 result = self._get_iterated_content(node)
             elif isinstance(node, _CallBlock):
@@ -1622,23 +1618,21 @@ class Renderer:
             elif isinstance(node, _IncludeBlock):
                 result = self._get_included_content(node)
             elif isinstance(node, _CommentDirective):
-                fragments.append(self._get_comment(node))
+                result = self._get_comment(node)
             elif isinstance(node, _MuteBlock):
-                fragments.append(self._get_muted_content(node))
+                result = self._get_muted_content(node)
             elif isinstance(node, _StopDirective):
                 self._handle_stop(node)
             elif isinstance(node, _AssertDirective):
-                fragment = self._handle_assert(node)
-                fragments.append(fragment)
+                result = self._handle_assert(node)
             elif isinstance(node, _GlobalDirective):
-                self._add_global(node)
+                result = self._add_global(node)
             else:
                 msg = f"internal error: unknown command '{type(node).__name__}'"
                 raise FyppFatalError(msg)
-            if result is not None:
-                eval_slots += _shiftinds(result.eval_slots, len(fragments))
-                eval_sources += result.eval_sources
-                fragments += result.fragments
+            eval_slots += _shiftinds(result.eval_slots, len(fragments))
+            eval_sources += result.eval_sources
+            fragments += result.fragments
         return _RenderResult(fragments, eval_slots, eval_sources)
 
     def _get_eval(self, node: _EvalDirective) -> _RenderResult:
@@ -1664,7 +1658,7 @@ class Renderer:
     def _get_conditional_content(self, node: _IfBlock) -> _RenderResult:
         fragments = []
         eval_slots = []
-        eval_sources = []
+        eval_sources: list[tuple[Span, str | None]] = []
         fname = node.fname
         spans = node.spans
         multiline = spans[0].start != spans[-1].end
@@ -1689,7 +1683,7 @@ class Renderer:
     def _get_iterated_content(self, node: _ForBlock) -> _RenderResult:
         fragments = []
         eval_slots = []
-        eval_sources = []
+        eval_sources: list[tuple[Span, str | None]] = []
         fname = node.fname
         spans = node.spans
         try:
@@ -1714,7 +1708,7 @@ class Renderer:
             eval_sources += result.eval_sources
             fragments += result.fragments
         if self._linenums and not self._diverted and multiline:
-            fragments.append(self._linenumdir(spans[1].end, fname))
+            fragments.append(self._linenumdir(spans[-1].end, fname))
         return _RenderResult(fragments, eval_slots, eval_sources)
 
     def _get_called_content(self, node: _CallBlock) -> _RenderResult:
@@ -1741,9 +1735,7 @@ class Renderer:
             fragments.append("\n")
         return _RenderResult(fragments, eval_slots, eval_sources)
 
-    def _get_call_arguments(
-        self, node: _CallBlock
-    ) -> tuple[list[typing.Any], dict[str, typing.Any]]:
+    def _get_call_arguments(self, node: _CallBlock) -> tuple[list[Any], dict[str, Any]]:
         fname = node.fname
         spans = node.spans
         argexpr = node.argexpr
@@ -1795,9 +1787,9 @@ class Renderer:
         fragments: list[str] = []
         if self._linenums and not self._diverted:
             if includefile or self._linenum_gfortran5:
-                fragments += self._linenumdir(0, includefname, _LINENUM_NEW_FILE)
+                fragments.append(self._linenumdir(0, includefname, _LINENUM_NEW_FILE))
             else:
-                fragments += self._linenumdir(0, includefname)
+                fragments.append(self._linenumdir(0, includefname))
         # Set by handle_endinclude() once the include is closed; _get_included_content() is only
         # ever called on a closed block (i.e. an already-finished tree node).
         assert node.tree is not None
@@ -1806,10 +1798,10 @@ class Renderer:
         fragments += result.fragments
         if self._linenums and not self._diverted and includefile:
             assert firstspan is not None
-            fragments += self._linenumdir(firstspan.end, fname, _LINENUM_RETURN_TO_FILE)
+            fragments.append(self._linenumdir(firstspan.end, fname, _LINENUM_RETURN_TO_FILE))
         return _RenderResult(fragments, eval_slots, result.eval_sources)
 
-    def _define_macro(self, node: _DefBlock) -> str:
+    def _define_macro(self, node: _DefBlock) -> _RenderResult:
         fname = node.fname
         spans = node.spans
         name = node.name
@@ -1836,7 +1828,6 @@ class Renderer:
                 if arg in _RESERVED_NAMES or arg.startswith(_RESERVED_PREFIX):
                     msg = f"invalid argument name '{arg}'"
                     raise FyppFatalError(msg, fname, spans[0])
-        result = ""
         try:
             # Set by handle_enddef() once the def/enddef pair is closed; _define_macro() is only
             # ever called on a closed block (i.e. an already-finished tree node).
@@ -1855,16 +1846,16 @@ class Renderer:
         except Exception as exc:
             msg = f"exception occurred when defining macro '{name}'"
             raise FyppFatalError(msg, fname, spans[0]) from exc
+        fragments = []
         if self._linenums and not self._diverted:
-            result = self._linenumdir(spans[1].end, fname)
-        return result
+            fragments.append(self._linenumdir(spans[1].end, fname))
+        return _RenderResult(fragments)
 
-    def _define_variable(self, node: _SetDirective) -> str:
+    def _define_variable(self, node: _SetDirective) -> _RenderResult:
         fname = node.fname
         span = node.span
         name = node.name
         valstr = node.expr
-        result = ""
         try:
             if valstr is None:
                 expr = None
@@ -1875,55 +1866,58 @@ class Renderer:
             msg = f"exception occurred when setting variable(s) '{name}' to '{valstr}'"
             raise FyppFatalError(msg, fname, span) from exc
         multiline = span.start != span.end
+        fragments = []
         if self._linenums and not self._diverted and multiline:
-            result = self._linenumdir(span.end, fname)
-        return result
+            fragments.append(self._linenumdir(span.end, fname))
+        return _RenderResult(fragments)
 
-    def _delete_variable(self, node: _DelDirective) -> str:
+    def _delete_variable(self, node: _DelDirective) -> _RenderResult:
         fname = node.fname
         span = node.span
         name = node.name
-        result = ""
         try:
             self._evaluator.undefine(name)
         except Exception as exc:
             msg = f"exception occurred when deleting variable(s) '{name}'"
             raise FyppFatalError(msg, fname, span) from exc
         multiline = span.start != span.end
+        fragments = []
         if self._linenums and not self._diverted and multiline:
-            result = self._linenumdir(span.end, fname)
-        return result
+            fragments.append(self._linenumdir(span.end, fname))
+        return _RenderResult(fragments)
 
-    def _add_global(self, node: _GlobalDirective) -> str:
+    def _add_global(self, node: _GlobalDirective) -> _RenderResult:
         fname = node.fname
         span = node.span
         name = node.name
-        result = ""
         try:
             self._evaluator.addglobal(name)
         except Exception as exc:
             msg = f"exception occurred when making variable(s) '{name}' global"
             raise FyppFatalError(msg, fname, span) from exc
         multiline = span.start != span.end
+        fragments = []
         if self._linenums and not self._diverted and multiline:
-            result = self._linenumdir(span.end, fname)
-        return result
+            fragments.append(self._linenumdir(span.end, fname))
+        return _RenderResult(fragments)
 
-    def _get_comment(self, node: _CommentDirective) -> str:
+    def _get_comment(self, node: _CommentDirective) -> _RenderResult:
+        fragments = []
         if self._linenums and not self._diverted:
-            return self._linenumdir(node.span.end, node.fname)
-        return ""
+            fragments.append(self._linenumdir(node.span.end, node.fname))
+        return _RenderResult(fragments)
 
-    def _get_muted_content(self, node: _MuteBlock) -> str:
+    def _get_muted_content(self, node: _MuteBlock) -> _RenderResult:
         # Set by handle_endmute() once the mute/endmute pair is closed; _get_muted_content() is
         # only ever called on a closed block (i.e. an already-finished tree node).
         assert node.tree is not None
         self._render(node.tree)
+        fragments = []
         if self._linenums and not self._diverted:
-            return self._linenumdir(node.spans[-1].end, node.fname)
-        return ""
+            fragments.append(self._linenumdir(node.spans[-1].end, node.fname))
+        return _RenderResult(fragments)
 
-    def _handle_stop(self, node: _StopDirective) -> typing.NoReturn:
+    def _handle_stop(self, node: _StopDirective) -> NoReturn:
         fname = node.fname
         span = node.span
         msgstr = node.msg
@@ -1934,11 +1928,10 @@ class Renderer:
             raise FyppFatalError(msg, fname, span) from exc
         raise FyppStopRequest(msg, fname, span)
 
-    def _handle_assert(self, node: _AssertDirective) -> str:
+    def _handle_assert(self, node: _AssertDirective) -> _RenderResult:
         fname = node.fname
         span = node.span
         expr = node.cond
-        result = ""
         try:
             cond = bool(self._evaluate(expr, fname, span.start))
         except Exception as exc:
@@ -1947,11 +1940,12 @@ class Renderer:
         if not cond:
             msg = f"Assertion failed ('{expr}')"
             raise FyppStopRequest(msg, fname, span)
+        fragments = []
         if self._linenums and not self._diverted:
-            result = self._linenumdir(span.end, fname)
-        return result
+            fragments.append(self._linenumdir(span.end, fname))
+        return _RenderResult(fragments)
 
-    def _evaluate(self, expr: str, fname: str | None, linenr: int) -> typing.Any:
+    def _evaluate(self, expr: str, fname: str | None, linenr: int) -> Any:
         self._update_predef_globals(fname, linenr)
         result = self._evaluator.evaluate(expr)
         self._update_predef_globals(fname, linenr)
@@ -1972,11 +1966,14 @@ class Renderer:
         if not self._fixedposition:
             self._evaluator.updateglobals(_FILE_=fname, _LINE_=linenr + 1)
 
-    def _define(self, var: str, value: typing.Any) -> None:
+    def _define(self, var: str, value: Any) -> None:
         self._evaluator.define(var, value)
 
     def _postprocess_eval_lines(
-        self, output: list[str], eval_slots: list[int], eval_sources: list[tuple[Span, str | None]]
+        self,
+        output: list[str],
+        eval_slots: Sequence[int],
+        eval_sources: Sequence[tuple[Span, str | None]],
     ) -> None:
         ilastproc = -1
         for ieval, ind in enumerate(eval_slots):
@@ -2006,7 +2003,7 @@ class Renderer:
 
     @staticmethod
     def _find_next_eol(output: list[str], ind: int) -> tuple[int, int]:
-        "Find last newline before current position."
+        "Find next newline after current position."
         # find first eol after expr. evaluation
         inext = ind + 1
         while inext < len(output):
@@ -2085,7 +2082,7 @@ class Evaluator:
     """
 
     # Restricted builtins working in all supported Python versions. Version
-    # specific ones are added dynamically in _get_restricted_builtins().
+    # specific ones might be added dynamically in _get_restricted_builtins().
     _RESTRICTED_BUILTINS = {
         "abs": builtins.abs,
         "all": builtins.all,
@@ -2165,7 +2162,7 @@ class Evaluator:
         # Turn on restricted mode
         self._restrict_builtins()
 
-    def evaluate(self, expr: str) -> typing.Any:
+    def evaluate(self, expr: str) -> Any:
         """Evaluate a Python expression using the `eval()` builtin.
 
         Args:
@@ -2199,7 +2196,7 @@ class Evaluator:
             msg = f"failed to import module '{module}'"
             raise FyppFatalError(msg) from exc
 
-    def define(self, name: str, value: typing.Any) -> None:
+    def define(self, name: str, value: Any) -> None:
         """Define a Python entity.
 
         Args:
@@ -2280,7 +2277,7 @@ class Evaluator:
                 assert self._globalrefs is not None
                 self._globalrefs.add(varname)
 
-    def updateglobals(self, **vardict: typing.Any) -> None:
+    def updateglobals(self, **vardict: Any) -> None:
         """Update variables in the global scope.
 
         This is a shortcut function to inject protected variables in the global
@@ -2296,7 +2293,7 @@ class Evaluator:
         if self._locals is not None:
             self._globals.update(vardict)
 
-    def updatelocals(self, **vardict: typing.Any) -> None:
+    def updatelocals(self, **vardict: Any) -> None:
         """Update variables in the local scope.
 
         This is a shortcut function to inject variables in the local scope
@@ -2317,7 +2314,7 @@ class Evaluator:
         """Opens a new (embedded) scope.
 
         Note: consider to use newscope() to handle exceptions between openscope() and closescope().
-        
+
         Args:
             customlocals: By default, the locals of the embedding scope are visible in the new one.
                 When this is not the desired behaviour a dictionary of customized locals
@@ -2350,7 +2347,7 @@ class Evaluator:
             self._scope = self._globals
 
     @contextlib.contextmanager
-    def newscope(self, customlocals: dict | None = None) -> collections.abc.Generator[None]:
+    def newscope(self, customlocals: dict | None = None) -> Generator[None]:
         """Context manager opening a new scope and closing it on exit (even if exception occurred).
 
         Args:
@@ -2384,7 +2381,7 @@ class Evaluator:
         self._globals["__builtins__"] = builtindict
 
     @classmethod
-    def _get_restricted_builtins(cls) -> dict[str, typing.Any]:
+    def _get_restricted_builtins(cls) -> dict[str, Any]:
         bidict = dict(cls._RESTRICTED_BUILTINS)
         return bidict
 
@@ -2413,21 +2410,21 @@ class Evaluator:
         defined = var in self._scope
         return defined
 
-    def _func_import(self, name: str, *_: typing.Any, **__: typing.Any) -> types.ModuleType:
+    def _func_import(self, name: str, *_: Any, **__: Any) -> types.ModuleType:
         module = self._scope.get(name, None)
         if module is not None and isinstance(module, types.ModuleType):
             return module
         msg = f"Import of module '{name}' via '__import__' not allowed"
         raise ImportError(msg)
 
-    def _func_setvar(self, *namesvalues: typing.Any) -> None:
+    def _func_setvar(self, *namesvalues: Any) -> None:
         if len(namesvalues) % 2:
             msg = "setvar function needs an even number of arguments"
             raise FyppFatalError(msg)
         for ind in range(0, len(namesvalues), 2):
             self.define(namesvalues[ind], namesvalues[ind + 1])
 
-    def _func_getvar(self, name: str, defvalue: typing.Any = None) -> typing.Any:
+    def _func_getvar(self, name: str, defvalue: Any = None) -> Any:
         if name in self._scope:
             return self._scope[name]
         return defvalue
@@ -2441,7 +2438,7 @@ class Evaluator:
             self.addglobal(name)
 
     @staticmethod
-    def _func_getargvalues(*args: typing.Any, **kwargs: typing.Any) -> tuple[list, dict]:
+    def _func_getargvalues(*args: Any, **kwargs: Any) -> tuple[list, dict]:
         return list(args), kwargs
 
 
@@ -2481,7 +2478,7 @@ class _Macro:
         if self._localscope is None:
             object.__setattr__(self, "_localscope", {})
 
-    def __call__(self, *args: typing.Any, **keywords: typing.Any) -> str:
+    def __call__(self, *args: Any, **keywords: Any) -> str:
         argdict = self._process_arguments(args, keywords)
         with self._evaluator.newscope(customlocals=self._localscope):
             self._evaluator.updatelocals(**argdict)
@@ -2490,11 +2487,9 @@ class _Macro:
             return output[:-1]
         return output
 
-    def _process_arguments(
-        self, args: tuple[typing.Any, ...], keywords: dict[str, typing.Any]
-    ) -> dict[str, typing.Any]:
+    def _process_arguments(self, args: tuple[Any, ...], keywords: dict[str, Any]) -> dict[str, Any]:
         kwdict = dict(keywords)
-        argdict: dict[str, typing.Any] = {}
+        argdict: dict[str, Any] = {}
         nargs = min(len(args), len(self._argspec.args))
         for iarg in range(nargs):
             argdict[self._argspec.args[iarg]] = args[iarg]
@@ -2563,7 +2558,6 @@ class Processor:
             self._parser: Parser = Parser(handlers=self._builder)
         else:
             self._parser = parser
-            # Make sure, the parser uses the builder to handle the events
             self._parser.handlers = self._builder
 
         self._renderer: Renderer
@@ -2573,11 +2567,8 @@ class Processor:
         else:
             self._renderer = renderer
 
-        # Dispatch the parser's events directly to the builder instead of through the parser's own
-        # handle_* stubs (which only print events, see Parser.handlers).
-
     def process_file(self, fname: str) -> str:
-        """Processeses a file.
+        """Processes a file.
 
         Args:
             fname: Name of the file to process.
@@ -2612,7 +2603,7 @@ class Processor:
 #
 
 
-class _FyppOptionsLike(typing.Protocol):
+class _FyppOptionsLike(Protocol):
     """Structural shape of the options object accepted by Fypp.__init__.
 
     Satisfied by a FyppOptions instance, an optparse.Values as returned by
@@ -2706,10 +2697,10 @@ class Fypp:
     def __init__(
         self,
         options: _FyppOptionsLike | None = None,
-        evaluator_factory: collections.abc.Callable[..., Evaluator] = Evaluator,
-        parser_factory: collections.abc.Callable[..., Parser] = Parser,
-        builder_factory: collections.abc.Callable[..., Builder] = Builder,
-        renderer_factory: collections.abc.Callable[..., Renderer] = Renderer,
+        evaluator_factory: Callable[..., Evaluator] = Evaluator,
+        parser_factory: Callable[..., Parser] = Parser,
+        builder_factory: Callable[..., Builder] = Builder,
+        renderer_factory: Callable[..., Renderer] = Renderer,
     ):
         syspath = self._get_syspath_without_scriptdir()
         self._adjust_syspath(syspath)
@@ -2740,7 +2731,7 @@ class Fypp:
 
         fixed_format = options.fixed_format
         linefolding = not options.no_folding
-        linefolder: collections.abc.Callable[[str], list[str]]
+        linefolder: Callable[[str], list[str]]
         if linefolding:
             folding = "brute" if fixed_format else options.folding_mode
             linelength = 72 if fixed_format else options.line_length
@@ -2774,7 +2765,6 @@ class Fypp:
                 stdin.
             outfile: Name of the file to write the result to. If its value is '-', result is written
                 to stdout. If not present, result will be returned as string.
-            env: Additional definitions for the evaluator.
 
         Returns:
             Result of processed input, if no outfile was specified.
@@ -2795,7 +2785,6 @@ class Fypp:
 
         Args:
             txt: String to process.
-            env: Additional definitions for the evaluator.
 
         Returns:
             Processed content.
@@ -2937,10 +2926,9 @@ class FortranLineFolder:
         self._indent: int = indent
         self._prefix: str = " " * self._indent + prefix
         self._suffix: str = suffix
-        if method not in ["brute", "smart", "simple"]:
-            raise FyppFatalError("invalid folding type")
+
         self._inherit_indent: bool
-        self._fold_position_finder: collections.abc.Callable[[str, int, int], int]
+        self._fold_position_finder: Callable[[str, int, int], int]
         match method:
             case "brute":
                 self._inherit_indent = False
@@ -2951,6 +2939,8 @@ class FortranLineFolder:
             case "smart":
                 self._inherit_indent = True
                 self._fold_position_finder = self._get_smart_fold_pos
+            case _:
+                raise FyppFatalError("invalid folding type")
 
     def __call__(self, line: str) -> list[str]:
         """Folds a line.
@@ -2984,7 +2974,7 @@ class FortranLineFolder:
         maxlen: int,
         prefix: str,
         suffix: str,
-        fold_position_finder: collections.abc.Callable[[str, int, int], int],
+        fold_position_finder: Callable[[str, int, int], int],
     ) -> list[str]:
         # length of continuation lines with 1 or two continuation chars.
         maxlen1 = maxlen - len(prefix)
@@ -3338,14 +3328,14 @@ def _linemarker_path(path):
     return _normalized_path(path).replace('\\', '\\\\').replace('"', '\\"')
 
 
-def _shiftinds(inds: list[int], shift: int) -> list[int]:
+def _shiftinds(inds: Sequence[int], shift: int) -> list[int]:
     return [ind + shift for ind in inds]
 
 
-def _open_input_file(inpfile: str, encoding: str | None = None) -> typing.TextIO:
+def _open_input_file(inpfile: str, encoding: str | None = None) -> TextIO:
     try:
         inpfp = open(inpfile, "r", encoding=encoding)
-    except IOError as exc:
+    except OSError as exc:
         msg = f"Failed to open file '{inpfile}' for read"
         raise FyppFatalError(msg) from exc
     return inpfp
@@ -3353,7 +3343,7 @@ def _open_input_file(inpfile: str, encoding: str | None = None) -> typing.TextIO
 
 def _open_output_file(
     outfile: str, encoding: str | None = None, create_parents: bool = False
-) -> typing.TextIO:
+) -> TextIO:
     if create_parents:
         parentdir = os.path.abspath(os.path.dirname(outfile))
         try:
@@ -3363,13 +3353,13 @@ def _open_output_file(
             raise FyppFatalError(msg) from exc
     try:
         outfp = open(outfile, "w", encoding=encoding)
-    except IOError as exc:
+    except OSError as exc:
         msg = f"Failed to open file '{outfile}' for write"
         raise FyppFatalError(msg) from exc
     return outfp
 
 
-def _get_callable_argspec(func: collections.abc.Callable) -> _CallableArgSpec:
+def _get_callable_argspec(func: Callable) -> _CallableArgSpec:
     sig = inspect.signature(func)
     args = []
     defaults = {}
@@ -3412,8 +3402,8 @@ def _argsplit_fortran(argtxt: str) -> list[str]:
             continue
         if char in _OPENING_BRACKETS_FORTRAN:
             closing_brace_stack.append(closing_brace)
-            ind = _OPENING_BRACKETS_FORTRAN.index(char)
-            closing_brace = _CLOSING_BRACKETS_FORTRAN[ind]
+            ibracket = _OPENING_BRACKETS_FORTRAN.index(char)
+            closing_brace = _CLOSING_BRACKETS_FORTRAN[ibracket]
             continue
         if char in _CLOSING_BRACKETS_FORTRAN:
             if char == closing_brace:
