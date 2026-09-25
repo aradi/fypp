@@ -182,7 +182,7 @@ Main features
 Installing
 ==========
 
-Fypp needs a working Python 3 interpreter (Python 3.7 or above).
+Fypp needs a working Python 3 interpreter (Python 3.10 or above).
 
 When you install Fypp, you obtain the command line tool ``fypp`` and the Python
 module ``fypp.py``. Latter you can import if you want to access the

@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "fypp"
 version = "3.2"
 dependencies = []
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 authors = [{name = "Bálint Aradi", email = "aradi@uni-bremen.de"},]
 maintainers = [{name = "Bálint Aradi", email = "aradi@uni-bremen.de"},]
 description = "Python powered Fortran preprocessor"
@@ -34,3 +34,7 @@ fypp = "fypp:run_fypp"
 
 [tool.hatch.build]
 packages = ["src/fypp.py"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312", "py313", "py314"]
