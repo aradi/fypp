@@ -32,5 +32,26 @@ Changelog = "https://github.com/aradi/fypp/blob/main/CHANGELOG.rst"
 [project.scripts]
 fypp = "fypp:run_fypp"
 
+# Hatch builder settings
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/fypp.py"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "test"]
+
+# Tox settings
+
+[tool.tox]
+requires = ["tox>=4.40"]
+env_list = ["3.15", "3.14", "3.13", "3.12", "3.11", "3.10", "3.9"]
+
+[tool.tox.env_run_base]
+description = "Run unit tests across Python environments"
+skip_missing_interpreters = true
+package = "sdist-wheel"
+wheel_build_env = ".pkg"
+changedir = "{tox_root}/test"
+commands= [
+    ["python3", "-m", "unittest", "discover"]
+]
