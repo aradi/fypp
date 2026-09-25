@@ -2970,8 +2970,8 @@ def linenumdir_cpp(linenr, fname, flag=None):
         Line number directive as string.
     """
     if flag is None:
-        return '# {0} "{1}"\n'.format(linenr + 1, fname)
-    return '# {0} "{1}" {2}\n'.format(linenr + 1, fname, flag)
+        return '# {0} "{1}"\n'.format(linenr + 1, _normalized_path(fname))
+    return '# {0} "{1}" {2}\n'.format(linenr + 1, _normalized_path(fname), flag)
 
 
 def linenumdir_std(linenr, fname, flag=None):
@@ -2988,7 +2988,15 @@ def linenumdir_std(linenr, fname, flag=None):
     Returns:
         Line number directive as string.
     """
-    return "#line {0} \"{1}\"\n".format(linenr + 1, fname)
+    return "#line {0} \"{1}\"\n".format(linenr + 1, _normalized_path(fname))
+
+
+def _normalized_path(path):
+    """Returns a normalized path for output in line marker directives"""
+    if os.altsep:
+        path = path.replace(os.sep, os.altsep)
+    path.replace("\\", "\\\\").replace('"', '\\"')
+    return path
 
 
 def _shiftinds(inds, shift):
