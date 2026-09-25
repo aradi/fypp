@@ -44,7 +44,7 @@ include = ["src", "test"]
 
 [tool.tox]
 requires = ["tox>=4.40"]
-env_list = ["3.15", "3.14", "3.13", "3.12", "3.11", "3.10", "3.9"]
+env_list = ["3.15", "3.14", "3.13", "3.12", "3.11", "3.10"]
 
 [tool.tox.env_run_base]
 description = "Run unit tests across Python environments"
