@@ -53,5 +53,8 @@ package = "sdist-wheel"
 wheel_build_env = ".pkg"
 changedir = "{tox_root}/test"
 commands= [
-    ["python3", "-m", "unittest", "discover"]
+    ["{python_env}", "-m", "unittest", "discover"]
 ]
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312", "py313", "py314"]
