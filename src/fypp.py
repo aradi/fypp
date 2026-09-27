@@ -82,17 +82,18 @@ ERROR_EXIT_CODE = 1
 
 USER_ERROR_EXIT_CODE = 2
 
+_INLINE_DIRECTIVE_PATTERN = r"(?P<idirtype>[$\#@])\{[ \t]*(?P<idir>.+?)?[ \t]*\}(?P=idirtype)"
+
 _ALL_DIRECTIVES_PATTERN = r'''
 # comment block
-(?:^[ \t]*\#!.*\n)+
+(?:^[ \t]*\#!.*(?:\n|\Z))+
 |
 # line directive (with optional continuation lines)
 ^[ \t]*(?P<ldirtype>[\#\$@]):[ \t]*
-(?P<ldir>.+?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)?[ \t]*\n
+(?P<ldir>.+?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)?[ \t]*(?:\n|\Z)
 |
-# inline eval directive
-(?P<idirtype>[$\#@])\{[ \t]*(?P<idir>.+?)?[ \t]*\}(?P=idirtype)
-'''
+# inline directive
+''' + _INLINE_DIRECTIVE_PATTERN
 
 _ALL_DIRECTIVES_REGEXP = re.compile(
     _ALL_DIRECTIVES_PATTERN, re.VERBOSE | re.MULTILINE)
@@ -102,6 +103,8 @@ _CONTROL_DIR_REGEXP = re.compile(
 
 _DIRECT_CALL_REGEXP = re.compile(
     r'(?P<callname>[a-zA-Z_][\w.]*)[ \t]*\((?P<callparams>.+?)?\)$')
+
+_DIRECT_CALL_ARG_REGEXP = re.compile(_INLINE_DIRECTIVE_PATTERN)
 
 _DIRECT_CALL_KWARG_REGEXP = re.compile(
     r'(?:(?P<kwname>[a-zA-Z_]\w*)\s*=(?=[^=]|$))?')
@@ -582,16 +585,26 @@ class Parser:
 
     def _parse(self, txt, linenr=0, directcall=False):
         pos = 0
-        for match in _ALL_DIRECTIVES_REGEXP.finditer(txt):
+        if directcall:
+            matches = _DIRECT_CALL_ARG_REGEXP.finditer(txt)
+        else:
+            matches = _ALL_DIRECTIVES_REGEXP.finditer(txt)
+        for match in matches:
+            groups = match.groupdict()
+            idirtype, idir = groups.get("idirtype"), groups.get("idir")
+            ldirtype, ldir = groups.get("ldirtype"), groups.get("ldir")
             start, end = match.span()
             if start > pos:
                 endlinenr = linenr + txt.count('\n', pos, start)
                 self._process_text(txt[pos:start], (linenr, endlinenr))
                 linenr = endlinenr
             endlinenr = linenr + txt.count('\n', start, end)
+            if idirtype is None and not txt.endswith('\n', start, end):
+                # Line directive or comment terminated by the end of the text instead of a
+                # newline: treat it as if the missing newline had been present.
+                endlinenr += 1
             span = (linenr, endlinenr)
-            ldirtype, ldir, idirtype, idir = match.groups()
-            if directcall and (idirtype is None or idirtype != '$'):
+            if directcall and idirtype != '$':
                 msg = 'only inline eval directives allowed in direct calls'
                 raise FyppFatalError(msg, self._curfile, span)
             elif idirtype is not None:

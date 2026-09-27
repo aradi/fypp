@@ -34,6 +34,9 @@ Fixed
   will generally contain more linemarkers for inputs with single-line
   substitutions.
 
+* Line directives and comment lines in the last line of a file (or string)
+  without a trailing newline are now recognized.
+
 
 Changed
 -------
@@ -44,6 +47,12 @@ Changed
 
 * Python requirement increased to >= 3.7 due to lack of testing capabilities
   with older interpreters.
+
+* Line directives (``#:``, ``$:``, ``@:``) and comment lines (``#!``) in the
+  last line of a file without a trailing newline are now processed instead of
+  being passed through as plain text. Previously, ``$:`` and ``@:`` lines were
+  printed instead of evaluated, and a closing directive there (e.g. ``#:endif``)
+  caused an unclosed-directive error.
 
 
 3.2
