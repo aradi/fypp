@@ -53,7 +53,7 @@ package = "sdist-wheel"
 wheel_build_env = ".pkg"
 changedir = "{tox_root}/test"
 commands= [
-    ["{python_env}", "-m", "unittest", "discover"]
+    ["{env_python}", "-m", "unittest", "discover"]
 ]
 [tool.black]
 line-length = 100

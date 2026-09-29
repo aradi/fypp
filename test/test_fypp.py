@@ -2228,6 +2228,8 @@ LINENUM_TESTS = [
      ([_LINENUM_FLAG],
       'Hello\n#! comment',
       _linenum(0) + 'Hello\n' + _linenum(2)
+     )
+    ),
     ('del_directive',
      ([_LINENUM_FLAG],
       '#:set A = 5\nLine 2\n#:del A\nLine 4\n',
