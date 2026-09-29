@@ -22,6 +22,25 @@ Added
   in the ``--define-mode`` option.
 
 
+Fixed
+-----
+
+* Resync linemarker now always emitted after eval directives (``$:``, ``@:``,
+  inline ``#{...}#``) when line-numbering is active.  Previously the marker
+  was omitted for single-line calls, causing downstream Fortran preprocessors
+  to attribute subsequent source lines to wrong locations when the expanded
+  macro body contained ``#ifdef``/``#endif`` blocks which were discarded by the
+  compiler. As a side effect, output generated with line-numbering enabled
+  will generally contain more linemarkers for inputs with single-line
+  substitutions.
+
+* Line directives and comment lines in the last line of a file (or string)
+  without a trailing newline are now recognized.
+  
+* ``#:del`` and ``#:global`` directives spanning multiple lines now emit line
+  markers, so that subsequent line numbers are reported correctly.
+
+
 Changed
 -------
 
@@ -29,8 +48,31 @@ Changed
 
 * Tox uses tox.toml as config file.
 
-* Python requirement increased to >= 3.7 due to lack of testing capabilities
+* Python requirement increased to >= 3.10 due to lack of testing capabilities
   with older interpreters.
+
+* Line directives (``#:``, ``$:``, ``@:``) and comment lines (``#!``) in the
+  last line of a file without a trailing newline are now processed instead of
+  being passed through as plain text. Previously, ``$:`` and ``@:`` lines were
+  printed instead of evaluated, and a closing directive there (e.g. ``#:endif``)
+  caused an unclosed-directive error.
+
+* File names in line markers and in the variables ``_FILE_`` and ``_THIS_FILE_``
+  always use forward slashes as path separators, also on Windows, so that the
+  preprocessed code is identical on both platforms. Backslashes and quotes in
+  file names are escaped in line markers, but not in  ``_FILE_`` and
+  ``_THIS_FILE_``, which are now always strings (and not Path object, as was the
+   case before when ``--file-var-root`` was used).
+
+* Source code had been refactored for better readability and robustness adapting
+  to the minimal version set by the testing capabilities. Type hinting is used
+  consistently everywhere.
+
+* Parser dispatches parsing events now using a formal protocol definition.
+  Subclassing Parser or reassigning its handle_* methods is not supported any
+  more. (This does not affect the published public API, but you
+  might need to adapt your Python driver, if you happened to use the Parser and
+  the Builder objects directly in your Python driver.)
 
 
 3.2

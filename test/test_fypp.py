@@ -2,12 +2,13 @@
 from pathlib import Path
 import platform
 import unittest
+import unittest.mock as mock
 import fypp
 
 
 def _linenum(linenr, fname=None, flag=None):
     if fname is None:
-        fname = fypp.STRING
+        fname = fypp.STRING_INPUT_NAME
     return fypp.linenumdir_cpp(linenr, fname, flag)
 
 def _defvar(var, val=None):
@@ -1356,7 +1357,7 @@ SIMPLE_TESTS = [
     ('builtin_var_file',
      ([],
       '${_FILE_}$',
-      fypp.STRING
+      fypp.STRING_INPUT_NAME
      )
     ),
     ('builtin_var_line_in_lineeval',
@@ -1626,7 +1627,7 @@ SIMPLE_TESTS = [
      ([],
       '#:def ASSERT(cond)\n"${cond}$", ${_FILE_}$, ${_LINE_}$\n#:enddef\n'\
       '@:ASSERT(2 < 3)\n',
-      '"2 < 3", ' + fypp.STRING + ', 4\n'
+      '"2 < 3", ' + fypp.STRING_INPUT_NAME + ', 4\n'
      )
     ),
     ('correct_line_numbering_in_if',
@@ -1830,6 +1831,55 @@ SIMPLE_TESTS = [
        '12 str'
      )
     ),
+    # Check, whether end of file / end of string closes line directives correctly
+    ('eol_linedir',
+     ([],
+       '#:if True\nHello\n#:endif',
+       'Hello\n'
+     )
+    ),
+    # Check, whether end of file / end of string closes comment directives correctly
+    ('eol_comment',
+     ([],
+       'Hello\n#! This is a comment',
+       'Hello\n'
+     )
+    ),
+    # Check, whether end of string handling is correct in direct calls
+    ('eos_direct_call_arg',
+     ([],
+       '#:def hello(name)\nHello ${name}$\n#:enddef\n@:hello(#:if something)\n',
+       'Hello #:if something\n'
+     )
+    ),
+    # Check, whether end of file / end of string closes eval line directives correctly
+    ('eol_eval_linedir',
+     ([],
+       '#:set x = 1\n$: x',
+       '1\n'
+     )
+    ),
+    # Check, whether end of file / end of string closes direct calls correctly
+    ('eol_direct_call',
+     ([],
+       '#:def hello(name)\nHello ${name}$\n#:enddef\n@:hello(World)',
+       'Hello World\n'
+     )
+    ),
+    # Check, whether trailing whitespace before end of file / end of string is handled
+    ('eol_linedir_trailing_whitespace',
+     ([],
+       '#:if True\nHello\n#:endif  ',
+       'Hello\n'
+     )
+    ),
+    # Check, whether end of file / end of string closes continued line directives correctly
+    ('eol_linedir_contline',
+     ([],
+       '$: 1 + &\n  & 2',
+       '3\n'
+     )
+    ),
 ]
 
 
@@ -2000,7 +2050,7 @@ LINENUM_TESTS = [
     ('linesub_oneline',
      ([_LINENUM_FLAG],
       'A\n$: 1 + 1\nB\n',
-      _linenum(0) + 'A\n2\nB\n'
+      _linenum(0) + 'A\n2\n' + _linenum(2) + 'B\n'
      )
     ),
     ('linesub_contlines',
@@ -2024,7 +2074,7 @@ LINENUM_TESTS = [
     ('exprsub_multi_line',
      ([_LINENUM_FLAG],
       '${"line1\\nline2"}$\nDone\n',
-      _linenum(0) + 'line1\n' + _linenum(0) + 'line2\nDone\n'
+      _linenum(0) + 'line1\n' + _linenum(0) + 'line2\n' + _linenum(1) + 'Done\n'
      )
     ),
     ('macrosubs',
@@ -2044,7 +2094,7 @@ LINENUM_TESTS = [
       '#:def macro(c)\nMACRO1|${c}$|\nMACRO2|${c}$|\n#:enddef\n${macro(\'A\')}$'
       '\n',
       _linenum(0) + _linenum(4) + 'MACRO1|A|\n' + _linenum(4)
-      + 'MACRO2|A|\n'
+      + 'MACRO2|A|\n' + _linenum(5)
      )
     ),
     ('recursive_macrosubs_multiline',
@@ -2052,7 +2102,7 @@ LINENUM_TESTS = [
       '#:def f(c)\nLINE1|${c}$|\nLINE2|${c}$|\n#:enddef\n$: f(f("A"))\n',
       (_linenum(0) + _linenum(4) + 'LINE1|LINE1|A|\n' +
        _linenum(4) + 'LINE2|A||\n' + _linenum(4) + 'LINE2|LINE1|A|\n' +
-       _linenum(4) + 'LINE2|A||\n')
+       _linenum(4) + 'LINE2|A||\n' + _linenum(5))
      )
     ),
     ('multiline_macrocall',
@@ -2073,26 +2123,26 @@ LINENUM_TESTS = [
     ('for',
      ([_LINENUM_FLAG],
       '#:for i in (1, 2)\n${i}$\n#:endfor\nDone\n',
-      (_linenum(0) + _linenum(1) + '1\n' + _linenum(1) + '2\n'
-       + _linenum(3) + 'Done\n')
+      (_linenum(0) + _linenum(1) + '1\n' + _linenum(2) + _linenum(1) + '2\n'
+       + _linenum(2) + _linenum(3) + 'Done\n')
      )
     ),
     ('inline_for',
      ([_LINENUM_FLAG],
       '#{for i in (1, 2)}#${i}$#{endfor}#Done\n',
-      _linenum(0) + '12Done\n'
+      _linenum(0) + '12Done\n' + _linenum(1)
      )
     ),
     ('set',
      ([_LINENUM_FLAG],
       '#:set x = 2\n$: x\n',
-      _linenum(0) + _linenum(1) + '2\n',
+      _linenum(0) + _linenum(1) + '2\n' + _linenum(2),
      )
     ),
     ('inline_set',
      ([_LINENUM_FLAG],
       '#{set x = 2}#${x}$Done\n',
-      _linenum(0) + '2Done\n',
+      _linenum(0) + '2Done\n' + _linenum(1),
      )
     ),
     ('comment_single',
@@ -2110,14 +2160,14 @@ LINENUM_TESTS = [
     ('mute',
      ([_LINENUM_FLAG],
       'A\n#:mute\nB\n#:set VAR = 2\n#:endmute\nVAR=${VAR}$\n',
-      _linenum(0) + 'A\n' + _linenum(5) + 'VAR=2\n'
+      _linenum(0) + 'A\n' + _linenum(5) + 'VAR=2\n' + _linenum(6)
      )
     ),
     ('direct_call',
      ([_LINENUM_FLAG],
       '#:def mymacro(val)\n|${val}$|\n#:enddef\n'\
       '@:mymacro( a < b )\n',
-      _linenum(0) + _linenum(3) + '|a < b|\n',
+      _linenum(0) + _linenum(3) + '|a < b|\n' + _linenum(4),
      )
     ),
     ('direct_call_contline',
@@ -2144,7 +2194,7 @@ LINENUM_TESTS = [
      ([_LINENUM_FLAG, _linelen(15), _indentation(4), _folding('smart')],
       '  ${3}$456 89 123456 8\nDone\n',
       _linenum(0) + '  3456 89&\n' + _linenum(0)
-      + '      & 123456&\n' + _linenum(0) + '      & 8\n' + 'Done\n'
+      + '      & 123456&\n' + _linenum(0) + '      & 8\n' + _linenum(1) + 'Done\n'
      )
     ),
     ('smart_folding_nocontlines',
@@ -2153,6 +2203,55 @@ LINENUM_TESTS = [
       '  ${3}$456 89 123456 8\nDone\n',
       _linenum(0) + '  3456 89&\n' + '      & 123456&\n' \
       + '      & 8\n' + _linenum(1) + 'Done\n'
+     )
+    ),
+    ('eval_resync_after_preprocessor_block',
+     ([_LINENUM_FLAG],
+      '#:def GUARD()\n#ifdef NEVER\n! stripped\n#endif\n#:enddef\nA\n$:GUARD()\nB\n',
+      _linenum(0)
+      + _linenum(5) + 'A\n'
+      + '#ifdef NEVER\n'
+      + _linenum(6) + '! stripped\n'
+      + _linenum(6) + '#endif\n'
+      + _linenum(7) + 'B\n'
+     )
+    ),
+    # Check, whether line directive closed by end of file / end of string has correct span
+    ('eol_linedir',
+     ([_LINENUM_FLAG],
+      '#:if True\nHello\n#:endif',
+      _linenum(0) + _linenum(1) + 'Hello\n' + _linenum(3)
+     )
+    ),
+    # Check, whether comment closed by end of file / end of string has correct span
+    ('eol_comment',
+     ([_LINENUM_FLAG],
+      'Hello\n#! comment',
+      _linenum(0) + 'Hello\n' + _linenum(2)
+     )
+    ),
+    ('del_directive',
+     ([_LINENUM_FLAG],
+      '#:set A = 5\nLine 2\n#:del A\nLine 4\n',
+      _linenum(0) + _linenum(1) + 'Line 2\n' + _linenum(3) + 'Line 4\n'
+     )
+    ),
+    ('del_directive_contline',
+     ([_LINENUM_FLAG],
+      '#:set A = 5\nLine 2\n#:del&\n  & A\nLine 4\n',
+      _linenum(0) + _linenum(1) + 'Line 2\n' + _linenum(4) + 'Line 4\n'
+     )
+    ),
+    ('global_directive',
+     ([_LINENUM_FLAG],
+      '#:global A\nLine 2\n',
+      _linenum(0) + _linenum(1) + 'Line 2\n'
+     )
+    ),
+    ('global_directive_contline',
+     ([_LINENUM_FLAG],
+      '#:global&\n  & A\nLine 2\n',
+      _linenum(0) + _linenum(2) + 'Line 2\n'
      )
     ),
 ]
@@ -2194,7 +2293,8 @@ INCLUDE_TESTS = [
       (_linenum(0)
        + _linenum(0, 'include/fypp1.inc', flag=_NEW_FILE)
        + 'INCL1\n' + _linenum(4, 'include/fypp1.inc')
-       + 'INCL5\n' + _linenum(1, flag=_RETURN_TO_FILE) + 'INCMACRO(1)\n')
+       + 'INCL5\n' + _linenum(1, flag=_RETURN_TO_FILE) + 'INCMACRO(1)\n'
+       + _linenum(2))
      )
     ),
     ('nested_include_in_incpath_linenum',
@@ -2231,6 +2331,13 @@ INCLUDE_TESTS = [
      ([_LINENUM_FLAG, _incdir('include')],
       'START\n#:mute\n#:include \'fypp1.inc\'\n#:endmute\nDONE\n',
       _linenum(0) + 'START\n' + _linenum(4) + 'DONE\n'
+     )
+    ),
+    # Check, whether line directive at end of included file without newline is recognized
+    ('include_eol_linedir',
+     ([],
+      '#:include "include/noeol.inc"\nAFTER\n',
+      'NOEOL\nAFTER\n'
      )
     ),
 ]
@@ -2287,160 +2394,160 @@ EXCEPTION_TESTS = [
     ('invalid_directive',
      ([],
       '#:invalid\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('invalid_macrodef',
      ([],
       '#:def alma[x]\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('invalid_for_decl',
      ([],
       '#:for i = 1, 2\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('invalid_include',
      ([],
       '#:include <test.h>\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('inline_include',
      ([],
       '#{include "test.h"}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 0))]
      )
     ),
     ('wrong_include_file',
      ([],
       '#:include "testfkjsdlfkjslf.h"\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('invalid_else',
      ([],
       '#:if 1 > 2\nA\n#:else True\nB\n#:endif\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('invalid_endif',
      ([],
       '#:if 1 > 2\nA\n#:else\nB\n#:endif INV\n',
-      [(fypp.FyppFatalError, fypp.STRING, (4, 5))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (4, 5))]
      )
     ),
     ('invalid_endfor',
      ([],
       '#:for i in range(5)\n${i}$\n#:endfor INV\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('invalid_variable_assign',
      ([],
       '#:set A=\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('invalid_mute',
      ([],
       '#:mute TEST\n#:endmute\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('invalid_endmute',
      ([],
       '#:mute\n#:endmute INVALID\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 2))]
      )
     ),
     ('inline_mute',
      ([],
       '#{mute}#test#{endmute}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 0))]
      )
     ),
     ('inline_endmute',
      ([],
       '#:mute\ntest#{endmute}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 1))]
      )
     ),
     ('setvar_with_equal',
      ([],
       '#:setvar x = 2\n$: x\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('inline_set_without_equal',
      ([],
       '#{set x 2}#${x}$Done\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 0))]
      )
     ),
     ('missing_del_name',
      ([],
       '#:del\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('invalid_del_name',
      ([],
       '#:del [a, b]\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('inline_def',
      ([],
       '#{def macro()}#TEST#{enddef}#',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 0))]
      )
     ),
     ('invalid_direct_call_expr',
      ([],
       '#:def macro()\n#:enddef\n@:macro{}\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('invalid_direct_call_expr_inline',
      ([],
       '#:def macro()\n#:enddef\n@{macro{}}@\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 2))]
      )
     ),
     ('invalid_direct_call_expr2',
      ([],
       '#:def macro()\n#:enddef\n@:macro(\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('invalid_direct_call_expr2_inline',
      ([],
       '#:def macro()\n#:enddef\n@{macro(}@\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 2))]
      )
     ),
     ('direct_call_non_eval_dir',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@:mymacro(L1 #{if True}#2, 2#{endif}#)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 3))]
      )
     ),
     ('direct_call_non_eval_dir_inline',
      ([],
       '#:def mymacro(val1, val2)\n|${val1}$|${val2}$|\n#:enddef\n'\
       '@{mymacro(L1 #{if True}#2, 2#{endif}#)}@',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 3))]
      )
     ),
     ('direct_call_unclosed quote',
      ([],
       '#:def mymacro(arg1)\n|${arg1}$|\n#:enddef\n'\
       '@:mymacro("something)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 4)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
@@ -2448,7 +2555,7 @@ EXCEPTION_TESTS = [
      ([],
       '#:def mymacro(arg1)\n|${arg1}$|\n#:enddef\n'\
       '@:mymacro({something)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 4)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
@@ -2456,44 +2563,44 @@ EXCEPTION_TESTS = [
      ([],
       '#:def mymacro(arg1)\n|${arg1}$|\n#:enddef\n'\
       '@:mymacro({(})\n',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 4)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('missing_line_dir_content',
      ([],
       '#:\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('missing_line_dir_content2',
      ([],
       '#: \n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('missing_inline_dir_content',
      ([],
       '#{}#',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 0))]
      )
     ),
     ('missing_inline_dir_content2',
      ([],
       '#{ }#',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 0))]
      )
     ),
     ('set_setvar',
      ([],
       '#:setvar x 2\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('inline_setvar',
      ([],
       '#{setvar x 2}#',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 0))]
      )
     ),
     #
@@ -2502,219 +2609,219 @@ EXCEPTION_TESTS = [
     ('line_if_inline_endif',
      ([],
       '#:if 1 < 2\nTrue\n#{endif}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 2))]
      )
     ),
     ('inline_if_line_endif',
      ([],
       '#{if 1 < 2}#True\n#:endif\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 2))]
      )
     ),
     ('line_if_inline_elif',
      ([],
       '#:if 1 < 2\nTrue\n#{elif 2 > 3}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 2))]
      )
     ),
     ('inline_if_line_elif',
      ([],
       '#{if 1 < 2}#True\n#:elif 2 > 3\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 2))]
      )
     ),
     ('line_if_inline_else',
      ([],
       '#:if 1 < 2\nTrue\n#{else}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 2))]
      )
     ),
     ('inline_if_line_else',
      ([],
       '#{if 1 < 2}#True\n#:else\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 2))]
      )
     ),
     ('loose_else',
      ([],
       'A\n#:else\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 2))]
      )
     ),
     ('loose_inline_else',
      ([],
       'A\n#{else}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 1))]
      )
     ),
     ('loose_elif',
      ([],
       'A\n#:elif 1 > 2\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 2))]
      )
     ),
     ('loose_inline_elif',
      ([],
       'A\n#{elif 1 > 2}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 1))]
      )
     ),
     ('loose_endif',
      ([],
       'A\n#:endif\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 2))]
      )
     ),
     ('loose_inline_endif',
      ([],
       'A\n#{endif}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 1))]
      )
     ),
     ('mismatching_else',
      ([],
       '#:if 1 < 2\n#:for i in range(3)\n#:else\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('mismatching_elif',
      ([],
       '#:if 1 < 2\n#:for i in range(3)\n#:elif 1 > 2\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('mismatching_endif',
      ([],
       '#:if 1 < 2\n#:for i in range(3)\n#:endif\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('line_def_inline_enddef',
      ([],
       '#:def alma(x)\n#{enddef}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 1))]
      )
     ),
     ('loose_enddef',
      ([],
       '#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('loose_inline_enddef',
      ([],
       '#{enddef}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 0))]
      )
     ),
     ('mismatching_enddef',
      ([],
       '#:def test(x)\n#{if 1 < 2}#\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('enddef_name_mismatch',
      ([],
       '#:def macro(var)\nMACRO|${var}$|\n#:enddef nonsense\n${macro(1)}$',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('endcall_name_mismatch',
      ([],
       '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n'\
       '#:call macro\n1\n#:endcall nonsense\n',
-      [(fypp.FyppFatalError, fypp.STRING, (5, 6))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (5, 6))]
      )
     ),
     ('inline_endcall_name_mismatch',
      ([],
       '#:def macro(var)\nMACRO|${var}$|\n#:enddef\n'\
       '#{call macro}#1#{endcall nonsense}#',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 3))]
      )
     ),
     ('line_for_inline_endfor',
      ([],
       '#:for i in range(3)\nA\n#{endfor}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 2))]
      )
     ),
     ('inline_for_line_endfor',
      ([],
       '#{for i in range(3)}#Empty\n#:endfor\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 2))]
      )
     ),
     ('loose_endfor',
      ([],
       '#:endfor\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('loose_inline_endfor',
      ([],
       '#{endfor}#',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 0))]
      )
     ),
     ('mismatching_endfor',
      ([],
       '#:for i in range(3)\n#{if 1 < 2}#\n#:endfor\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('loose_endmute',
      ([],
       '#:endmute\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('mismatching_endmute',
      ([],
       '#:mute\n#{if 1 < 2}#\n#:endmute\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('unclosed_directive',
      ([],
       '#:if 1 > 2\nA\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('missing_space_after_directive',
      ([],
       '#:if(1 > 2)\nA\n#:endif',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('missing_space_after_inline_directive',
      ([],
       '#{if(1 > 2)}#A#{endif}#',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 0))]
      )
     ),
     ('mixing_block_and_endcall',
      ([],
       '#:def test(x)\n#:enddef\n#:block test\n1\n#:endcall\n',
-      [(fypp.FyppFatalError, fypp.STRING, (4, 5))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (4, 5))]
       )
     ),
     ('mixing_call_and_endblock',
      ([],
       '#:def test(x)\n#:enddef\n#:call test\n1\n#:endblock\n',
-      [(fypp.FyppFatalError, fypp.STRING, (4, 5))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (4, 5))]
       )
     ),
     ('mixing_call_and_contains',
      ([],
       '#:def test(x,y)\n#:enddef\n#:call test\n1\n#:contains\n2\n#:endcall\n',
-      [(fypp.FyppFatalError, fypp.STRING, (4, 5))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (4, 5))]
       )
     ),
     ('mixing_block_and_nextarg',
      ([],
       '#:def test(x,y)\n#:enddef\n#:block test\n1\n#:nextarg\n2\n#:endblock\n',
-      [(fypp.FyppFatalError, fypp.STRING, (4, 5))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (4, 5))]
       )
     ),
     #
@@ -2723,83 +2830,83 @@ EXCEPTION_TESTS = [
     ('invalid_expression',
      ([],
       '${i}$',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 0))]
      )
     ),
     ('invalid_variable',
      ([],
       '#:set i 1.2.3\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('invalid_condition',
      ([],
       '#{if i >>> 3}##{endif}#',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 0))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 0))]
      )
     ),
     ('invalid_iterator',
      ([],
       '#:for i in 1.2.3\nPlaceholder\n#:endfor\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('invalid_macro_argument_expression',
      ([],
       '#:def alma(x))\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('tuple_macro_argument',
      ([],
       '#:def alma((x, y))\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))],
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))],
      ),
     ),
     ('repeated_keyword_argument',
      ([],
       '#:def mymacro(A, B)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
       '$:mymacro(A=1, A=2, B=3)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 4))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 4))]
      )
     ),
     ('pos_arg_after_keyword_arg',
      ([],
       '#:def mymacro(A, B)\nA=${A}$,B=${B}$\n#:enddef mymacro\n'\
       '$:mymacro(B=4, 2)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 4))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 4))]
      )
     ),
     ('macrodef_pos_arg_after_keyword_arg',
      ([],
       '#:def mymacro(A, B=2, C)\nA=${A}$,B=${B},C=${C}$$\n#:enddef mymacro\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('macrodef_pos_arg_after_var_arg',
      ([],
       '#:def mymacro(A, *B, C)\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      ),
     ),
     ('macrodef_pos_arg_after_var_kwarg',
      ([],
       '#:def mymacro(A, **B, C)\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('invalid_macro_prefix',
      ([],
       '#:def __test(x)\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('reserved_macro_name',
      ([],
       '#:def defined(x)\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
@@ -2807,72 +2914,72 @@ EXCEPTION_TESTS = [
      ([],
       '#:def macro(x, y, *vararg)\n|${x}$${y}$${vararg}$|\n#:enddef\n'\
       '$:macro(1, 2, x=1)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
-       (fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 4)),
+       (fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('macro_invalid_argument_name',
      ([],
       '#:def macro(x, __y, *vararg)\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('macro_invalid_varargument_name',
      ([],
       '#:def macro(x, y, *__vararg)\n#:enddef\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('invalid_variable_prefix',
      ([],
       '#:set __test = 2\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('reserved_variable_name',
      ([],
       '#:set _LINE_ = 2\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('macro_call_more_args',
      ([],
       '#:def test(x)\n${x}$\n#:enddef\n$: test(\'A\', 1)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
-       (fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 4)),
+       (fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('macro_call_less_args',
      ([],
       '#:def test(x)\n${x}$\n#:enddef\n$: test()\n',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
-       (fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 4)),
+       (fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('macro_invalid_keyword_arguments',
      ([],
       '#:def macro(x, y)\n|${x}$${y}$|\n#:enddef\n'\
       '$:macro(1, 2, z=3)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
-       (fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 4)),
+       (fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('macro_vararg_invalid_keyword_arguments',
      ([],
       '#:def macro(x, y, *vararg)\n|${x}$${y}$${z}$${vararg}$|\n#:enddef\n'\
       '$:macro(1, 2, z=3)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
-       (fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 4)),
+       (fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('macro_kwarg_invalid_posarg',
      ([],
       '#:def macro(x, y, **varkw)\n|${x}$${y}$${varkw}$|\n#:enddef\n'\
       '$:macro(1, 2, 3, z=3)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (3, 4)),
-       (fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (3, 4)),
+       (fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('short_line_length',
@@ -2884,56 +2991,56 @@ EXCEPTION_TESTS = [
     ('failing_macro_in_include',
      ([],
       '#:include "include/failingmacro.inc"\n$:failingmacro()\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 2)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 2)),
        (fypp.FyppFatalError, 'include/failingmacro.inc', (2, 3))]
      )
     ),
     ('incompatible_tuple_assignment1',
      ([],
       '#:set a,b,c = (1, 2)\n${a}$${b}$${c}$\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('incompatible_tuple_assignment2',
      ([],
       '#:set a,b,c = (1, 2, 3, 4)\n${a}$${b}$${c}$\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('invalid_lhs_tuple1',
      ([],
       '#:set (a, b = (1, 2)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('invalid_lhs_tuple2',
      ([],
       '#:set a, b) = (1, 2)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('invalid_del_tuple1',
      ([],
       '#:del (a, b\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('invalid_del_tuple2',
      ([],
       '#:del a, b)\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('del_nonexisting_variable',
      ([],
       '#:del X\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
@@ -2943,7 +3050,7 @@ EXCEPTION_TESTS = [
       '#:call echo\n'
       '#:def mymacro()\nX\n#:enddef\n'\
       '#:endcall\n$:mymacro()\n',
-      [(fypp.FyppFatalError, fypp.STRING, (6, 7))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (6, 7))]
      )
     ),
     #
@@ -2967,51 +3074,51 @@ EXCEPTION_TESTS = [
     ('userstop',
      ([],
       '#:set A = 12\n#:if A > 10\n#:stop "Wrong A: {0}".format(A)\n#:endif\n',
-      [(fypp.FyppStopRequest, fypp.STRING, (2, 3))]
+      [(fypp.FyppStopRequest, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('invalid_userstop_expr',
      ([],
       '#:set A = 12\n#:if A > 10\n#:stop "Wrong A: {0}".format(BA)\n#:endif\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 3))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3))]
      )
     ),
     ('invalid_inline_stop',
      ([],
       '#:set A = 1\n#:if A > 10\n#{stop "Wrong A: {0}".format(BA)}#\n#:endif\n',
-      [(fypp.FyppFatalError, fypp.STRING, (2, 2))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 2))]
      )
     ),
     ('assert',
      ([],
       '#:set A = 12\n#:assert A < 10\n',
-      [(fypp.FyppStopRequest, fypp.STRING, (1, 2))]
+      [(fypp.FyppStopRequest, fypp.STRING_INPUT_NAME, (1, 2))]
      )
     ),
     ('invalid_assert_expr',
      ([],
       '#:assert A < 10\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1))]
      )
     ),
     ('invalid_inline_assert',
      ([],
       '#:set A = 12\n#{assert A < 10}#\n',
-      [(fypp.FyppFatalError, fypp.STRING, (1, 1))]
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (1, 1))]
      )
     ),
     ('global_existing_in_local_scope',
      ([],
       '#:def macro()\n#:set A = 12\n#:global A\n#:enddef\n$:macro()\n',
-      [(fypp.FyppFatalError, fypp.STRING, (4, 5)),
-       (fypp.FyppFatalError, fypp.STRING, (2, 3)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (4, 5)),
+       (fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (2, 3)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
     ('setvar_func_odd_arguments',
      ([],
       '$:setvar("i", 1, "j")\n',
-      [(fypp.FyppFatalError, fypp.STRING, (0, 1)),
+      [(fypp.FyppFatalError, fypp.STRING_INPUT_NAME, (0, 1)),
        (fypp.FyppFatalError, None, None)]
      )
     ),
@@ -3200,5 +3307,45 @@ class ImportTest(_TestContainer): pass
 ImportTest.add_test_methods(IMPORT_TESTS, _get_test_output_method)
 
 
-if __name__ == '__main__':
-    unittest.main()
+class PathNormalizationTest(unittest.TestCase):
+    '''Platform independent tests of path normalization (by patching os.sep / os.altsep).'''
+
+    def test_windows_paths(self):
+        '''Backslashes are replaced by forward slashes on Windows.'''
+        with mock.patch.object(fypp.os, 'sep', '\\'), mock.patch.object(fypp.os, 'altsep', '/'):
+            self.assertEqual(fypp._normalized_path('C:\\work\\src\\a.fypp'),
+                             'C:/work/src/a.fypp')
+            self.assertEqual(fypp._normalized_path('include\\sub/x.inc'),
+                             'include/sub/x.inc')
+            self.assertEqual(fypp._normalized_path('\\\\server\\share\\a.fypp'),
+                             '//server/share/a.fypp')
+            self.assertEqual(fypp._normalized_path('./inc.fypp'), './inc.fypp')
+            self.assertEqual(fypp.linenumdir_cpp(0, 'include\\a.inc'),
+                             '# 1 "include/a.inc"\n')
+            self.assertEqual(fypp.linenumdir_std(0, 'include\\a.inc'),
+                             '#line 1 "include/a.inc"\n')
+
+    def test_windows_file_variables(self):
+        '''_FILE_ and _THIS_FILE_ contain normalized paths (as strings) on Windows.'''
+        with mock.patch.object(fypp.os, 'sep', '\\'), mock.patch.object(fypp.os, 'altsep', '/'):
+            for filevarroot, expected in ((None, 'input/sub/a.inc'), ('input', 'sub/a.inc')):
+                evaluator = fypp.Evaluator()
+                renderer = fypp.Renderer(evaluator, filevarroot=filevarroot)
+                renderer._update_predef_globals('input/sub\\a.inc', 0)
+                self.assertEqual(evaluator.evaluate('_FILE_'), expected)
+                self.assertEqual(evaluator.evaluate('_THIS_FILE_'), expected)
+
+    def test_unix_paths(self):
+        '''Paths are left unchanged on Unix (backslash is a valid file name character).'''
+        with mock.patch.object(fypp.os, 'sep', '/'), mock.patch.object(fypp.os, 'altsep', None):
+            self.assertEqual(fypp._normalized_path('dir/with\\backslash.fypp'),
+                             'dir/with\\backslash.fypp')
+            self.assertEqual(fypp._normalized_path('./inc.fypp'), './inc.fypp')
+
+    def test_linemarker_escaping(self):
+        '''Backslashes and quotes in file names are escaped in line markers.'''
+        with mock.patch.object(fypp.os, 'sep', '/'), mock.patch.object(fypp.os, 'altsep', None):
+            self.assertEqual(fypp.linenumdir_cpp(0, 'a"b\\c.fypp'),
+                             '# 1 "a\\"b\\\\c.fypp"\n')
+            self.assertEqual(fypp.linenumdir_std(0, 'a"b\\c.fypp', 1),
+                             '#line 1 "a\\"b\\\\c.fypp"\n')
