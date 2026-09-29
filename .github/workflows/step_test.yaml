@@ -7,7 +7,7 @@ permissions:
 jobs:
 
   tests:
-    name: Check ${{ matrix.os }} with python ${{ matrix.python-version }} ${{ matrix.experimental && '(Experimental)' }}
+    name: "${{ matrix.os }} : python-${{ matrix.python-version }} ${{ matrix.experimental && '(experimental)' }}"
     continue-on-error: ${{ matrix.experimental || false }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
