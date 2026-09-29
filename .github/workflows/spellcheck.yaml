@@ -1,4 +1,4 @@
-name: CI
+name: spell
 
 on:
   push:
@@ -7,9 +7,6 @@ on:
   pull_request:
     branches:
       - main
-  schedule:
-    # runs on Sunday at 12:00 PM UTC
-    - cron: 0 12 * * 0
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -17,9 +14,7 @@ concurrency:
 
 jobs:
   typos:
-    name: Spelling (typos)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: crate-ci/typos@master
-

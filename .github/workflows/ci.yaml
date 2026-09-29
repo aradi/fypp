@@ -1,4 +1,4 @@
-name: CI
+name: ci
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -36,7 +36,7 @@ jobs:
       upload: ${{ inputs.upload-wheel || false }}
 
   pass:
-    needs: [tests, build-wheel]
+    needs: [ tests, build-wheel ]
     runs-on: ubuntu-latest
     steps:
       - name: Check all CI action
