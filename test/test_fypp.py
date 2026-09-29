@@ -2,6 +2,7 @@
 from pathlib import Path
 import platform
 import unittest
+import unittest.mock as mock
 import fypp
 
 
@@ -3280,6 +3281,50 @@ ExceptionTest.add_test_methods(EXCEPTION_TESTS, _get_test_exception_method)
 
 class ImportTest(_TestContainer): pass
 ImportTest.add_test_methods(IMPORT_TESTS, _get_test_output_method)
+
+
+class PathNormalizationTest(unittest.TestCase):
+    '''Platform independent tests of path normalization (by patching os.sep / os.altsep).'''
+
+    def test_windows_paths(self):
+        '''Backslashes are replaced by forward slashes on Windows.'''
+        with mock.patch.object(fypp.os, 'sep', '\\'), mock.patch.object(fypp.os, 'altsep', '/'):
+            self.assertEqual(fypp._normalized_path('C:\\work\\src\\a.fypp'),
+                             'C:/work/src/a.fypp')
+            self.assertEqual(fypp._normalized_path('include\\sub/x.inc'),
+                             'include/sub/x.inc')
+            self.assertEqual(fypp._normalized_path('\\\\server\\share\\a.fypp'),
+                             '//server/share/a.fypp')
+            self.assertEqual(fypp._normalized_path('./inc.fypp'), './inc.fypp')
+            self.assertEqual(fypp.linenumdir_cpp(0, 'include\\a.inc'),
+                             '# 1 "include/a.inc"\n')
+            self.assertEqual(fypp.linenumdir_std(0, 'include\\a.inc'),
+                             '#line 1 "include/a.inc"\n')
+
+    def test_windows_file_variables(self):
+        '''_FILE_ and _THIS_FILE_ contain normalized paths (as strings) on Windows.'''
+        with mock.patch.object(fypp.os, 'sep', '\\'), mock.patch.object(fypp.os, 'altsep', '/'):
+            for filevarroot, expected in ((None, 'input/sub/a.inc'), ('input', 'sub/a.inc')):
+                evaluator = fypp.Evaluator()
+                renderer = fypp.Renderer(evaluator, filevarroot=filevarroot)
+                renderer._update_predef_globals('input/sub\\a.inc', 0)
+                self.assertEqual(evaluator.evaluate('_FILE_'), expected)
+                self.assertEqual(evaluator.evaluate('_THIS_FILE_'), expected)
+
+    def test_unix_paths(self):
+        '''Paths are left unchanged on Unix (backslash is a valid file name character).'''
+        with mock.patch.object(fypp.os, 'sep', '/'), mock.patch.object(fypp.os, 'altsep', None):
+            self.assertEqual(fypp._normalized_path('dir/with\\backslash.fypp'),
+                             'dir/with\\backslash.fypp')
+            self.assertEqual(fypp._normalized_path('./inc.fypp'), './inc.fypp')
+
+    def test_linemarker_escaping(self):
+        '''Backslashes and quotes in file names are escaped in line markers.'''
+        with mock.patch.object(fypp.os, 'sep', '/'), mock.patch.object(fypp.os, 'altsep', None):
+            self.assertEqual(fypp.linenumdir_cpp(0, 'a"b\\c.fypp'),
+                             '# 1 "a\\"b\\\\c.fypp"\n')
+            self.assertEqual(fypp.linenumdir_std(0, 'a"b\\c.fypp', 1),
+                             '#line 1 "a\\"b\\\\c.fypp"\n')
 
 
 if __name__ == '__main__':

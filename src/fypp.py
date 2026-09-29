@@ -1768,7 +1768,7 @@ class Renderer:
 
 
     def _update_predef_globals(self, fname, linenr):
-        fname = self._convert_file_path(fname)
+        fname = _normalized_path(str(self._convert_file_path(fname)))
         self._evaluator.updatelocals(
             _DATE_=time.strftime('%Y-%m-%d'), _TIME_=time.strftime('%H:%M:%S'),
             _THIS_FILE_=fname, _THIS_LINE_=linenr + 1)
@@ -2983,8 +2983,8 @@ def linenumdir_cpp(linenr, fname, flag=None):
         Line number directive as string.
     """
     if flag is None:
-        return '# {0} "{1}"\n'.format(linenr + 1, fname)
-    return '# {0} "{1}" {2}\n'.format(linenr + 1, fname, flag)
+        return '# {0} "{1}"\n'.format(linenr + 1, _linemarker_path(fname))
+    return '# {0} "{1}" {2}\n'.format(linenr + 1, _linemarker_path(fname), flag)
 
 
 def linenumdir_std(linenr, fname, flag=None):
@@ -3001,7 +3001,19 @@ def linenumdir_std(linenr, fname, flag=None):
     Returns:
         Line number directive as string.
     """
-    return "#line {0} \"{1}\"\n".format(linenr + 1, fname)
+    return "#line {0} \"{1}\"\n".format(linenr + 1, _linemarker_path(fname))
+
+
+def _normalized_path(path):
+    """Returns path with forward slashes as separators on all platforms"""
+    if os.altsep:
+        path = path.replace(os.sep, os.altsep)
+    return path
+
+
+def _linemarker_path(path):
+    """Returns normalized path escaped for a string literal in a line marker"""
+    return _normalized_path(path).replace('\\', '\\\\').replace('"', '\\"')
 
 
 def _shiftinds(inds, shift):
