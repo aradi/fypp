@@ -1830,6 +1830,55 @@ SIMPLE_TESTS = [
        '12 str'
      )
     ),
+    # Check, whether end of file / end of string closes line directives correctly
+    ('eol_linedir',
+     ([],
+       '#:if True\nHello\n#:endif',
+       'Hello\n'
+     )
+    ),
+    # Check, whether end of file / end of string closes comment directives correctly
+    ('eol_comment',
+     ([],
+       'Hello\n#! This is a comment',
+       'Hello\n'
+     )
+    ),
+    # Check, whether end of string handling is correct in direct calls
+    ('eos_direct_call_arg',
+     ([],
+       '#:def hello(name)\nHello ${name}$\n#:enddef\n@:hello(#:if something)\n',
+       'Hello #:if something\n'
+     )
+    ),
+    # Check, whether end of file / end of string closes eval line directives correctly
+    ('eol_eval_linedir',
+     ([],
+       '#:set x = 1\n$: x',
+       '1\n'
+     )
+    ),
+    # Check, whether end of file / end of string closes direct calls correctly
+    ('eol_direct_call',
+     ([],
+       '#:def hello(name)\nHello ${name}$\n#:enddef\n@:hello(World)',
+       'Hello World\n'
+     )
+    ),
+    # Check, whether trailing whitespace before end of file / end of string is handled
+    ('eol_linedir_trailing_whitespace',
+     ([],
+       '#:if True\nHello\n#:endif  ',
+       'Hello\n'
+     )
+    ),
+    # Check, whether end of file / end of string closes continued line directives correctly
+    ('eol_linedir_contline',
+     ([],
+       '$: 1 + &\n  & 2',
+       '3\n'
+     )
+    ),
 ]
 
 
@@ -2166,6 +2215,20 @@ LINENUM_TESTS = [
       + _linenum(7) + 'B\n'
      )
     ),
+    # Check, whether line directive closed by end of file / end of string has correct span
+    ('eol_linedir',
+     ([_LINENUM_FLAG],
+      '#:if True\nHello\n#:endif',
+      _linenum(0) + _linenum(1) + 'Hello\n' + _linenum(3)
+     )
+    ),
+    # Check, whether comment closed by end of file / end of string has correct span
+    ('eol_comment',
+     ([_LINENUM_FLAG],
+      'Hello\n#! comment',
+      _linenum(0) + 'Hello\n' + _linenum(2)
+     )
+    ),
 ]
 
 
@@ -2243,6 +2306,13 @@ INCLUDE_TESTS = [
      ([_LINENUM_FLAG, _incdir('include')],
       'START\n#:mute\n#:include \'fypp1.inc\'\n#:endmute\nDONE\n',
       _linenum(0) + 'START\n' + _linenum(4) + 'DONE\n'
+     )
+    ),
+    # Check, whether line directive at end of included file without newline is recognized
+    ('include_eol_linedir',
+     ([],
+      '#:include "include/noeol.inc"\nAFTER\n',
+      'NOEOL\nAFTER\n'
      )
     ),
 ]
