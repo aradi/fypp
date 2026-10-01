@@ -26,17 +26,21 @@ very first version of this example)::
       # Generate output file name
       string(REGEX REPLACE ".fpp\$" ".f90" outfileName "${infileName}")
 
-      # Create the full path for the new file
+      # Output file with full path
       set(outfile "${CMAKE_CURRENT_BINARY_DIR}/${outfileName}")
 
-      # Generate input file name
+      # Input file with full path
       set(infile "${CMAKE_CURRENT_SOURCE_DIR}/${infileName}")
+
+      # Dependency file with full path
+      set(depfile "${CMAKE_CURRENT_BINARY_DIR}/${outfileName}.d")
 
       # Custom command to do the processing
       add_custom_command(
           OUTPUT "${outfile}"
-          COMMAND fypp "${infile}" "${outfile}"
+          COMMAND fypp --depfile "${depfile}" "${infile}" "${outfile}"
           MAIN_DEPENDENCY "${infile}"
+          DEPFILE "${depfile}"
           VERBATIM)
 
       # Finally add output file to a list

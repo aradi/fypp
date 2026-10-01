@@ -545,6 +545,10 @@ class Parser:
         # Directory of current file
         self._curdir: str | None = None
 
+        # List of files included via include directive
+        self._included_files : list[str] = []
+
+        # Handlers to be called for parsing events
         self.handlers: _ParserHandlers = HandlerLogger() if handlers is None else handlers
 
     def parsefile(self, fobj: str | pathlib.Path | TextIO) -> None:
@@ -553,9 +557,9 @@ class Parser:
         Args:
             fobj: Name of a file or a file like object.
         """
+        self._included_files = []
         if isinstance(fobj, pathlib.Path):
             fobj = str(fobj)
-
         if isinstance(fobj, str):
             if fobj == STDIN_INPUT_NAME:
                 self._includefile(None, sys.stdin, STDIN_INPUT_NAME, os.getcwd())
@@ -565,7 +569,24 @@ class Parser:
         else:
             self._includefile(None, fobj, FOBJ_INPUT_NAME, os.getcwd())
 
+    def parse(self, txt: str) -> None:
+        """Parses string.
+
+        Args:
+            txt: Text to parse.
+        """
+        self._file = STRING_INPUT_NAME
+        self._curdir = ""
+        self._included_files = []
+        self._parse_txt(None, self._file, txt)
+
+    def get_included_files(self) -> list[str]:
+        """Returns the list of the files included during parsing"""
+        return self._included_files
+
     def _includefile(self, span: Span | None, fobj: TextIO, fname: str, curdir: str) -> None:
+        if span is not None:
+            self._included_files.append(os.path.normpath(fname))
         oldfile = self._file
         olddir = self._curdir
         self._file = fname
@@ -575,16 +596,6 @@ class Parser:
         finally:
             self._file = oldfile
             self._curdir = olddir
-
-    def parse(self, txt: str) -> None:
-        """Parses string.
-
-        Args:
-            txt: Text to parse.
-        """
-        self._file = STRING_INPUT_NAME
-        self._curdir = ""
-        self._parse_txt(None, self._file, txt)
 
     def _parse_txt(self, includespan: Span | None, fname: str, txt: str) -> None:
         self.handlers.handle_include(includespan, fname)
@@ -2593,6 +2604,11 @@ class Processor:
         self._parser.parse(txt)
         return self._render()
 
+    def get_included_files(self) -> list[str]:
+        """Returns the list of included files.
+        """
+        return self._parser.get_included_files()
+
     def _render(self) -> str:
         output = self._renderer.render(self._builder.tree)
         return output
@@ -2628,6 +2644,7 @@ class _FyppOptionsLike(Protocol):
     create_parent_folder: bool
     line_marker_format: str
     file_var_root: str | None
+    depfile : str | None
 
 
 class Fypp:
@@ -2756,6 +2773,7 @@ class Fypp:
         else:
             raise FyppFatalError("renderer_factory has incorrect signature")
         self._preprocessor = Processor(parser, builder, renderer)
+        self._depfile = options.depfile
 
     def process_file(self, infile: str, outfile: str | None = None) -> str | None:
         """Processes input file and writes result to output file.
@@ -2778,6 +2796,8 @@ class Fypp:
         else:
             with _open_output_file(outfile, self._encoding, self._create_parent_folder) as outfp:
                 outfp.write(output)
+        if self._depfile and outfile != "-":
+            _write_dependency_file(self._depfile, str(outfile), self.get_included_files())
         return None
 
     def process_text(self, txt: str) -> str:
@@ -2790,6 +2810,16 @@ class Fypp:
             Processed content.
         """
         return self._preprocessor.process_text(txt)
+
+    def get_included_files(self) -> list[str]:
+        """Returns the list of included files
+        
+        Returns:
+            List of included file paths.
+        """
+        return self._preprocessor.get_included_files()
+
+
 
     @staticmethod
     def _apply_definitions(defines: list[str], evaluator: Evaluator, evaluate: bool) -> None:
@@ -2868,6 +2898,10 @@ class FyppOptions(optparse.Values):
             affected by this setting.
         create_parent_folder: Whether the parent folder for the output file should be created if it
             does not exist. Default: False.
+        file_var_root: Use relative file names in the file related Fypp variables relative to
+            this folder. (If None, absolute file names are used).
+        depfile: Name of the file to write dependency information into (if None,
+            no dependency information is written.)
     """
 
     def __init__(self) -> None:
@@ -2890,6 +2924,7 @@ class FyppOptions(optparse.Values):
         self.encoding: str = "utf-8"
         self.create_parent_folder: bool = False
         self.file_var_root: str | None = None
+        self.depfile: str | None = None
 
 
 class FortranLineFolder:
@@ -3262,6 +3297,9 @@ def get_option_parser() -> optparse.OptionParser:
         "--file-var-root", metavar="DIR", dest="file_var_root", default=defs.file_var_root, help=msg
     )
 
+    msg = "write a make-compatible dependency file to this location"
+    parser.add_option("--depfile", metavar="DEPFILE", default=defs.depfile, help=msg)
+
     return parser
 
 
@@ -3270,9 +3308,11 @@ def run_fypp() -> None:
     options = FyppOptions()
     optparser = get_option_parser()
     # Note: parse_args returns first the same object which was passed in as values
-    _, leftover = optparser.parse_args(values=options)
+    opts, leftover = optparser.parse_args(values=options)
     infile = leftover[0] if len(leftover) > 0 else "-"
     outfile = leftover[1] if len(leftover) > 1 else "-"
+    if outfile == "-" and opts.depfile:
+        optparser.error("--depfile cannot be used when writing to stdout")
     try:
         tool = Fypp(options)
         tool.process_file(infile, outfile)
@@ -3316,14 +3356,18 @@ def linenumdir_std(linenr: int, fname: str, flag: int | None = None) -> str:
     return f"#line {linenr + 1} \"{_linemarker_path(fname)}\"\n"
 
 
-def _normalized_path(path):
+def _normalized_path(path: str) -> str:
     """Returns path with forward slashes as separators on all platforms"""
     if os.altsep:
         path = path.replace(os.sep, os.altsep)
     return path
 
+def _make_escaped_path(path: str) -> str:
+    """Returns a path escaped for the use in make dependency rules (e.g. in dependency files)"""
+    return path.replace("$", "$$").replace(" ", "\\ ").replace("#", "\\#")
 
-def _linemarker_path(path):
+
+def _linemarker_path(path: str) -> str:
     """Returns normalized path escaped for a string literal in a line marker"""
     return _normalized_path(path).replace('\\', '\\\\').replace('"', '\\"')
 
@@ -3443,6 +3487,14 @@ def _formatted_exception(exc: BaseException) -> str:
         out.append("\n" + _formatted_exception(exc.__cause__))
     out.append("\n")
     return "".join(out)
+
+def _write_dependency_file(depfile : str, target : str, dependencies : Sequence[str]):
+    """Writes dependency information into a file."""
+    dependencies = [_make_escaped_path(_normalized_path(d)) for d in dependencies]
+    depstr = " ".join(dependencies)
+    target = _make_escaped_path(_normalized_path(target))
+    with open(depfile, 'w', encoding='utf-8') as fobj:
+        fobj.write(f"{target}: {depstr}\n") 
 
 
 if __name__ == "__main__":

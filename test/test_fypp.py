@@ -1,6 +1,8 @@
 '''Unit tests for testing Fypp.'''
+import os
 from pathlib import Path
 import platform
+import tempfile
 import unittest
 import unittest.mock as mock
 import fypp
@@ -3163,6 +3165,34 @@ IMPORT_TESTS = [
 ]
 
 
+# Tests generating dependency files
+#
+# Each tests consists of a tuple containing the test name and a tuple with the
+# arguments of the get_test_depfile_method() routine.
+#
+DEPFILE_TESTS = [
+    ('basic',
+     ([_incdir('include')],
+      'include/subfolder/include_fypp1.inc',
+      '{output}: include/fypp1.inc',
+      )
+    ),
+    ('multiple_includes',
+     ([_incdir('include/subfolder')],
+      'include/multi_includes.inc',
+      '{output}: include/fypp1.inc include/subfolder/fypp2.inc',
+      )
+    ),
+    ('escapes',
+     ([_incdir('include'), _incdir('include/subfolder')],
+      'include/escaped_includes.inc',
+      '{output}: include/subfolder/need$$\\ \\#escape.inc include/subfolder/fypp2.inc',
+      )
+    ),
+]
+
+
+
 def _get_test_output_method(args, inp, out):
     '''Returns a test method for checking correctness of Fypp output.
 
@@ -3208,6 +3238,32 @@ def _get_test_output_from_file_input_method(args, inputfile, out):
         self.assertEqual(out, result)
     return test_output_from_file_input
 
+
+def _get_test_depfile_method(args, inputfile, expected):
+    '''Returns a test method for checking correctness of depfile.
+
+    Args:
+        args (list of str): Command-line arguments to pass to Fypp.
+        inputfile (str): Input file with Fypp directives.
+        expected (str): Expected depfile content (with {output} placeholder).
+
+    Returns:
+       method: Method to test equality of depfile with result delivered by Fypp.
+    '''
+
+    def test_depfile(self):
+        '''Tests whether Fypp result matches expected output when input is in a file.'''
+        output = self._get_tempfile()
+        depfile = self._get_tempfile()
+        optparser = fypp.get_option_parser()
+        options, leftover = optparser.parse_args(args + ['--depfile', depfile])
+        self.assertEqual(len(leftover), 0)
+        tool = fypp.Fypp(options)
+        tool.process_file(inputfile, output)
+        with open(depfile, 'r', encoding='utf-8') as fp:
+            obtained = fp.read().strip()
+        self.assertEqual(obtained, expected.format(output=fypp._normalized_path(output)))
+    return test_depfile
 
 
 def _get_test_exception_method(args, inp, exceptions):
@@ -3306,6 +3362,15 @@ ExceptionTest.add_test_methods(EXCEPTION_TESTS, _get_test_exception_method)
 class ImportTest(_TestContainer): pass
 ImportTest.add_test_methods(IMPORT_TESTS, _get_test_output_method)
 
+class DepfileTest(_TestContainer):
+    def _get_tempfile(self):
+        '''Creates a temporary file and makes sure that it is deleted once the test has finished.'''
+        fd, fname = tempfile.mkstemp()
+        os.close(fd)
+        self.addCleanup(os.unlink, fname)
+        return fname
+DepfileTest.add_test_methods(DEPFILE_TESTS, _get_test_depfile_method)
+
 
 class PathNormalizationTest(unittest.TestCase):
     '''Platform independent tests of path normalization (by patching os.sep / os.altsep).'''
@@ -3349,3 +3414,4 @@ class PathNormalizationTest(unittest.TestCase):
                              '# 1 "a\\"b\\\\c.fypp"\n')
             self.assertEqual(fypp.linenumdir_std(0, 'a"b\\c.fypp', 1),
                              '#line 1 "a\\"b\\\\c.fypp"\n')
+
