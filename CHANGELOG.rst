@@ -21,7 +21,7 @@ Added
   with values always evaluated as Python expressions independent of the settings
   in the ``--define-mode`` option.
 
-* ``--depfile`` option allows to create a dependency file with information about
+* ``--depfile`` option allows creating a dependency file with information about
   the included files, which can then evaluated by the build system (make, ninja)
   to track dependencies.
 

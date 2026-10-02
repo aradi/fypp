@@ -582,11 +582,9 @@ class Parser:
 
     def get_included_files(self) -> list[str]:
         """Returns the list of the files included during parsing"""
-        return self._included_files
+        return list(self._included_files)
 
     def _includefile(self, span: Span | None, fobj: TextIO, fname: str, curdir: str) -> None:
-        if span is not None:
-            self._included_files.append(os.path.normpath(fname))
         oldfile = self._file
         olddir = self._curdir
         self._file = fname
@@ -849,6 +847,7 @@ class Parser:
         else:
             msg = f"include file '{fname}' not found"
             raise FyppFatalError(msg, self._file, span)
+        self._included_files.append(os.path.normpath(fpath))
         with _open_input_file(fpath, self._encoding) as inpfp:
             self._includefile(span, inpfp, fpath, os.path.dirname(fpath))
 
@@ -2799,10 +2798,11 @@ class Fypp:
             with _open_output_file(outfile, self._encoding, self._create_parent_folder) as outfp:
                 outfp.write(output)
             if self._depfile:
+                included_files_uniq = list(dict.fromkeys(self.get_included_files()))
                 _write_dependency_file(
                     self._depfile,
                     outfile,
-                    self.get_included_files(),
+                    included_files_uniq,
                     self._encoding,
                     self._create_parent_folder,
                 )
@@ -3368,7 +3368,10 @@ def _normalized_path(path: str) -> str:
 
 
 def _make_escaped_path(path: str) -> str:
-    """Returns a path escaped for the use in make dependency rules (e.g. in dependency files)"""
+    """Returns a path escaped for the use in make dependency rules (e.g. in dependency files).
+    
+    Currently only handles '$', ' ' and '#'.
+    """
     return path.replace("$", "$$").replace(" ", "\\ ").replace("#", "\\#")
 
 
