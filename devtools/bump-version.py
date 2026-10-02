@@ -7,7 +7,7 @@ VERSION_PATTERN = r'\d+\.\d+(?:\.\d+)?(?:-\w+)?'
 FILES_PATTERNS = [ ('src/fypp.py',
                     r'^VERSION\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN),
                     "VERSION = '{version}'"),
-                   ('docs/fypp.rst',
+                   ('docs/introduction.rst',
                     r'Fypp Version[ ]*{}.'.format(VERSION_PATTERN),
                     'Fypp Version {shortversion}.'),
                    ('pyproject.toml',
