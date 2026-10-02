@@ -2797,7 +2797,8 @@ class Fypp:
             with _open_output_file(outfile, self._encoding, self._create_parent_folder) as outfp:
                 outfp.write(output)
         if self._depfile and outfile != "-":
-            _write_dependency_file(self._depfile, str(outfile), self.get_included_files())
+            _write_dependency_file(self._depfile, str(outfile), self.get_included_files(),
+                                   self._encoding, self._create_parent_folder)
         return None
 
     def process_text(self, txt: str) -> str:
@@ -3488,12 +3489,13 @@ def _formatted_exception(exc: BaseException) -> str:
     out.append("\n")
     return "".join(out)
 
-def _write_dependency_file(depfile : str, target : str, dependencies : Sequence[str]):
+def _write_dependency_file(depfile: str, target: str, dependencies: Sequence[str],
+                           encoding: str, create_parents: bool):
     """Writes dependency information into a file."""
     dependencies = [_make_escaped_path(_normalized_path(d)) for d in dependencies]
     depstr = " ".join(dependencies)
     target = _make_escaped_path(_normalized_path(target))
-    with open(depfile, 'w', encoding='utf-8') as fobj:
+    with _open_output_file(depfile, encoding=encoding, create_parents=create_parents) as fobj:
         fobj.write(f"{target}: {depstr}\n") 
 
 
