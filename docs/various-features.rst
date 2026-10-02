@@ -294,6 +294,57 @@ yields ::
   call fatal_error("Error in src/source.fpp:2")
 
 
+.. _dependency-files:
+
+Dependency files
+================
+
+If a file includes other files via the `include` directive, the processed
+output depends on those files as well. To let the build system know about these
+dependencies, Fypp can write them into a make-compatible dependency file
+(similar to the ``-MD -MF`` options of the C-preprocessor) if the ``--depfile``
+option is specified. Given the file `source.fpp`::
+
+  #:include "macros.fypp"
+  #:include "checks.fypp"
+  [...]
+
+invoking Fypp with ::
+
+  fypp --depfile source.f90.d source.fpp source.f90
+
+writes the processed output into `source.f90` and creates the file
+`source.f90.d` with the content ::
+
+  source.f90: macros.fypp checks.fypp
+
+Build systems which understand this format (e.g. Make, Ninja or CMake via the
+``DEPFILE`` option of ``add_custom_command()``, see :ref:`cmake-integration`)
+can then automatically regenerate `source.f90` whenever any of the included
+files changes.
+
+Some notes on the dependency file:
+
+* The dependency file lists lists all files included via the ``include``
+  directive including the ones included by other include files. The processed
+  file itself is not listed (it is usually already known to the build system as
+  the source of the target). Files included with Fortran ``include`` statements
+  and Python modules imported via the ``-m`` option are *not* tracked.
+
+* The target and the dependencies are written exactly as they were specified or
+  found, i.e. relative paths remain relative to the working directory in which
+  Fypp has been invoked. If your build system needs absolute paths, specify the
+  input file, the output file (and, if needed, the include folders to be
+  searched) with absolute paths. Forward slashes are used as separators on all
+  platforms and special characters (spaces, ``$`` and ``#``) are escaped
+  according to the Make conventions.
+
+* The ``--depfile`` option requires an explicit output file for the preprocessed
+  input. Fypp stops with an error if the output should be written to the
+  standard output. When the ``--create-parents`` option is given, the parent
+  folder of the dependency file is created as well, if needed.
+
+
 .. _exit-codes:
 
 Exit codes

@@ -8,6 +8,8 @@ functionality directly via its API instead of calling it as an external script
 (see the :ref:`api-documentation`).
 
 
+.. _cmake-integration:
+
 CMake
 =====
 
