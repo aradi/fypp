@@ -74,7 +74,7 @@ if sys.version_info < MIN_PYTHON_VERSION:
 sys.dont_write_bytecode = True
 
 # Fypp version
-VERSION = "3.2"
+VERSION = '3.3'
 
 # String used as filename if input is read from standard input
 STDIN_INPUT_NAME = "<stdin>"
