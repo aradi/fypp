@@ -93,7 +93,7 @@ USER_ERROR_EXIT_CODE = 2
 
 _INLINE_DIRECTIVE_PATTERN = r"(?P<idirtype>[$\#@])\{[ \t]*(?P<idir>.+?)?[ \t]*\}(?P=idirtype)"
 
-_ALL_DIRECTIVES_PATTERN = r'''
+_ALL_DIRECTIVES_PATTERN = r"""
 # comment block
 (?:^[ \t]*\#!.*(?:\n|\Z))+
 |
@@ -102,7 +102,7 @@ _ALL_DIRECTIVES_PATTERN = r'''
 (?P<ldir>.+?(?:&[ \t]*\n(?:[ \t]*&)?.*?)*)?[ \t]*(?:\n|\Z)
 |
 # inline directive
-''' + _INLINE_DIRECTIVE_PATTERN
+""" + _INLINE_DIRECTIVE_PATTERN
 
 _ALL_DIRECTIVES_REGEXP = re.compile(_ALL_DIRECTIVES_PATTERN, re.VERBOSE | re.MULTILINE)
 
@@ -112,7 +112,7 @@ _DIRECT_CALL_REGEXP = re.compile(r"(?P<callname>[a-zA-Z_][\w.]*)[ \t]*\((?P<call
 
 _DIRECT_CALL_ARG_REGEXP = re.compile(_INLINE_DIRECTIVE_PATTERN)
 
-_DIRECT_CALL_KWARG_REGEXP = re.compile(r'(?:(?P<kwname>[a-zA-Z_]\w*)\s*=(?=[^=]|$))?')
+_DIRECT_CALL_KWARG_REGEXP = re.compile(r"(?:(?P<kwname>[a-zA-Z_]\w*)\s*=(?=[^=]|$))?")
 
 _DEF_PARAM_REGEXP = re.compile(r"^(?P<name>[a-zA-Z_]\w*)[ \t]*\(\s*(?P<args>.+)?\s*\)$")
 
@@ -546,7 +546,7 @@ class Parser:
         self._curdir: str | None = None
 
         # List of files included via include directive
-        self._included_files : list[str] = []
+        self._included_files: list[str] = []
 
         # Handlers to be called for parsing events
         self.handlers: _ParserHandlers = HandlerLogger() if handlers is None else handlers
@@ -617,14 +617,14 @@ class Parser:
                 endlinenr = linenr + txt.count("\n", pos, start)
                 self._process_text(txt[pos:start], Span(linenr, endlinenr))
                 linenr = endlinenr
-            endlinenr = linenr + txt.count('\n', start, end)
-            if idirtype is None and not txt.endswith('\n', start, end):
+            endlinenr = linenr + txt.count("\n", start, end)
+            if idirtype is None and not txt.endswith("\n", start, end):
                 # Line directive or comment terminated by the end of the text instead of a
                 # newline: treat it as if the missing newline had been present.
                 endlinenr += 1
             span = Span(linenr, endlinenr)
-            if directcall and idirtype != '$':
-                msg = 'only inline eval directives allowed in direct calls'
+            if directcall and idirtype != "$":
+                msg = "only inline eval directives allowed in direct calls"
                 raise FyppFatalError(msg, self._file, span)
             elif idirtype is not None:
                 if idir is None:
@@ -1962,7 +1962,6 @@ class Renderer:
         self._update_predef_globals(fname, linenr)
         return result
 
-
     def _update_predef_globals(self, fname, linenr):
         # fname is only None for the (nodeless) top-level include event; every node that can
         # reach an eval directive (and hence this method) always carries a real file name.
@@ -2605,8 +2604,7 @@ class Processor:
         return self._render()
 
     def get_included_files(self) -> list[str]:
-        """Returns the list of included files.
-        """
+        """Returns the list of included files."""
         return self._parser.get_included_files()
 
     def _render(self) -> str:
@@ -2644,7 +2642,7 @@ class _FyppOptionsLike(Protocol):
     create_parent_folder: bool
     line_marker_format: str
     file_var_root: str | None
-    depfile : str | None
+    depfile: str | None
 
 
 class Fypp:
@@ -2787,6 +2785,10 @@ class Fypp:
         Returns:
             Result of processed input, if no outfile was specified.
         """
+        if self._depfile and (outfile == "-" or outfile is None):
+            raise FyppFatalError(
+                "dependency file writing requires an explicit output file for the processed input"
+            )
         infile = STDIN_INPUT_NAME if infile == "-" else infile
         output = self._preprocessor.process_file(infile)
         if outfile is None:
@@ -2796,9 +2798,14 @@ class Fypp:
         else:
             with _open_output_file(outfile, self._encoding, self._create_parent_folder) as outfp:
                 outfp.write(output)
-        if self._depfile and outfile != "-":
-            _write_dependency_file(self._depfile, str(outfile), self.get_included_files(),
-                                   self._encoding, self._create_parent_folder)
+            if self._depfile:
+                _write_dependency_file(
+                    self._depfile,
+                    outfile,
+                    self.get_included_files(),
+                    self._encoding,
+                    self._create_parent_folder,
+                )
         return None
 
     def process_text(self, txt: str) -> str:
@@ -2814,13 +2821,11 @@ class Fypp:
 
     def get_included_files(self) -> list[str]:
         """Returns the list of included files
-        
+
         Returns:
             List of included file paths.
         """
         return self._preprocessor.get_included_files()
-
-
 
     @staticmethod
     def _apply_definitions(defines: list[str], evaluator: Evaluator, evaluate: bool) -> None:
@@ -3309,11 +3314,9 @@ def run_fypp() -> None:
     options = FyppOptions()
     optparser = get_option_parser()
     # Note: parse_args returns first the same object which was passed in as values
-    opts, leftover = optparser.parse_args(values=options)
+    _, leftover = optparser.parse_args(values=options)
     infile = leftover[0] if len(leftover) > 0 else "-"
     outfile = leftover[1] if len(leftover) > 1 else "-"
-    if outfile == "-" and opts.depfile:
-        optparser.error("--depfile cannot be used when writing to stdout")
     try:
         tool = Fypp(options)
         tool.process_file(infile, outfile)
@@ -3337,8 +3340,8 @@ def linenumdir_cpp(linenr: int, fname: str, flag: int | None = None) -> str:
         Line number directive as string.
     """
     if flag is None:
-        return f"# {linenr + 1} \"{_linemarker_path(fname)}\"\n"
-    return f"# {linenr + 1} \"{_linemarker_path(fname)}\" {flag}\n"
+        return f'# {linenr + 1} "{_linemarker_path(fname)}"\n'
+    return f'# {linenr + 1} "{_linemarker_path(fname)}" {flag}\n'
 
 
 def linenumdir_std(linenr: int, fname: str, flag: int | None = None) -> str:
@@ -3354,7 +3357,7 @@ def linenumdir_std(linenr: int, fname: str, flag: int | None = None) -> str:
     Returns:
         Line number directive as string.
     """
-    return f"#line {linenr + 1} \"{_linemarker_path(fname)}\"\n"
+    return f'#line {linenr + 1} "{_linemarker_path(fname)}"\n'
 
 
 def _normalized_path(path: str) -> str:
@@ -3363,6 +3366,7 @@ def _normalized_path(path: str) -> str:
         path = path.replace(os.sep, os.altsep)
     return path
 
+
 def _make_escaped_path(path: str) -> str:
     """Returns a path escaped for the use in make dependency rules (e.g. in dependency files)"""
     return path.replace("$", "$$").replace(" ", "\\ ").replace("#", "\\#")
@@ -3370,7 +3374,7 @@ def _make_escaped_path(path: str) -> str:
 
 def _linemarker_path(path: str) -> str:
     """Returns normalized path escaped for a string literal in a line marker"""
-    return _normalized_path(path).replace('\\', '\\\\').replace('"', '\\"')
+    return _normalized_path(path).replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _shiftinds(inds: Sequence[int], shift: int) -> list[int]:
@@ -3489,14 +3493,16 @@ def _formatted_exception(exc: BaseException) -> str:
     out.append("\n")
     return "".join(out)
 
-def _write_dependency_file(depfile: str, target: str, dependencies: Sequence[str],
-                           encoding: str, create_parents: bool):
+
+def _write_dependency_file(
+    depfile: str, target: str, dependencies: Sequence[str], encoding: str, create_parents: bool
+) -> None:
     """Writes dependency information into a file."""
     dependencies = [_make_escaped_path(_normalized_path(d)) for d in dependencies]
     depstr = " ".join(dependencies)
     target = _make_escaped_path(_normalized_path(target))
     with _open_output_file(depfile, encoding=encoding, create_parents=create_parents) as fobj:
-        fobj.write(f"{target}: {depstr}\n") 
+        fobj.write(f"{target}: {depstr}\n")
 
 
 if __name__ == "__main__":

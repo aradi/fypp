@@ -3255,10 +3255,7 @@ def _get_test_depfile_method(args, inputfile, expected):
         '''Tests whether Fypp result matches expected output when input is in a file.'''
         output = self._get_tempfile()
         depfile = self._get_tempfile()
-        optparser = fypp.get_option_parser()
-        options, leftover = optparser.parse_args(args + ['--depfile', depfile])
-        self.assertEqual(len(leftover), 0)
-        tool = fypp.Fypp(options)
+        tool = self._get_fypp_with_depfile(depfile, args)
         tool.process_file(inputfile, output)
         with open(depfile, 'r', encoding='utf-8') as fp:
             obtained = fp.read().strip()
@@ -3363,12 +3360,44 @@ class ImportTest(_TestContainer): pass
 ImportTest.add_test_methods(IMPORT_TESTS, _get_test_output_method)
 
 class DepfileTest(_TestContainer):
+
     def _get_tempfile(self):
         '''Creates a temporary file and makes sure that it is deleted once the test has finished.'''
         fd, fname = tempfile.mkstemp()
         os.close(fd)
         self.addCleanup(os.unlink, fname)
         return fname
+
+    def _get_tempdir(self):
+        '''Creates a temporary directory, which is removed once the test has finished.'''
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        return tmpdir.name
+
+    @staticmethod
+    def _get_fypp_with_depfile(depfile, args=()):
+        options, _ = fypp.get_option_parser().parse_args(list(args) + ['--depfile', depfile])
+        return fypp.Fypp(options)
+
+    def test_depfile_with_no_outfile(self):
+        '''Test whether processing without output fails when depfile is enabled'''
+        tool = self._get_fypp_with_depfile(self._get_tempfile())
+        with self.assertRaises(fypp.FyppFatalError):
+            tool.process_file('include/fypp1.inc')
+
+    def test_depfile_with_stdout(self):
+        tool = self._get_fypp_with_depfile(self._get_tempfile())
+        with self.assertRaises(fypp.FyppFatalError):
+            tool.process_file('include/fypp1.inc', '-')
+
+    def test_create_parent_folder_for_depfile(self):
+        tmpdir = self._get_tempdir()
+        depfile = os.path.join(tmpdir, 'sub', 'out.d')
+        outfile = os.path.join(tmpdir, 'out.f90')
+        tool = self._get_fypp_with_depfile(depfile, ['-p'])
+        tool.process_file('include/fypp1.inc', outfile)
+        self.assertTrue(os.path.exists(depfile))
+    
 DepfileTest.add_test_methods(DEPFILE_TESTS, _get_test_depfile_method)
 
 
