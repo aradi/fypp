@@ -9,7 +9,7 @@ on:
         default: false
         description: Upload wheel as an artifact
   pull_request:
-    branches: [ main ]
+    branches: [ main, release ]
     paths:
       - "src/**"
       - "test/**"
