@@ -1,6 +1,0 @@
-include bin/fypp
-include LICENSE.txt
-include CHANGELOG.rst
-recursive-include test *.sh *.inc *.py
-global-exclude *.pyc
-global-exclude *~

@@ -1,0 +1,97 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+
+  check:
+    name: Check tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Check that tag is on the release branch
+        run: |
+          git fetch --no-tags origin release
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" FETCH_HEAD; then
+            echo "::error::Tag '${GITHUB_REF_NAME}' is not on the release branch"
+            exit 1
+          fi
+      - name: Check that tag matches package version
+        run: |
+          pkg_version=$(sed -n "s/^[[:blank:]]*version = [\"']\(.*\)[\"'][[:blank:]]*\$/\1/p" pyproject.toml)
+          src_version=$(sed -n "s/^[[:blank:]]*VERSION = [\"']\(.*\)[\"'][[:blank:]]*\$/\1/p" src/fypp.py)
+          echo "Tag: ${GITHUB_REF_NAME}, pyproject.toml: ${pkg_version}, src/fypp.py: ${src_version}"
+          if [[ "${GITHUB_REF_NAME}" != "${pkg_version}" || "${GITHUB_REF_NAME}" != "${src_version}" ]]; then
+            echo "::error::Tag '${GITHUB_REF_NAME}' does not match package version"
+            exit 1
+          fi
+
+  tests:
+    needs: [ check ]
+    uses: ./.github/workflows/step_test.yaml
+
+  build-wheel:
+    needs: [ tests ]
+    uses: ./.github/workflows/step_build-wheel.yaml
+    with:
+      upload: true
+      ref: ${{ github.ref }}
+
+  upload-pypi:
+    name: Upload to PyPI
+    needs: [ build-wheel ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      # name: test.pypi
+      url: https://pypi.org/project/fypp/${{ github.ref_name }}/
+      # url: https://test.pypi.org/project/fypp/${{ github.ref_name }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: wheel
+          path: dist
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # with:
+        #   repository-url: https://test.pypi.org/legacy/
+
+
+  github-release:
+    name: Create draft GitHub release
+    needs: [ upload-pypi ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: wheel
+          path: dist
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --draft \
+            --verify-tag \
+            --title "Fypp ${GITHUB_REF_NAME}" \
+            --generate-notes

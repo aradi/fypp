@@ -4,15 +4,15 @@ import re
 import os
 
 VERSION_PATTERN = r'\d+\.\d+(?:\.\d+)?(?:-\w+)?'
-FILES_PATTERNS = [ ('bin/fypp', 
-                    r'^VERSION\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN), 
+FILES_PATTERNS = [ ('src/fypp.py',
+                    r'^VERSION\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN),
                     "VERSION = '{version}'"),
-                   ('docs/fypp.rst',
+                   ('docs/introduction.rst',
                     r'Fypp Version[ ]*{}.'.format(VERSION_PATTERN),
                     'Fypp Version {shortversion}.'),
-                   ('setup.py',
+                   ('pyproject.toml',
                     r'version\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN),
-                    "version='{version}'"),
+                    "version = '{version}'"),
                    ('docs/conf.py',
                     r'version\s*=\s*([\'"]){}\1'.format(VERSION_PATTERN),
                     "version = '{shortversion}'"),
@@ -37,7 +37,7 @@ if match is None:
 rootdir = os.path.join(os.path.dirname(sys.argv[0]), '..')
 for fname, regexp, repl in FILES_PATTERNS:
     fname = os.path.join(rootdir, fname)
-    print("Replacments in '{}': ".format(fname), end='')
+    print("Replacements in '{}': ".format(fname), end='')
     fp = open(fname, 'r')
     txt = fp.read()
     fp.close()
@@ -48,16 +48,16 @@ for fname, regexp, repl in FILES_PATTERNS:
     fp.write(newtxt)
     fp.close()
 
-    
+
 # Replace version number in Change Log and adapt decoration below
 fname = os.path.join(rootdir, 'CHANGELOG.rst')
-print("Replacments in '{}': ".format(fname), end='')
+print("Replacements in '{}': ".format(fname), end='')
 fp = open(fname, 'r')
 txt = fp.read()
 fp.close()
 decoration = '=' * len(version)
 newtxt, nsub = re.subn(
-    '^Unreleased\s*\n=+', version + '\n' + decoration, txt, 
+    '^Unreleased\\s*\n=+', version + '\n' + decoration, txt,
     count=1, flags=re.MULTILINE)
 print(nsub)
 fp = open(fname, 'w')
