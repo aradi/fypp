@@ -2,6 +2,16 @@
 Change Log
 ==========
 
+Unreleased
+==========
+
+Added
+-----
+
+* ``--cpp-resync`` option to emit line markers after each cpp ``#else``,
+  ``#elif`` and ``#endif`` directive, so that line numbers stay correct when
+  cpp skips branches containing Fypp generated line markers (#80).
+
 
 3.3
 ===
