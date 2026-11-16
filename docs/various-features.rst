@@ -144,6 +144,17 @@ versions 6), a workaround is needed for obtaining correct error messages when
 compiling preprocessed files with those compilers. Please use the command line
 option ``--line-marker-format 'gfortran5'`` in those cases.
 
+If the Fypp output is processed by cpp afterwards, line numbering directives
+emitted by Fypp might lie within cpp conditional branches (``#if``, ``#ifdef``,
+...). During cpp-processing, the line markers in skipped branches are ignored
+by cpp, but they are still counted as lines and increase cpp's line counter.
+Consequently, cpp's line counter will not reflect the position in the original
+(unprocessed) file. The command line option ``--cpp-resync`` emits a line
+numbering directive after each cpp ``#else``, ``#elif`` and ``#endif``
+directive in the output in order to resynchronize the line numbering after the
+skipped branches. (Wrong line numbers can otherwise lead to compilation
+failures, e.g. when compiling with GFortran and coverage instrumentation.)
+
 
 Scopes
 ======
