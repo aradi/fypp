@@ -55,6 +55,8 @@ def _importmodule(module):
 
 _LINENUM_FLAG = '-n'
 
+_CPP_RESYNC_FLAG = '--cpp-resync'
+
 _FIXED_FORMAT_FLAG = '--fixed-format'
 
 _NO_FOLDING_FLAG = '-F'
@@ -2254,6 +2256,59 @@ LINENUM_TESTS = [
      ([_LINENUM_FLAG],
       '#:global&\n  & A\nLine 2\n',
       _linenum(0) + _linenum(2) + 'Line 2\n'
+     )
+    ),
+    ('cpp_resync_off',
+     ([_LINENUM_FLAG],
+      '#ifdef A\n${1}$\n#else\nB\n#endif\nC\n',
+      _linenum(0) + '#ifdef A\n1\n' + _linenum(2) + '#else\nB\n#endif\nC\n'
+     )
+    ),
+    ('cpp_resync',
+     ([_LINENUM_FLAG, _CPP_RESYNC_FLAG],
+      '#ifdef A\n${1}$\n#else\nB\n#endif\nC\n',
+      _linenum(0) + '#ifdef A\n1\n' + _linenum(2) + '#else\n' + _linenum(3)
+      + 'B\n#endif\n' + _linenum(5) + 'C\n'
+     )
+    ),
+    ('cpp_resync_elif_indented',
+     ([_LINENUM_FLAG, _CPP_RESYNC_FLAG],
+      '#if A\nA\n  #  elif B\nB\n #endif\n',
+      _linenum(0) + '#if A\nA\n  #  elif B\n' + _linenum(3) + 'B\n #endif\n'
+      + _linenum(5)
+     )
+    ),
+    ('cpp_resync_no_directive_lookalikes',
+     ([_LINENUM_FLAG, _CPP_RESYNC_FLAG],
+      '#elsewhere\n#endiff\nA #else\n',
+      _linenum(0) + '#elsewhere\n#endiff\nA #else\n'
+     )
+    ),
+    ('cpp_resync_no_trailing_newline',
+     ([_LINENUM_FLAG, _CPP_RESYNC_FLAG],
+      '#if A\nA\n#endif',
+      _linenum(0) + '#if A\nA\n#endif'
+     )
+    ),
+    ('cpp_resync_within_fypp_if',
+     ([_LINENUM_FLAG, _CPP_RESYNC_FLAG],
+      '#:if True\n#ifdef A\nA\n#endif\n#:endif\nB\n',
+      _linenum(0) + _linenum(1) + '#ifdef A\nA\n#endif\n' + _linenum(4)
+      + _linenum(5) + 'B\n'
+     )
+    ),
+    ('cpp_resync_within_for',
+     ([_LINENUM_FLAG, _CPP_RESYNC_FLAG],
+      '#:for i in range(2)\n#ifdef A\n#else\nB\n#endif\n#:endfor\n',
+      _linenum(0) + (_linenum(1) + '#ifdef A\n#else\n' + _linenum(3) + 'B\n#endif\n'
+                     + _linenum(5)) * 2 + _linenum(6)
+     )
+    ),
+    ('cpp_resync_within_macro',
+     ([_LINENUM_FLAG, _CPP_RESYNC_FLAG],
+      '#:def m()\n#ifdef A\n#else\nB\n#endif\n#:enddef\n$:m()\n',
+      _linenum(0) + _linenum(6) + '#ifdef A\n' + _linenum(6) + '#else\n'
+      + _linenum(6) + 'B\n' + _linenum(6) + '#endif\n' + _linenum(7)
      )
     ),
 ]

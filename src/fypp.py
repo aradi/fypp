@@ -139,6 +139,9 @@ _INCLUDE_PARAM_REGEXP = re.compile(r'^(\'|")(?P<fname>.*?)\1$')
 
 _COMMENTLINE_REGEXP = re.compile(r"^[ \t]*!.*$")
 
+# CPP conditional directives which may end a branch skipped by cpp
+_CPP_BRANCH_END_REGEXP = re.compile(r"^[ \t]*#[ \t]*(?:else|elif|endif)\b.*\n", re.MULTILINE)
+
 _CONTLINE_REGEXP = re.compile(r"&[ \t]*\n(?:[ \t]*&)?")
 
 _UNESCAPE_TEXT_REGEXP1 = re.compile(r"([$#@])\\(\\*)([{:])")
@@ -1525,6 +1528,10 @@ class Renderer:
         linefolder: Callable to use when folding a line.
         filevarroot: render _FILE_ and _THIS_FILE_ as paths relative to this root directory
             (default: paths are not converted explicitly to relative paths)
+        cppresync: Whether a line numbering directive should be emitted after each cpp
+            conditional directive (#else, #elif, #endif) passed through as text, so that line
+            numbering is resynchronized even if cpp skips a branch containing fypp-generated line
+            numbering directives. Has only effect if linenums is True. Default: False.
     """
 
     def __init__(
@@ -1535,6 +1542,7 @@ class Renderer:
         linenumformat: str | None = None,
         linefolder: Callable[[str], list[str]] | None = None,
         filevarroot: str | None = None,
+        cppresync: bool = False,
     ):
         # Evaluator to use for Python expressions
         self._evaluator: Evaluator = Evaluator() if evaluator is None else evaluator
@@ -1553,6 +1561,9 @@ class Renderer:
 
         # Whether line numbering directives in continuation lines are needed.
         self._contlinenums: bool = contlinenums
+
+        # Whether line numbering directives should be emitted after cpp conditional directives
+        self._cppresync: bool = cppresync
 
         # Line number formatter function and whether gfortran5 fix is needed
         self._linenumdir: Callable[..., str]
@@ -1610,7 +1621,7 @@ class Renderer:
         eval_sources: list[tuple[Span, str | None]] = []
         for node in tree:
             if isinstance(node, _RawText):
-                result = _RenderResult([node.text])
+                result = self._get_raw_text(node)
             elif isinstance(node, _EvalDirective):
                 result = self._get_eval(node)
             elif isinstance(node, _IfBlock):
@@ -1644,6 +1655,25 @@ class Renderer:
             eval_sources += result.eval_sources
             fragments += result.fragments
         return _RenderResult(fragments, eval_slots, eval_sources)
+
+    def _get_raw_text(self, node: _RawText) -> _RenderResult:
+        txt = node.text
+        if not (self._cppresync and self._linenums and not self._diverted):
+            return _RenderResult([txt])
+        # Emit a line numbering directive after each cpp conditional directive, as cpp ignores
+        # all line numbering directives in skipped branches (but counts their lines).
+        fragments = []
+        pos = 0
+        linenr = node.span.start
+        for match in _CPP_BRANCH_END_REGEXP.finditer(txt):
+            end = match.end()
+            fragments.append(txt[pos:end])
+            linenr += txt.count("\n", pos, end)
+            fragments.append(self._linenumdir(linenr, node.fname))
+            pos = end
+        if pos < len(txt):
+            fragments.append(txt[pos:])
+        return _RenderResult(fragments)
 
     def _get_eval(self, node: _EvalDirective) -> _RenderResult:
         fname = node.fname
@@ -2642,6 +2672,7 @@ class _FyppOptionsLike(Protocol):
     line_marker_format: str
     file_var_root: str | None
     depfile: str | None
+    cpp_resync: bool
 
 
 class Fypp:
@@ -2766,6 +2797,7 @@ class Fypp:
                 linenumformat=options.line_marker_format,
                 linefolder=linefolder,
                 filevarroot=options.file_var_root,
+                cppresync=options.cpp_resync,
             )
         else:
             raise FyppFatalError("renderer_factory has incorrect signature")
@@ -2908,6 +2940,9 @@ class FyppOptions(optparse.Values):
             this folder. (If None, absolute file names are used).
         depfile: Name of the file to write dependency information into (if None,
             no dependency information is written.)
+        cpp_resync: Whether line numbering directives should be emitted after each cpp
+            conditional directive (#else, #elif, #endif) in the passed through text, in order to
+            resynchronize line numbering after branches skipped by cpp. Default: False.
     """
 
     def __init__(self) -> None:
@@ -2931,6 +2966,7 @@ class FyppOptions(optparse.Values):
         self.create_parent_folder: bool = False
         self.file_var_root: str | None = None
         self.depfile: str | None = None
+        self.cpp_resync: bool = False
 
 
 class FortranLineFolder:
@@ -3213,6 +3249,21 @@ def get_option_parser() -> optparse.OptionParser:
         choices=["cpp", "gfortran5", "std"],
         dest="line_marker_format",
         default=defs.line_marker_format,
+        help=msg,
+    )
+
+    msg = (
+        "emit line numbering markers after each cpp conditional directive "
+        "(#else, #elif, #endif) passed through to the output, so that line "
+        "numbering is resynchronized even if a subsequent cpp run skips a "
+        "branch containing line numbering markers (has only effect if line "
+        "numbering is turned on)"
+    )
+    parser.add_option(
+        "--cpp-resync",
+        action="store_true",
+        dest="cpp_resync",
+        default=defs.cpp_resync,
         help=msg,
     )
 
